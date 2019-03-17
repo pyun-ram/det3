@@ -9,6 +9,7 @@ Usage: python3 tools/data_spliter.py
 '''
 import argparse
 import os
+
 def check_datadir_valid(data_dir):
     '''
     check if data_dir is valid:
@@ -100,14 +101,13 @@ def main():
                         help='the txt file containing the indeces of the smapled data')
     parser.add_argument('--output-dir',
                         type=str, metavar='OUTPUT PATH',
-                        help='output dir')                        
+                        help='output dir')
     args = parser.parse_args()
     data_dir = args.data_dir
     idx_path = args.idx_file
     output_dir = args.output_dir
     check_datadir_valid(data_dir)
     check_idxfile_valid(idx_path)
-    # split data
     num_data = split_data(data_dir, idx_path, output_dir)
     # report the result
     validate(output_dir, num_data)
