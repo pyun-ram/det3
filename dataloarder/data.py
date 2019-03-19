@@ -4,9 +4,41 @@ Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
 import os
-import det3.utils.utils as utils
+try:
+    from ..utils import utils
+except:
+    # Run script python3 dataloader/data.py
+    import sys
+    sys.path.append("../")
+    import det3.utils.utils as utils
 
 # KITTI
+
+class KittiCalib:
+    '''
+    class storing KITTI calib data
+    '''
+    def __init__(self, calib_path):
+        self.calib_path = calib_path
+
+    def read_kitti_calib_file(self):
+        '''
+        read KITTI calib file
+        inputs:
+            calib_path (str)
+        outputs:
+            calib (dict)
+        '''
+        calib = dict()
+        with open(self.calib_path, 'r') as f:
+            calib_list = f.readlines()
+        calib_list = [itm.rstrip() for itm in calib_list if itm != '\n']
+        for itm in calib_list:
+            calib[itm.split(':')[0]] = itm.split(':')[1]
+        for k, v in calib.items():
+            calib[k] = [float(itm) for itm in v.split()]
+        return calib
+
 class KittiData:
     '''
     class storing a frame of KITTI data
@@ -26,8 +58,12 @@ class KittiData:
         '''
         read data
         '''
-        calib = KittiCalib(self.calib_path) #TODO
+        calib = KittiCalib(self.calib_path).read_kitti_calib_file()
         image = utils.read_image(self.image2_path)
         label = KittiLabel(self.label2_path) #TODO
         pc = utils.read_pc_from_bin(self.velodyne_path)
         return calib, image, label, pc
+
+if __name__ == "__main__":
+    calib = KittiCalib("/usr/app/data/KITTI/dev/calib/000000.txt")
+    calib.read_kitti_calib_file()
