@@ -2,13 +2,16 @@
 File Created: Sunday, 17th March 2019 11:18:42 am
 Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
-Usage: python3 tools/data_spliter.py
-    --data-dir /usr/app/data/KITTI/training
-    --idx-file /usr/app/data/KITTI/split_index/train.txt
-    --output-dir /usr/app/data/KITTI/train
+Usage: python3 tools/data_spliter.py \
+    --data-dir /usr/app/data/KITTI/training \
+    --idx-file /usr/app/data/KITTI/split_index/dev.txt \
+    --output-dir /usr/app/data/KITTI/dev
 '''
 import argparse
 import os
+import sys
+sys.path.append("../")
+from det3.utils.utils import get_idx_list
 
 def check_datadir_valid(data_dir):
     '''
@@ -38,16 +41,6 @@ def check_idxfile_valid(idx_path):
     '''
     assert os.path.exists(idx_path)
 
-def get_idx_list(txt_path):
-    '''
-    get idx from the txt
-    inputs:
-        txt_path(str): the txt path
-    '''
-    idx_list = []
-    with open(txt_path, 'r') as f:
-        idx_list = f.readlines()
-    return [itm.rstrip() for itm in idx_list]
 
 def split_data(data_dir, idx_path, output_dir):
     '''

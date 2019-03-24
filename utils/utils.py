@@ -6,6 +6,17 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 import numpy as np
 from PIL import Image
 
+def get_idx_list(txt_path):
+    '''
+    get idx from the txt
+    inputs:
+        txt_path(str): the txt path
+    '''
+    idx_list = []
+    with open(txt_path, 'r') as f:
+        idx_list = f.readlines()
+    return [itm.rstrip() for itm in idx_list]
+
 def read_image(path):
     '''
     read image
