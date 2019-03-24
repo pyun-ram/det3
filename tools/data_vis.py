@@ -29,7 +29,7 @@ def main():
                         help='the txt file containing the indeces of the smapled data')
     parser.add_argument('--output-dir',
                         type=str, metavar='OUTPUT PATH',
-                        help='output dir')                
+                        help='output dir')
     args = parser.parse_args()
     data_dir = args.data_dir
     idx_path = args.idx_file
