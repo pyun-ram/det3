@@ -52,7 +52,7 @@ class KittiCalib:
         Tr_velo_to_cam[3, 3] = 1
         self.Tr_velo_to_cam = Tr_velo_to_cam
         return self
-    
+
     def leftcam2lidar(self, pts):
         '''
         transform the pts from the left camera frame to lidar frame
@@ -61,7 +61,7 @@ class KittiCalib:
             pts(np.array): [#pts, 3]
                 points in the left camera frame
         '''
-        if self.data == None:
+        if self.data is None:
             print("read_kitti_calib_file should be read first")
             raise RuntimeError
         hfiller = np.expand_dims(np.ones(pts.shape[0]), axis=1)
@@ -73,7 +73,7 @@ class KittiCalib:
 class KittiLabel:
     '''
     class storing KITTI 3d object detection label
-        self.data ([KittiObj])    
+        self.data ([KittiObj])
     '''
     def __init__(self, label_path):
         self.path = label_path

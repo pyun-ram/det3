@@ -27,13 +27,14 @@ def read_image(path):
     '''
     return np.array(Image.open(path, 'r'))
 
+# BUG HERE
 def read_pc_from_pcd(pcd_path):
     """Load PointCloud data from pcd file."""
     p = np.fromfile(pcd_path, dtype=np.float32).reshape(-1, 4)
     return p
 
 def read_pc_from_bin(bin_path):
-    """Load PointCloud data from pcd file."""
+    """Load PointCloud data from bin file."""
     p = np.fromfile(bin_path, dtype=np.float32).reshape(-1, 4)
     return p
 
