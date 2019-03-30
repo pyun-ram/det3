@@ -9,7 +9,7 @@ import sys
 sys.path.append('../')
 from torch.utils.data import Dataset
 from det3.dataloarder.data import KittiData
-from det3.methods.fcn3d.utils import filter_camera_angle, pc_to_voxel
+from det3.methods.fcn3d.utils import filter_camera_angle, pc_to_voxel, filter_label
 
 class KittiDataFCN3D(Dataset):
     '''
@@ -37,10 +37,11 @@ class KittiDataFCN3D(Dataset):
         calib, _, label, pc = KittiData(self.data_dir, self.idx_list[idx]).read_data()
         pc = filter_camera_angle(pc)
         voxel = pc_to_voxel(pc, res=self.cfg.resolution, x=self.cfg.x_range, y=self.cfg.y_range, z=self.cfg.z_range)
+        label = filter_label(label, cfg.KITTI_cls[cfg.cls])
         
 
 if __name__ == '__main__':
     from det3.methods.fcn3d.config import cfg
     dataset = KittiDataFCN3D(data_dir='/usr/app/data/KITTI', train_val_flag='dev', cfg=cfg)
     print(len(dataset))
-    dataset[0]
+    dataset[1]

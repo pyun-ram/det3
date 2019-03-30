@@ -42,3 +42,18 @@ def pc_to_voxel(pts, res, x, y, z):
         )
     voxel[pts[:, 0], pts[:, 1], pts[:, 2]] = 1
     return voxel
+
+def filter_label(label, actuall_cls):
+    '''
+    filter label and get the objs in cls.
+    inputs:
+        label (KittiLabel):
+            Kitti Label read from txt file
+        cls (str):
+            'Car', 'Pedestrian', 'Cyclist'
+        actuall_cls (list):
+            The actuall class correspond to cls.
+            e.g. ['Car', 'Van'] for cls=='Car'
+    '''
+    label.data = list(filter(lambda obj: obj.type in actuall_cls, label.data))
+    return label

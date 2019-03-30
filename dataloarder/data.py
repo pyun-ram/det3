@@ -92,6 +92,15 @@ class KittiLabel:
         if no_dontcare:
             self.data = list(filter(lambda obj: obj.type != "DontCare", self.data))
         return self
+    
+    def __str__(self):
+        '''
+        TODO: Unit TEST
+        '''
+        s = ''
+        for obj in self.data:
+            s += obj.__str__() + '\n'
+        return s
 
 class KittiObj():
     '''
@@ -201,7 +210,7 @@ class KittiData:
         '''
         calib = KittiCalib(self.calib_path).read_kitti_calib_file()
         image = utils.read_image(self.image2_path)
-        label = KittiLabel(self.label2_path)
+        label = KittiLabel(self.label2_path).read_kitti_label_file()
         pc = utils.read_pc_from_bin(self.velodyne_path)
         return calib, image, label, pc
 

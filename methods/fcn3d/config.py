@@ -21,3 +21,10 @@ __C.x_range = (0, 90)            # Lidar Frame
 __C.y_range = (-50, 50)          # Lidar Frame
 __C.z_range = (-4.5, 5.5)        # Lidar Frame
 __C.resolution = (0.5, 0.5, 0.5) # Lidar Frame (dx, dy, dz)
+__C.cls = 'Car'
+
+__C.KITTI_cls = {
+    'Car': ['Car', 'Van'],
+    'Pedestrian': ['Pedestrian'],
+    'Cyclist': ['Cyclist']
+    }
