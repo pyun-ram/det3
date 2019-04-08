@@ -36,8 +36,8 @@ class BEVImage:
         min_x, max_x = self.x_range
         min_y, max_y = self.y_range
         dx, dy = self.grid_size
-        height = np.ceil((max_y - min_y) / dy).astype(np.int)
-        width = np.ceil((max_x - min_x) / dx).astype(np.int)
+        height = np.floor((max_y - min_y) / dy).astype(np.int)
+        width = np.floor((max_x - min_x) / dx).astype(np.int)
         bevimg = np.zeros((height, width))
         pc_BEV = self.lidar2BEV(pc[:, :3])
         for (x, y) in pc_BEV:
@@ -71,8 +71,8 @@ class BEVImage:
         min_x, _ = self.x_range
         min_y, max_y = self.y_range
         dx, dy = self.grid_size
-        height = np.ceil((max_y - min_y) / dy).astype(np.int)
-        x, y = np.ceil((pts[:, :1] -min_x) / dx).astype(np.int), height - np.ceil((pts[:, 1:2] -min_y) / dy).astype(np.int)
+        height = np.floor((max_y - min_y) / dy).astype(np.int)
+        x, y = np.floor((pts[:, :1] -min_x) / dx).astype(np.int), height - np.floor((pts[:, 1:2] -min_y) / dy).astype(np.int)
         pts_BEV = np.hstack([x, y])
         return pts_BEV
 

@@ -7,9 +7,10 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 import os
 import sys
 sys.path.append('../')
+import numpy as np
 from torch.utils.data import Dataset
 from det3.dataloarder.data import KittiData
-from det3.methods.fcn3d.utils import filter_camera_angle, pc_to_voxel, filter_label
+from det3.methods.fcn3d.utils import *
 
 class KittiDataFCN3D(Dataset):
     '''
@@ -23,6 +24,7 @@ class KittiDataFCN3D(Dataset):
         self.label2_dir = os.path.join(self.data_dir, 'label_2')
         self.velodyne_dir = os.path.join(self.data_dir, 'velodyne')
         self.cfg = cfg
+        self.cls = cls
         self.idx_list = [itm.split('.')[0] for itm in os.listdir(self.label2_dir)]
         assert os.path.isdir(data_dir)
         assert train_val_flag in ['train', 'val', 'dev']
@@ -36,12 +38,27 @@ class KittiDataFCN3D(Dataset):
     def __getitem__(self, idx):
         calib, _, label, pc = KittiData(self.data_dir, self.idx_list[idx]).read_data()
         pc = filter_camera_angle(pc)
-        voxel = pc_to_voxel(pc, res=self.cfg.resolution, x=self.cfg.x_range, y=self.cfg.y_range, z=self.cfg.z_range)
-        label = filter_label(label, cfg.KITTI_cls[cfg.cls])
+        voxel = voxelize_pc(pc, res=self.cfg.resolution, x_range=self.cfg.x_range,
+                            y_range=self.cfg.y_range, z_range=self.cfg.z_range)
+        label = filter_label_cls(label, cfg.KITTI_cls[self.cls])
+        print(label)
+        gt_objgrid = create_objectgrid(label, calib, 
+                                       res = tuple([self.cfg.scale * _d for _d in self.cfg.resolution]),
+                                       x_range = self.cfg.x_range,
+                                       y_range = self.cfg.y_range,
+                                       z_range = self.cfg.z_range)
+        gt_reggrid = create_regressgrid(label, calib,
+                                       res = tuple([self.cfg.scale * _d for _d in self.cfg.resolution]),
+                                       x_range = self.cfg.x_range,
+                                       y_range = self.cfg.y_range,
+                                       z_range = self.cfg.z_range,
+                                       )
         
+        return voxel, gt_objgrid, gt_reggrid
 
 if __name__ == '__main__':
     from det3.methods.fcn3d.config import cfg
     dataset = KittiDataFCN3D(data_dir='/usr/app/data/KITTI', train_val_flag='dev', cfg=cfg)
     print(len(dataset))
-    dataset[1]
+    dataset[2]
+

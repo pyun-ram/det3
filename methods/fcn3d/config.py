@@ -17,10 +17,11 @@ __C.weight_decay = 1e-4
 __C.resume = None
 __C.start_epoch = 0
 __C.epochs = 50
-__C.x_range = (0, 90)            # Lidar Frame
-__C.y_range = (-50, 50)          # Lidar Frame
-__C.z_range = (-4.5, 5.5)        # Lidar Frame
-__C.resolution = (0.5, 0.5, 0.5) # Lidar Frame (dx, dy, dz)
+__C.x_range = (0, 100)            # Lidar Frame
+__C.y_range = (-40, 40)          # Lidar Frame
+__C.z_range = (-2.5, 1.5)        # Lidar Frame
+__C.resolution = (0.1, 0.1, 0.1) # Lidar Frame (dx, dy, dz)
+__C.scale = 4
 __C.cls = 'Car'
 
 __C.KITTI_cls = {
