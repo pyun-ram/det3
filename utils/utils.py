@@ -90,3 +90,15 @@ def apply_tr(pts, tr):
         pts_tr (np.array): [#pts, 3]
     '''
     return pts + tr
+
+def clip_ry(ry):
+    '''
+    clip ry to [-pi..pi] range
+    inputs: 
+        ry (float)
+    '''
+    while ry <= -np.pi:
+        ry += np.pi
+    while ry >= np.pi:
+        ry -= np.pi
+    return ry

@@ -4,6 +4,9 @@ Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
 import numpy as np
+import sys
+sys.path.append('../')
+from det3.dataloarder.data import KittiObj, KittiLabel
 
 def filter_camera_angle(pts):
     """
@@ -62,6 +65,21 @@ def filter_label_cls(label, actuall_cls):
             e.g. ['Car', 'Van'] for cls=='Car'
     '''
     label.data = list(filter(lambda obj: obj.type in actuall_cls, label.data))
+    return label
+
+def filter_label_range(label, x_range, y_range, z_range):
+    '''
+    filter label and get the objs in the xyz_range specified area.
+    inputs:
+        label (KittiLabel):
+            Kitti Label read from txt file
+        x_range (tuple): (x_min(float), x_max(float))
+        y_range (tuple): (y_min(float), y_max(float))
+        z_range (tuple): (z_min(float), z_max(float))
+    '''
+    label.data = list(filter(lambda obj: x_range[0] <= obj.x <= x_range[1], label.data))
+    label.data = list(filter(lambda obj: y_range[0] <= obj.y <= y_range[1], label.data))
+    label.data = list(filter(lambda obj: z_range[0] <= obj.z <= z_range[1], label.data))
     return label
 
 def lidar2grid(pts, res, x_range, y_range, z_range):
@@ -130,6 +148,13 @@ def create_objectgrid(label, calib, res, x_range, y_range, z_range):
     y_min, y_max = y_range
     z_min, z_max = z_range
     dx, dy, dz = res
+    if label.isempty():
+        return np.zeros(
+            (1,
+             np.floor((z_max - z_min)/dz).astype(np.int32),
+             np.floor((y_max - y_min)/dy).astype(np.int32),
+             np.floor((x_max - x_min)/dx).astype(np.int32))
+            )
     centers_Fcam = [np.array([obj.x, obj.y-obj.h/2.0, obj.z]).reshape(-1, 3) for obj in label.data]
     centers_Fcam = np.vstack(centers_Fcam)
     centers_Flidar = calib.leftcam2lidar(centers_Fcam)
@@ -162,6 +187,12 @@ def create_regressgrid(label, calib, res, x_range, y_range, z_range):
     y_min, y_max = y_range
     z_min, z_max = z_range
     dx, dy, dz = res
+    if label.isempty():
+        return np.zeros(
+            (24, np.floor((z_max - z_min)/dz).astype(np.int32),
+             np.floor((y_max - y_min)/dy).astype(np.int32),
+             np.floor((x_max - x_min)/dx).astype(np.int32))
+            )
     centers_Fcam = [np.array([obj.x, obj.y-obj.h/2.0, obj.z]).reshape(-1, 3) for obj in label.data]
     centers_Fcam = np.vstack(centers_Fcam)
     centers_Flidar = calib.leftcam2lidar(centers_Fcam)
@@ -180,3 +211,39 @@ def create_regressgrid(label, calib, res, x_range, y_range, z_range):
         z, y, x = center_Fgrid
         grid[:, z, y, x] = cns_Ftmp_[:].flatten()
     return grid
+
+def parse_grid_to_label(obj_grid, reg_grid, threshold, calib, cls, res, x_range, y_range, z_range):
+    '''
+    get the estimation from obj_grid and reg_grid
+    inputs:
+        obj_grid (np.array): [1, z_dim, y_dim, x_dim] (LiDAR Frame)
+        reg_grid (np.array): [24, z_dim, y_dim, x_dim] (LiDAR Frame)
+        threshold (float):
+            the posterior probability >= threshold in the obj_grid will be returned.
+        calib (KittiCalib)
+        cls (str)
+        res (tuple): (dx(float), dy(float), dz(float))
+            resolution of grid
+        x_range (tuple): (x_min(float), x_max(float))
+        y_range (tuple): (y_min(float), y_max(float))
+        z_range (tuple): (z_min(float), z_max(float))
+    return:
+        res: (KittiLabel)
+    '''
+    num_of_objs = np.vstack(np.where(obj_grid >= threshold)).T.shape[0]
+    if num_of_objs == 0:
+        label = KittiLabel()
+        label.data = []
+        return label
+    centers_Fgrid = np.vstack(np.where(obj_grid >= threshold)).T[:, 1:]
+    centers_Flidar = grid2lidar(centers_Fgrid, res, x_range, y_range, z_range, bias=None)
+    bias_Ftmp = [reg_grid[:, center_Fgrid[0], center_Fgrid[1], center_Fgrid[2]].reshape(8, 3) for center_Fgrid in centers_Fgrid]
+    cns_Flidar = [_bias_Ftmp + center_Flidar for _bias_Ftmp, center_Flidar in zip(bias_Ftmp, centers_Flidar)]
+    cns_Flidar = np.vstack(cns_Flidar)
+    cns_Fcam = calib.lidar2leftcam(cns_Flidar)
+    cns_Fcam = cns_Fcam.reshape(-1, 8, 3)
+    label = KittiLabel()
+    label.data = []
+    for _cns_Fcam in cns_Fcam:
+        label.data.append(KittiObj().from_corners(_cns_Fcam, 'Car', 1.0))
+    return label

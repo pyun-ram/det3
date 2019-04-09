@@ -4,6 +4,7 @@ Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
 import os
+import math
 import numpy as np
 from numpy.linalg import inv
 try:
@@ -70,12 +71,29 @@ class KittiCalib:
         pts_lidar = pts_lidar_T.T # (#pts, 4)
         return pts_lidar[:, :3]
 
+    def lidar2leftcam(self, pts):
+        '''
+        transform the pts from the lidar frame to the left camera frame
+        pts_cam = R0_rect @ Tr_velo_to_cam @ pts_lidar
+        inputs:
+            pts(np.array): [#pts, 3]
+                points in the lidar frame
+        '''
+        if self.data is None:
+            print("read_kitti_calib_file should be read first")
+            raise RuntimeError
+        hfiller = np.expand_dims(np.ones(pts.shape[0]), axis=1)
+        pts_hT = np.hstack([pts, hfiller]).T #(4, #pts)
+        pts_cam_T = self.R0_rect @ self.Tr_velo_to_cam @ pts_hT # (4, #pts)
+        pts_cam = pts_cam_T.T # (#pts, 4)
+        return pts_cam[:, :3]
+
 class KittiLabel:
     '''
     class storing KITTI 3d object detection label
         self.data ([KittiObj])
     '''
-    def __init__(self, label_path):
+    def __init__(self, label_path=None):
         self.path = label_path
         self.data = None
 
@@ -92,7 +110,7 @@ class KittiLabel:
         if no_dontcare:
             self.data = list(filter(lambda obj: obj.type != "DontCare", self.data))
         return self
-    
+
     def __str__(self):
         '''
         TODO: Unit TEST
@@ -102,11 +120,39 @@ class KittiLabel:
             s += obj.__str__() + '\n'
         return s
 
+    def equal(self, label, acc_cls, rtol):
+        '''
+        equal oprator for KittiLabel
+        inputs:
+            label: KittiLabel
+            acc_cls: list [str]
+                ['Car', 'Van']
+            eot: float
+        Notes: O(N^2)
+        '''
+        if len(self.data) != len(label.data):
+            return False
+        if len(self.data) == 0:
+            return True
+        bool_list = []
+        for obj1 in self.data:
+            bool_obj1 = False
+            for obj2 in label.data:
+                bool_obj1 = bool_obj1 or obj1.equal(obj2, acc_cls, rtol)
+            bool_list.append(bool_obj1)
+        return any(bool_list)
+
+    def isempty(self):
+        '''
+        return True if self.data = None or self.data = []
+        '''
+        return self.data is None or len(self.data) == 0
+
 class KittiObj():
     '''
     class storing a KITTI 3d object
     '''
-    def __init__(self, s):
+    def __init__(self, s=None):
         self.type = None
         self.truncated = None
         self.occluded = None
@@ -123,6 +169,8 @@ class KittiObj():
         self.z = None
         self.ry = None
         self.score = None
+        if s is None:
+            return
         if len(s.split()) == 15: # data
             self.truncated, self.occluded, self.alpha,\
             self.bbox_l, self.bbox_t, self.bbox_r, self.bbox_b, \
@@ -181,6 +229,85 @@ class KittiObj():
         bottom = utils.apply_tr(bottom, np.array([x, y, z]).reshape(-1, 3))
         top = utils.apply_tr(bottom, np.array([0, -h, 0]))
         return np.vstack([bottom, top])
+    
+    def from_corners(self, corners, cls, score):
+        '''
+        initialize from corner points
+        inputs:
+            corners (np.array) [8,3]
+                corners in camera frame
+                orders
+            [-l/2, 0,  w/2],
+            [ l/2, 0,  w/2],
+            [ l/2, 0, -w/2],
+            [-l/2, 0, -w/2],
+            [-l/2, h,  w/2],
+            [ l/2, h,  w/2],
+            [ l/2, h, -w/2],
+            [-l/2, h, -w/2],
+            cls (str): 'Car', 'Pedestrian', 'Cyclist'
+            score (float): 0-1
+        '''
+        assert cls in ['Car', 'Pedestrian', 'Cyclist']
+        assert score <= 1.0
+        assert score >= 0.0
+        self.x = np.sum(corners[:, 0], axis=0)/ 8.0
+        self.y = np.sum(corners[0:4, 1], axis=0)/ 4.0
+        self.z = np.sum(corners[:, 2], axis=0)/ 8.0
+        self.h = np.sum(abs(corners[4:, 1] - corners[:4, 1])) / 4.0
+        self.l = np.sum(
+            np.sqrt(np.sum((corners[0, [0, 2]] - corners[1, [0, 2]])**2)) +
+            np.sqrt(np.sum((corners[2, [0, 2]] - corners[3, [0, 2]])**2)) +
+            np.sqrt(np.sum((corners[4, [0, 2]] - corners[5, [0, 2]])**2)) +
+            np.sqrt(np.sum((corners[6, [0, 2]] - corners[7, [0, 2]])**2))
+            ) / 4.0
+        self.w = np.sum(
+            np.sqrt(np.sum((corners[0, [0, 2]] - corners[3, [0, 2]])**2)) +
+            np.sqrt(np.sum((corners[1, [0, 2]] - corners[2, [0, 2]])**2)) +
+            np.sqrt(np.sum((corners[4, [0, 2]] - corners[7, [0, 2]])**2)) +
+            np.sqrt(np.sum((corners[5, [0, 2]] - corners[6, [0, 2]])**2))
+            ) / 4.0
+        self.ry = np.sum(
+            math.atan2(corners[2, 0] - corners[1, 0], corners[2, 2] - corners[1, 2]) +
+            math.atan2(corners[6, 0] - corners[5, 0], corners[6, 2] - corners[5, 2]) +
+            math.atan2(corners[3, 0] - corners[0, 0], corners[3, 2] - corners[0, 2]) +
+            math.atan2(corners[7, 0] - corners[4, 0], corners[7, 2] - corners[4, 2]) +
+            math.atan2(corners[0, 2] - corners[1, 2], corners[1, 0] - corners[0, 0]) +
+            math.atan2(corners[4, 2] - corners[5, 2], corners[5, 0] - corners[4, 0]) +
+            math.atan2(corners[3, 2] - corners[2, 2], corners[2, 0] - corners[3, 0]) +
+            math.atan2(corners[7, 2] - corners[6, 2], corners[6, 0] - corners[7, 0])
+        ) / 8.0 + np.pi  / 2.0
+        self.ry = utils.clip_ry(self.ry)
+        self.type = cls
+        self.score = score
+        self.truncated = -1
+        self.occluded = -1
+        self.alpha = -1
+        self.bbox_l = -1
+        self.bbox_t = -1
+        self.bbox_r = -1
+        self.bbox_b = -1
+        return self
+
+    def equal(self, obj, acc_cls, rtol):
+        '''
+        equal oprator for KittiObj
+        inputs:
+            obj: KittiObj
+            acc_cls: list [str]
+                ['Car', 'Van']
+            eot: float
+        '''
+        assert isinstance(obj, KittiObj)
+        return (self.type in acc_cls and
+                obj.type in acc_cls and
+                np.isclose(self.h, obj.h, rtol) and
+                np.isclose(self.l, obj.l, rtol) and
+                np.isclose(self.w, obj.w, rtol) and
+                np.isclose(self.x, obj.x, rtol) and
+                np.isclose(self.y, obj.y, rtol) and
+                np.isclose(self.z, obj.z, rtol) and
+                np.isclose(math.tan(self.ry), math.tan(obj.ry), rtol))
 
 class KittiData:
     '''
