@@ -67,19 +67,25 @@ def filter_label_cls(label, actuall_cls):
     label.data = list(filter(lambda obj: obj.type in actuall_cls, label.data))
     return label
 
-def filter_label_range(label, x_range, y_range, z_range):
+def filter_label_range(label, calib, x_range, y_range, z_range):
     '''
     filter label and get the objs in the xyz_range specified area.
     inputs:
         label (KittiLabel):
             Kitti Label read from txt file
-        x_range (tuple): (x_min(float), x_max(float))
-        y_range (tuple): (y_min(float), y_max(float))
-        z_range (tuple): (z_min(float), z_max(float))
+        x_range (tuple): (x_min(float), x_max(float)) in Lidar Frame
+        y_range (tuple): (y_min(float), y_max(float)) in Lidar Frame
+        z_range (tuple): (z_min(float), z_max(float)) in Lidar Frame
     '''
-    label.data = list(filter(lambda obj: x_range[0] <= obj.x <= x_range[1], label.data))
-    label.data = list(filter(lambda obj: y_range[0] <= obj.y <= y_range[1], label.data))
-    label.data = list(filter(lambda obj: z_range[0] <= obj.z <= z_range[1], label.data))
+    tmp = []
+    for obj in label.data:
+        cam_pt = np.array([[obj.x, obj.y-obj.h/2.0, obj.z]])
+        lidar_pt = calib.leftcam2lidar(cam_pt)
+        if (x_range[0] <= lidar_pt[0, 0] <= x_range[1] and
+                y_range[0] <= lidar_pt[0, 1] <= y_range[1] and
+                z_range[0] <= lidar_pt[0, 2] <= z_range[1]):
+            tmp.append(obj)
+    label.data = tmp
     return label
 
 def lidar2grid(pts, res, x_range, y_range, z_range):

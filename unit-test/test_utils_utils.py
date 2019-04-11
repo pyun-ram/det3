@@ -33,6 +33,7 @@ class TestUtils(unittest.TestCase):
         t = np.array([1,2,3]).reshape(1,3)
         ans = pts + t
         self.assertTrue(np.allclose(apply_tr(pts, t), ans, rtol=1e-5))
+# TODO: TEST clip_ry
 
 if __name__ == "__main__":
     unittest.main()

@@ -31,8 +31,8 @@ class TestKittiCalib(unittest.TestCase):
         for k, v in calib.data.items():
             for itm in v:
                 self.assertTrue(isinstance(itm, float))
-        self.assertEqual(calib.R0_rect.shape, (4,4))
-        self.assertEqual(calib.Tr_velo_to_cam.shape, (4,4))
+        self.assertEqual(calib.R0_rect.shape, (4, 4))
+        self.assertEqual(calib.Tr_velo_to_cam.shape, (4, 4))
     def test_leftcam2lidar(self):
         calib = KittiCalib("./unit-test/data/test_KittiCalib_000000.txt").read_kitti_calib_file()
         pts = np.array([[1.24242996, 1.47, 8.6559879],
@@ -44,6 +44,13 @@ class TestKittiCalib(unittest.TestCase):
                         [8.48444395, -2.45306157, -1.60607095],
                         [8.49835880, -1.25324031, -1.59072667]])
         self.assertTrue(np.allclose(calib.leftcam2lidar(pts), ans, rtol=1e-5))
+    def test_lidar2leftcam(self):
+        calib = KittiCalib("./unit-test/data/test_KittiCalib_000000.txt").read_kitti_calib_file()
+        pts = np.array([[1.24242996, 1.47, 8.6559879],
+                        [2.44236996, 1.47, 8.6439881],
+                        [2.43757004, 1.47, 8.1640121],
+                        [1.23763004, 1.47, 8.1760119]])
+        self.assertTrue(np.allclose(calib.lidar2leftcam(calib.leftcam2lidar(pts)), pts, rtol=1e-5))
 
 class TestKittiObj(unittest.TestCase):
     def test_init(self):
@@ -92,6 +99,59 @@ class TestKittiObj(unittest.TestCase):
                         [2.43757004, -0.42, 8.1640121],
                         [1.23763004, -0.42, 8.1760119]])
         self.assertTrue(np.allclose(kittiobj.get_bbox3dcorners(), ans, rtol=1e-5))
+    # TODO:TEST from_corners
+    def test_from_corners(self):
+        kittiobj = KittiObj()
+        cns = np.array([[1.24242996, 1.47, 8.6559879],
+                [2.44236996, 1.47, 8.6439881],
+                [2.43757004, 1.47, 8.1640121],
+                [1.23763004, 1.47, 8.1760119],
+                [1.24242996, -0.42, 8.6559879],
+                [2.44236996, -0.42, 8.6439881],
+                [2.43757004, -0.42, 8.1640121],
+                [1.23763004, -0.42, 8.1760119]])
+        kittiobj.from_corners(cns, 'Pedestrian', 1.0)
+        self.assertEqual(kittiobj.type, 'Pedestrian')
+        self.assertEqual(kittiobj.truncated, -1)
+        self.assertEqual(kittiobj.occluded, -1)
+        self.assertEqual(kittiobj.alpha, -1)
+        self.assertEqual(kittiobj.bbox_l, -1)
+        self.assertEqual(kittiobj.bbox_t, -1)
+        self.assertEqual(kittiobj.bbox_r, -1)
+        self.assertEqual(kittiobj.bbox_b, -1)
+        self.assertTrue(np.allclose(kittiobj.h, 1.89, rtol=1e-5))
+        self.assertTrue(np.allclose(kittiobj.w, 0.48, rtol=1e-5))
+        self.assertTrue(np.allclose(kittiobj.l, 1.2, rtol=1e-5))
+        self.assertTrue(np.allclose(kittiobj.x, 1.84, rtol=1e-5))
+        self.assertTrue(np.allclose(kittiobj.y, 1.47, rtol=1e-5))
+        self.assertTrue(np.allclose(kittiobj.z, 8.41, rtol=1e-5))
+        self.assertTrue(np.allclose(kittiobj.ry, 0.01, rtol=1e-5))
+        self.assertEqual(kittiobj.score, 1.0)
+    def test_equal(self):
+        # same
+        kittiobj1 = KittiObj('Pedestrian 0.0 0.0 -0.2 712.4 143.0 810.73 307.92 1.89 0.48 1.2 1.84 1.47 8.41 0.01')
+        kittiobj2 = KittiObj('Pedestrian 0.0 0.0 -0.2 712.4 143.0 810.73 307.92 1.89 0.48 1.2 1.84 1.47 8.41 0.01')
+        self.assertTrue(kittiobj1.equal(kittiobj1, 'Pedestrian', rtol=1e-5))
+        self.assertTrue(kittiobj1.equal(kittiobj2, 'Pedestrian', rtol=1e-5))
+        self.assertTrue(kittiobj2.equal(kittiobj1, 'Pedestrian', rtol=1e-5))
+        self.assertTrue(kittiobj2.equal(kittiobj2, 'Pedestrian', rtol=1e-5))
+        # ry vs. ry+np.pi
+        kittiobj1 = KittiObj('Pedestrian 0.0 0.0 -0.2 712.4 143.0 810.73 307.92 1.89 0.48 1.2 1.84 1.47 8.41 0.01')
+        kittiobj2 = KittiObj('Pedestrian 0.0 0.0 -0.2 712.4 143.0 810.73 307.92 1.89 0.48 1.2 1.84 1.47 8.41 3.1515926')
+        self.assertTrue(kittiobj1.equal(kittiobj1, 'Pedestrian', rtol=1e-5))
+        self.assertTrue(kittiobj1.equal(kittiobj2, 'Pedestrian', rtol=1e-5))
+        self.assertTrue(kittiobj2.equal(kittiobj1, 'Pedestrian', rtol=1e-5))
+        self.assertTrue(kittiobj2.equal(kittiobj2, 'Pedestrian', rtol=1e-5))
+        # Different cls
+        kittiobj1 = KittiObj('Pedestrian 0.0 0.0 -0.2 712.4 143.0 810.73 307.92 1.89 0.48 1.2 1.84 1.47 8.41 0.01')
+        kittiobj2 = KittiObj('Car 0.0 0.0 -0.2 712.4 143.0 810.73 307.92 1.89 0.48 1.2 1.84 1.47 8.41 0.01')
+        self.assertTrue(not kittiobj1.equal(kittiobj2, 'Pedestrian', rtol=1e-5))
+        self.assertTrue(not kittiobj2.equal(kittiobj1, 'Pedestrian', rtol=1e-5))
+        # Different ry
+        kittiobj1 = KittiObj('Pedestrian 0.0 0.0 -0.2 712.4 143.0 810.73 307.92 1.89 0.48 1.2 1.84 1.47 8.41 0.01')
+        kittiobj2 = KittiObj('Pedestrian 0.0 0.0 -0.2 712.4 143.0 810.73 307.92 1.89 0.48 1.2 1.84 1.47 8.41 1.31')
+        self.assertTrue(not kittiobj1.equal(kittiobj2, 'Pedestrian', rtol=1e-5))
+        self.assertTrue(not kittiobj2.equal(kittiobj1, 'Pedestrian', rtol=1e-5))        
 
 class TestKittiLabel(unittest.TestCase):
     def test_init(self):
@@ -104,6 +164,18 @@ class TestKittiLabel(unittest.TestCase):
         label = KittiLabel('./unit-test/data/test_KittiLabel_000003.txt').read_kitti_label_file(no_dontcare=False)
         self.assertEqual(len(label.data), 3)
         self.assertEqual(len(list(filter(lambda obj: obj.type == "DontCare", label.data))), 2)
+    # TODO:TEST str
+    def test_equal(self):
+        label1 = KittiLabel('./unit-test/data/test_KittiLabel_000012.txt').read_kitti_label_file(no_dontcare=True)
+        label2 = KittiLabel('./unit-test/data/test_KittiLabel_000012.txt').read_kitti_label_file(no_dontcare=True)
+        self.assertTrue(label1.equal(label1, ['Car', 'Van'], rtol=1e-5))
+        self.assertTrue(label1.equal(label2, ['Car', 'Van'], rtol=1e-5))
+        self.assertTrue(label2.equal(label1, ['Car', 'Van'], rtol=1e-5))
+        self.assertTrue(label2.equal(label2, ['Car', 'Van'], rtol=1e-5))
+        label1 = KittiLabel('./unit-test/data/test_KittiLabel_000012.txt').read_kitti_label_file(no_dontcare=True)
+        label2 = KittiLabel('./unit-test/data/test_KittiLabel_000003.txt').read_kitti_label_file(no_dontcare=True)
+        self.assertTrue(not label1.equal(label2, ['Car', 'Van'], rtol=1e-5))
+        self.assertTrue(not label2.equal(label1, ['Car', 'Van'], rtol=1e-5))
 
 if __name__ == '__main__':
     unittest.main()

@@ -40,8 +40,8 @@ class KittiDataFCN3D(Dataset):
         voxel = voxelize_pc(pc, res=self.cfg.resolution, x_range=self.cfg.x_range,
                             y_range=self.cfg.y_range, z_range=self.cfg.z_range)
         label = filter_label_cls(label, cfg.KITTI_cls[self.cls])
-        label = filter_label_range(label, x_range=self.cfg.x_range,
-                                   y_range=self.cfg.y_range, z_range=self.cfg.z_range)
+        label = filter_label_range(label, calib, x_range=self.cfg.x_range,
+                                   y_range=self.cfg.y_range, z_range=self.cfg.z_range) # BUG HERE
         gt_objgrid = create_objectgrid(label, calib,
                                        res=tuple([self.cfg.scale * _d for _d in self.cfg.resolution]),
                                        x_range=self.cfg.x_range,
@@ -62,12 +62,12 @@ class KittiDataFCN3D(Dataset):
 
 if __name__ == '__main__':
     from det3.methods.fcn3d.config import cfg
-    dataset = KittiDataFCN3D(data_dir='/usr/app/data/KITTI', train_val_flag='dev', cfg=cfg)
+    dataset = KittiDataFCN3D(data_dir='/usr/app/data/KITTI', train_val_flag='val', cfg=cfg)
     num_true = 0
     for i, data in enumerate(dataset):
         _, _, _, rec_bool, label, rec_label = data
         num_true = num_true + 1 if rec_bool else num_true
-        print("{}/{}: {}".format(i, len(dataset), rec_bool))
+        print("{}/{}: {} ({})".format(i, len(dataset), rec_bool, len(label.data)))
         if not rec_bool:
             print(label)
             print(rec_label)

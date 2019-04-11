@@ -277,6 +277,8 @@ class KittiObj():
             math.atan2(corners[3, 2] - corners[2, 2], corners[2, 0] - corners[3, 0]) +
             math.atan2(corners[7, 2] - corners[6, 2], corners[6, 0] - corners[7, 0])
         ) / 8.0 + np.pi  / 2.0
+        if np.isclose(self.ry, np.pi/2.0):
+            self.ry = 0.0
         self.ry = utils.clip_ry(self.ry)
         self.type = cls
         self.score = score
@@ -297,6 +299,7 @@ class KittiObj():
             acc_cls: list [str]
                 ['Car', 'Van']
             eot: float
+        Note: For ry, return True if obj1.ry == obj2.ry + n * pi
         '''
         assert isinstance(obj, KittiObj)
         return (self.type in acc_cls and
@@ -307,7 +310,7 @@ class KittiObj():
                 np.isclose(self.x, obj.x, rtol) and
                 np.isclose(self.y, obj.y, rtol) and
                 np.isclose(self.z, obj.z, rtol) and
-                np.isclose(math.tan(self.ry), math.tan(obj.ry), rtol))
+                np.isclose(math.cos(2 * (self.ry - obj.ry)), 1, rtol))
 
 class KittiData:
     '''
