@@ -6,6 +6,7 @@ Note: The code skeleton is based on https://github.com/pytorch/examples/blob/mas
 '''
 
 import random
+import time
 import sys
 sys.path.append('../')
 import warnings
@@ -14,8 +15,20 @@ import shutil
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
+from PIL import Image, ImageDraw
 from det3.methods.fcn3d.config import cfg
-from det3.methods.fcn3d.model.model import FCN3D
+from det3.methods.fcn3d.model import FCN3D
+from det3.methods.fcn3d.criteria import FCN3DLoss
+from det3.methods.fcn3d.data import KITTIDataFCN3D, KittiDatasetFCN3D
+from det3.visualizer.vis import BEVImage
+from det3.methods.fcn3d.utils import parse_grid_to_label
+
+root_dir = __file__.split('/')
+root_dir = os.path.join(root_dir[0], root_dir[1])
+save_dir = os.path.join(root_dir, 'saved_weights', cfg.TAG)
+log_dir = os.path.join(root_dir, 'logs', cfg.TAG)
+os.makedirs(save_dir, exist_ok=True)
+os.makedirs(log_dir, exist_ok=True)
 
 def main():
     if cfg.seed is not None:
@@ -27,7 +40,7 @@ def main():
                       'which can slow down your training considerably! '
                       'You may see unexpected behavior when restarting '
                       'from checkpoints.')
-    best_acc1 = 0
+    best_loss1 = 0
     model = FCN3D()
     if cfg.gpu is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
@@ -39,11 +52,10 @@ def main():
         model = torch.nn.DataParallel(model).cuda()
 
     # define loss function and optimizer
-    criterion = nn.CrossEntropyLoss().cuda(cfg.gpu)
-
+    criterion = FCN3DLoss(alpha=1, beta=1.5, eta=1, gamma=2)
     optimizer = torch.optim.SGD(model.parameters(), cfg.lr,
                                 momentum=cfg.momentum,
-                                weight_decay=cfg.weight_decay) #TODO
+                                weight_decay=cfg.weight_decay)
 
     # optionally resume from a checkpoint
     if cfg.resume:
@@ -63,114 +75,123 @@ def main():
             print("=> no checkpoint found at '{}'".format(cfg.resume))
 
     cudnn.benchmark = True
-    #TODO: Load Data
-    sys.exit("DEBUG")
+
+    kitti_data = KITTIDataFCN3D(data_dir=cfg.DATADIR, cfg=cfg, batch_size=2).kitti_loaders
+    train_loader = kitti_data['dev']
+    val_loader = KittiDatasetFCN3D(data_dir='/usr/app/data/KITTI', train_val_flag='val', cfg=cfg)
+
     for epoch in range(cfg.start_epoch, cfg.epochs):
         adjust_learning_rate(optimizer, epoch, cfg.lr)
         train(train_loader, model, criterion, optimizer, epoch, cfg)
-        acc1 = validate(val_loader, model, criterion, cfg)
-        is_best = acc1 > best_acc1
-        best_acc1 = max(acc1, best_acc1)
+        loss1 = validate(val_loader, model, criterion, epoch, cfg)
+        is_best = loss1 < best_loss1
+        best_loss1 = min(loss1, best_loss1)
         save_checkpoint({
             'epoch': epoch + 1,
-            'arch': args.arch,
             'state_dict': model.state_dict(),
-            'best_acc1': best_acc1,
+            'best_loss1': best_loss1,
             'optimizer' : optimizer.state_dict(),
-        }, is_best)
+        }, is_best, save_dir=save_dir, filename=str(epoch)+'.pth.tar')
 
-def train(train_loader, model, criterion, optimizer, epoch, args):
+def train(train_loader, model, criterion, optimizer, epoch, cfg):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
-    top1 = AverageMeter()
-    top5 = AverageMeter()
 
     # switch to train mode
     model.train()
-
     end = time.time()
-    for i, (input, target) in enumerate(train_loader):
+    for i, (voxel, gt_objgrid, gt_reggrid) in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
-
-        if args.gpu is not None:
-            input = input.cuda(args.gpu, non_blocking=True)
-        target = target.cuda(args.gpu, non_blocking=True)
+        if cfg.gpu is not None:
+            voxel = voxel.cuda(cfg.gpu, non_blocking=True)
+            gt_objgrid = gt_objgrid.cuda(cfg.gpu, non_blocking=True)
+            gt_reggrid = gt_reggrid.cuda(cfg.gpu, non_blocking=True)
 
         # compute output
-        output = model(input)
+        est_objgrid, est_reggrid = model(voxel)
+        output = {"obj":est_objgrid, 'reg':est_reggrid}
+        target = {"obj":gt_objgrid, 'reg':gt_reggrid}
         loss = criterion(output, target)
 
         # measure accuracy and record loss
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
-        losses.update(loss.item(), input.size(0))
-        top1.update(acc1[0], input.size(0))
-        top5.update(acc5[0], input.size(0))
+        losses.update(loss.item(), voxel.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        # measure elapsed time
+        # measure elapsed timeFalse
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % args.print_freq == 0:
+        if i % cfg.print_freq == 0:
             print('Epoch: [{0}][{1}/{2}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                  'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                   epoch, i, len(train_loader), batch_time=batch_time,
-                   data_time=data_time, loss=losses, top1=top1, top5=top5))
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})'.format(
+                      epoch, i, len(train_loader), batch_time=batch_time,
+                      data_time=data_time, loss=losses))
 
 
-def validate(val_loader, model, criterion, args):
+
+def validate(val_loader, model, criterion, epoch, cfg):
+    print("Iam in validating")
     batch_time = AverageMeter()
     losses = AverageMeter()
-    top1 = AverageMeter()
-    top5 = AverageMeter()
 
     # switch to evaluate mode
     model.eval()
-
+    os.makedirs(os.path.join(log_dir, 'val_imgs', str(epoch)), exist_ok=True)
     with torch.no_grad():
         end = time.time()
-        for i, (input, target) in enumerate(val_loader):
-            if args.gpu is not None:
-                input = input.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
+        for i, (voxel, gt_objgrid, gt_reggrid, pc, label, calib) in enumerate(val_loader):
+            if cfg.gpu is not None:
+                voxel = torch.from_numpy(voxel).cuda(cfg.gpu, non_blocking=True)
+                gt_objgrid = torch.from_numpy(gt_objgrid).cuda(cfg.gpu, non_blocking=True)
+                gt_reggrid = torch.from_numpy(gt_reggrid).cuda(cfg.gpu, non_blocking=True)
 
             # compute output
-            output = model(input)
+            est_objgrid, est_reggrid = model(voxel)
+            output = {"obj":est_objgrid, 'reg':est_reggrid}
+            target = {"obj":gt_objgrid, 'reg':gt_reggrid}
             loss = criterion(output, target)
 
             # measure accuracy and record loss
-            acc1, acc5 = accuracy(output, target, topk=(1, 5))
-            losses.update(loss.item(), input.size(0))
-            top1.update(acc1[0], input.size(0))
-            top5.update(acc5[0], input.size(0))
+            losses.update(loss.item(), voxel.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
 
-            if i % args.print_freq == 0:
+            bevimg = BEVImage(x_range=cfg.x_range, y_range=cfg.y_range, grid_size=(0.05, 0.05))
+            bevimg.from_lidar(pc[:, :], scale=1)
+
+            for obj in label.data:
+                if obj.type in cfg.KITTI_cls[cfg.cls]:
+                    bevimg.draw_box(obj, calib, bool_gt=True)
+
+            rec_label = parse_grid_to_label(est_objgrid.cpu().numpy()[0, ::], est_reggrid.cpu().numpy()[0, ::],
+                                            cfg.threshold, calib, cfg.cls,
+                                            res=tuple([cfg.scale * _d for _d in cfg.resolution]),
+                                            x_range=cfg.x_range,
+                                            y_range=cfg.y_range,
+                                            z_range=cfg.z_range)
+            for obj in rec_label.data:
+                if obj.type in cfg.KITTI_cls[cfg.cls]:
+                    bevimg.draw_box(obj, calib, bool_gt=False)
+
+            bevimg_img = Image.fromarray(bevimg.data)
+            bevimg_img.save(os.path.join(log_dir, 'val_imgs', str(epoch), str(i)+'.png'))
+
+            if i % cfg.print_freq == 0:
                 print('Test: [{0}/{1}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                      'Acc@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                      'Acc@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                       i, len(val_loader), batch_time=batch_time, loss=losses,
-                       top1=top1, top5=top5))
-
-        print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
-              .format(top1=top1, top5=top5))
-
-    return top1.avg
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})'.format(
+                          i, len(val_loader), batch_time=batch_time, loss=losses))
+    return losses.avg
 
 def adjust_learning_rate(optimizer, epoch, lr_):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
@@ -178,10 +199,27 @@ def adjust_learning_rate(optimizer, epoch, lr_):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    torch.save(state, filename)
+def save_checkpoint(state, is_best, save_dir, filename='checkpoint.pth.tar'):
+    torch.save(state, os.path.join(save_dir, filename))
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        shutil.copyfile(os.path.join(save_dir, filename), os.path.join(save_dir, 'best.pth.tar'))
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
 
 if __name__ == "__main__":
     main()

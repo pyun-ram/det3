@@ -251,5 +251,5 @@ def parse_grid_to_label(obj_grid, reg_grid, threshold, calib, cls, res, x_range,
     label = KittiLabel()
     label.data = []
     for _cns_Fcam in cns_Fcam:
-        label.data.append(KittiObj().from_corners(_cns_Fcam, 'Car', 1.0))
+        label.data.append(KittiObj().from_corners(_cns_Fcam, cls, 1.0))
     return label

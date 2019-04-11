@@ -39,7 +39,7 @@ class KITTIDataFCN3D():
             ),
             "val": torch.utils.data.DataLoader(
                 self.kitti_datasets["val"],
-                batch_size=batch_size,
+                batch_size=1,
                 num_workers=num_workers,
                 pin_memory=True,
                 shuffle=False
@@ -80,7 +80,7 @@ class KittiDatasetFCN3D(Dataset):
         pc = filter_camera_angle(pc)
         voxel = voxelize_pc(pc, res=self.cfg.resolution, x_range=self.cfg.x_range,
                             y_range=self.cfg.y_range, z_range=self.cfg.z_range)
-        label = filter_label_cls(label, cfg.KITTI_cls[self.cls])
+        label = filter_label_cls(label, self.cfg.KITTI_cls[self.cls])
         label = filter_label_range(label, calib, x_range=self.cfg.x_range,
                                    y_range=self.cfg.y_range, z_range=self.cfg.z_range) # BUG HERE
         gt_objgrid = create_objectgrid(label, calib,
@@ -100,7 +100,18 @@ class KittiDatasetFCN3D(Dataset):
         #                                 z_range=self.cfg.z_range)
         # rec_bool = label.equal(rec_label, acc_cls=cfg.KITTI_cls[self.cls], rtol=0.1)
         # return voxel, gt_objgrid, gt_reggrid, rec_bool, label, rec_label
-        return voxel, gt_objgrid, gt_reggrid, pc, label
+        voxel = np.expand_dims(voxel, axis=0).astype(np.float32)
+        gt_objgrid = gt_objgrid.astype(np.float32)
+        gt_reggrid = gt_reggrid.astype(np.float32)
+        if self.train_val_flag in ['train', 'dev'] :
+            return voxel, gt_objgrid, gt_reggrid
+        elif self.train_val_flag == 'val':
+            voxel = np.expand_dims(voxel, axis=0).astype(np.float32)
+            gt_objgrid = np.expand_dims(gt_objgrid, axis=0).astype(np.float32)
+            gt_reggrid = np.expand_dims(gt_reggrid, axis=0).astype(np.float32)
+            return voxel, gt_objgrid, gt_reggrid, pc, label, calib
+        else:
+            raise NotImplementedError
 
 if __name__ == '__main__':
     from det3.methods.fcn3d.config import cfg
@@ -122,3 +133,7 @@ if __name__ == '__main__':
     print(len(train_loader))
     print(len(val_loader))
     print(len(dev_loader))
+    for i, (voxel, gt_objgrid, gt_reggrid) in enumerate(dev_loader):
+        print(voxel.dtype)
+        print(gt_objgrid.dtype)
+        print(gt_reggrid.dtype)
