@@ -8,15 +8,56 @@ import os
 import sys
 sys.path.append('../')
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 from det3.dataloarder.data import KittiData
 from det3.methods.fcn3d.utils import *
 
-class KittiDataFCN3D(Dataset):
+class KITTIDataFCN3D():
+    def __init__(self,data_dir, cfg, batch_size=4, num_workers=1,distributed=False):
+        """
+        """
+
+        self.kitti_datasets = {
+            x:KittiDatasetFCN3D(data_dir=data_dir, train_val_flag=x, cfg=cfg) for x in ["train","val","dev"]}
+
+        if distributed:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+                self.kitti_datasets["train"]
+                )
+        else:
+            train_sampler = None
+
+        self.kitti_loaders = {
+            "train": torch.utils.data.DataLoader(
+                self.kitti_datasets["train"],
+                batch_size=batch_size,
+                num_workers=num_workers,
+                pin_memory=True,
+                sampler=train_sampler,
+                shuffle=True
+            ),
+            "val": torch.utils.data.DataLoader(
+                self.kitti_datasets["val"],
+                batch_size=batch_size,
+                num_workers=num_workers,
+                pin_memory=True,
+                shuffle=False
+            ),
+            "dev": torch.utils.data.DataLoader(
+                self.kitti_datasets["dev"],
+                batch_size=batch_size,
+                num_workers=num_workers,
+                pin_memory=True,
+                sampler=train_sampler,
+                shuffle=False
+            )}
+
+class KittiDatasetFCN3D(Dataset):
     '''
     Dataset Loader for 3D FCN
     '''
-    def __init__(self, data_dir, train_val_flag, cfg, cls='Car'):
+    def __init__(self, data_dir, train_val_flag, cfg):
         self.data_dir = os.path.join(data_dir, train_val_flag)
         self.train_val_flag = train_val_flag
         self.calib_dir = os.path.join(self.data_dir, 'calib')
@@ -24,7 +65,7 @@ class KittiDataFCN3D(Dataset):
         self.label2_dir = os.path.join(self.data_dir, 'label_2')
         self.velodyne_dir = os.path.join(self.data_dir, 'velodyne')
         self.cfg = cfg
-        self.cls = cls
+        self.cls = cfg.cls
         self.idx_list = [itm.split('.')[0] for itm in os.listdir(self.label2_dir)]
         assert os.path.isdir(data_dir)
         assert train_val_flag in ['train', 'val', 'dev']
@@ -52,24 +93,32 @@ class KittiDataFCN3D(Dataset):
                                         x_range=self.cfg.x_range,
                                         y_range=self.cfg.y_range,
                                         z_range=self.cfg.z_range)
-        rec_label = parse_grid_to_label(gt_objgrid, gt_reggrid, 0.8, calib, 'Car',
-                                        res=tuple([self.cfg.scale * _d for _d in self.cfg.resolution]),
-                                        x_range=self.cfg.x_range,
-                                        y_range=self.cfg.y_range,
-                                        z_range=self.cfg.z_range)
-        rec_bool = label.equal(rec_label, acc_cls=cfg.KITTI_cls[self.cls], rtol=0.1)
-        return voxel, gt_objgrid, gt_reggrid, rec_bool, label, rec_label
+        # rec_label = parse_grid_to_label(gt_objgrid, gt_reggrid, 0.8, calib, 'Car',
+        #                                 res=tuple([self.cfg.scale * _d for _d in self.cfg.resolution]),
+        #                                 x_range=self.cfg.x_range,
+        #                                 y_range=self.cfg.y_range,
+        #                                 z_range=self.cfg.z_range)
+        # rec_bool = label.equal(rec_label, acc_cls=cfg.KITTI_cls[self.cls], rtol=0.1)
+        # return voxel, gt_objgrid, gt_reggrid, rec_bool, label, rec_label
+        return voxel, gt_objgrid, gt_reggrid, pc, label
 
 if __name__ == '__main__':
     from det3.methods.fcn3d.config import cfg
-    dataset = KittiDataFCN3D(data_dir='/usr/app/data/KITTI', train_val_flag='val', cfg=cfg)
-    num_true = 0
-    for i, data in enumerate(dataset):
-        _, _, _, rec_bool, label, rec_label = data
-        num_true = num_true + 1 if rec_bool else num_true
-        print("{}/{}: {} ({})".format(i, len(dataset), rec_bool, len(label.data)))
-        if not rec_bool:
-            print(label)
-            print(rec_label)
-            input()
-    print("TEST DONE: {}/{} is PASS.".format(num_true, len(dataset)))
+    # dataset = KittiDataFCN3D(data_dir='/usr/app/data/KITTI', train_val_flag='val', cfg=cfg)
+    # num_true = 0
+    # for i, data in enumerate(dataset):
+    #     _, _, _, rec_bool, label, rec_label = data
+    #     num_true = num_true + 1 if rec_bool else num_true
+    #     print("{}/{}: {} ({})".format(i, len(dataset), rec_bool, len(label.data)))
+    #     if not rec_bool:
+    #         print(label)
+    #         print(rec_label)
+    #         input()
+    # print("TEST DONE: {}/{} is PASS.".format(num_true, len(dataset)))
+    kitti_loaders = KITTIDataFCN3D(data_dir='/usr/app/data/KITTI', cfg=cfg, batch_size=5).kitti_loaders
+    train_loader = kitti_loaders["train"]
+    val_loader = kitti_loaders["val"]
+    dev_loader = kitti_loaders["dev"]
+    print(len(train_loader))
+    print(len(val_loader))
+    print(len(dev_loader))
