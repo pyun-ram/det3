@@ -29,6 +29,7 @@ save_dir = os.path.join(root_dir, 'saved_weights', cfg.TAG)
 log_dir = os.path.join(root_dir, 'logs', cfg.TAG)
 os.makedirs(save_dir, exist_ok=True)
 os.makedirs(log_dir, exist_ok=True)
+shutil.copy(os.path.join(root_dir, 'config.py'), os.path.join(log_dir, 'config.py'))
 
 def main():
     if cfg.seed is not None:
@@ -52,7 +53,7 @@ def main():
         model = torch.nn.DataParallel(model).cuda()
 
     # define loss function and optimizer
-    criterion = FCN3DLoss(alpha=1, beta=1.5, eta=1, gamma=2)
+    criterion = FCN3DLoss(alpha=cfg.alpha, beta=cfg.beta, eta=cfg.eta, gamma=cfg.gamma)
     optimizer = torch.optim.SGD(model.parameters(), cfg.lr,
                                 momentum=cfg.momentum,
                                 weight_decay=cfg.weight_decay)
@@ -63,10 +64,7 @@ def main():
             print("=> loading checkpoint '{}'".format(cfg.resume))
             checkpoint = torch.load(cfg.resume)
             cfg.start_epoch = checkpoint['epoch']
-            best_acc1 = checkpoint['best_acc1']
-            if cfg.gpu is not None:
-                # best_acc1 may be from a checkpoint from a different GPU
-                best_acc1 = best_acc1.to(cfg.gpu)
+            best_loss1 = checkpoint['best_loss1']
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {})"
@@ -138,7 +136,6 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
 
 
 def validate(val_loader, model, criterion, epoch, cfg):
-    print("Iam in validating")
     batch_time = AverageMeter()
     losses = AverageMeter()
 
@@ -171,7 +168,7 @@ def validate(val_loader, model, criterion, epoch, cfg):
 
             for obj in label.data:
                 if obj.type in cfg.KITTI_cls[cfg.cls]:
-                    bevimg.draw_box(obj, calib, bool_gt=True)
+                    bevimg.draw_box(obj, calib, bool_gt=True, width=3)
 
             rec_label = parse_grid_to_label(est_objgrid.cpu().numpy()[0, ::], est_reggrid.cpu().numpy()[0, ::],
                                             cfg.threshold, calib, cfg.cls,
@@ -181,7 +178,7 @@ def validate(val_loader, model, criterion, epoch, cfg):
                                             z_range=cfg.z_range)
             for obj in rec_label.data:
                 if obj.type in cfg.KITTI_cls[cfg.cls]:
-                    bevimg.draw_box(obj, calib, bool_gt=False)
+                    bevimg.draw_box(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
 
             bevimg_img = Image.fromarray(bevimg.data)
             bevimg_img.save(os.path.join(log_dir, 'val_imgs', str(epoch), str(i)+'.png'))

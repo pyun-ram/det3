@@ -76,7 +76,7 @@ class BEVImage:
         pts_BEV = np.hstack([x, y])
         return pts_BEV
 
-    def draw_box(self, obj, calib, bool_gt=False):
+    def draw_box(self, obj, calib, bool_gt=False, width=3):
         '''
         draw bounding box on BEV Image
         inputs:
@@ -96,7 +96,7 @@ class BEVImage:
         draw = ImageDraw.Draw(bev_img)
         p1, p2, p3, p4 = cns_FBEV
         color = 'purple' if bool_gt else 'yellow'
-        draw.line([p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], p1[0], p1[1]], fill=color, width=3)
+        draw.line([p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], p1[0], p1[1]], fill=color, width=width)
         self.data = np.array(bev_img)
         return self
 
