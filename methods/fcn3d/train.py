@@ -171,7 +171,8 @@ def validate(val_loader, model, criterion, epoch, cfg):
                     bevimg.draw_box(obj, calib, bool_gt=True, width=3)
 
             rec_label = parse_grid_to_label(est_objgrid.cpu().numpy()[0, ::], est_reggrid.cpu().numpy()[0, ::],
-                                            cfg.threshold, calib, cfg.cls,
+                                            score_threshold=cfg.threshold, nms_threshold=cfg.nms_threshold,
+                                            calib=calib, cls=cfg.cls,
                                             res=tuple([cfg.scale * _d for _d in cfg.resolution]),
                                             x_range=cfg.x_range,
                                             y_range=cfg.y_range,

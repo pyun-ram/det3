@@ -218,7 +218,58 @@ def create_regressgrid(label, calib, res, x_range, y_range, z_range):
         grid[:, z, y, x] = cns_Ftmp_[:].flatten()
     return grid
 
-def parse_grid_to_label(obj_grid, reg_grid, threshold, calib, cls, res, x_range, y_range, z_range):
+def cnsFcam2d_to_bboxes2d(cns_Fcam2d):
+    '''
+    convert corners in left camera plane to 2D bounding boxes
+    inputs:
+        cnsFcam2d (np.array): [#bboxes, 8, 2]
+    return:
+        bboxes2d (np.array): [#bboxes, 4]
+            [minx, maxx, miny, maxy]
+    '''
+    minx_Fcam2d = np.min(cns_Fcam2d[:, :, 0:1], axis=1).astype(np.int)
+    maxx_Fcam2d = np.max(cns_Fcam2d[:, :, 0:1], axis=1).astype(np.int)
+    miny_Fcam2d = np.min(cns_Fcam2d[:, :, 1:2], axis=1).astype(np.int)
+    maxy_Fcam2d = np.max(cns_Fcam2d[:, :, 1:2], axis=1).astype(np.int)
+    boxes2d = np.hstack([minx_Fcam2d, maxx_Fcam2d, miny_Fcam2d, maxy_Fcam2d])
+    return boxes2d
+
+def nms(boxes, scores, threshold):
+    '''
+    Non-Maximum Surpression (NMS).
+    inputs:
+        boxes (np.array): [# boxes, 4]
+            2D boxes [minx, maxx, miny, maxy]
+        scores (np.array): (# boxes, )
+    return:
+        idx (list)
+    reference:https://www.cnblogs.com/makefile/p/nms.html
+    '''
+    x1 = boxes[:, 0]
+    x2 = boxes[:, 1]
+    y1 = boxes[:, 2]
+    y2 = boxes[:, 3]
+
+    areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+    order = scores.argsort()[::-1]
+    keep = []
+    while order.size > 0:
+        i = order[0]
+        keep.append(i)
+        xx1 = np.maximum(x1[i], x1[order[1:]])
+        yy1 = np.maximum(y1[i], y1[order[1:]])
+        xx2 = np.minimum(x2[i], x2[order[1:]])
+        yy2 = np.minimum(y2[i], y2[order[1:]])
+
+        w = np.maximum(0.0, xx2 - xx1 + 1)
+        h = np.maximum(0.0, yy2 - yy1 + 1)
+        inter = w * h
+        ovr = inter / (areas[i] + areas[order[1:]] - inter)
+        inds = np.where(ovr <= threshold)[0]
+        order = order[inds + 1]
+    return keep
+
+def parse_grid_to_label(obj_grid, reg_grid, score_threshold, nms_threshold, calib, cls, res, x_range, y_range, z_range):
     '''
     get the estimation from obj_grid and reg_grid
     inputs:
@@ -226,6 +277,8 @@ def parse_grid_to_label(obj_grid, reg_grid, threshold, calib, cls, res, x_range,
         reg_grid (np.array): [24, z_dim, y_dim, x_dim] (LiDAR Frame)
         threshold (float):
             the posterior probability >= threshold in the obj_grid will be returned.
+        nms_threshold (float):
+            the threshold for NMS IoU selection
         calib (KittiCalib)
         cls (str)
         res (tuple): (dx(float), dy(float), dz(float))
@@ -236,20 +289,31 @@ def parse_grid_to_label(obj_grid, reg_grid, threshold, calib, cls, res, x_range,
     return:
         res: (KittiLabel)
     '''
-    num_of_objs = np.vstack(np.where(obj_grid >= threshold)).T.shape[0]
+    num_of_objs = np.vstack(np.where(obj_grid >= score_threshold)).T.shape[0]
     if num_of_objs == 0:
         label = KittiLabel()
         label.data = []
         return label
-    centers_Fgrid = np.vstack(np.where(obj_grid >= threshold)).T[:, 1:]
+    # get scores
+    scores = obj_grid[obj_grid >= score_threshold]
+    # get cns_Fcam
+    centers_Fgrid = np.vstack(np.where(obj_grid >= score_threshold)).T[:, 1:]
     centers_Flidar = grid2lidar(centers_Fgrid, res, x_range, y_range, z_range, bias=None)
     bias_Ftmp = [reg_grid[:, center_Fgrid[0], center_Fgrid[1], center_Fgrid[2]].reshape(8, 3) for center_Fgrid in centers_Fgrid]
     cns_Flidar = [_bias_Ftmp + center_Flidar for _bias_Ftmp, center_Flidar in zip(bias_Ftmp, centers_Flidar)]
     cns_Flidar = np.vstack(cns_Flidar)
     cns_Fcam = calib.lidar2leftcam(cns_Flidar)
+    # get cns_Fcam2d
+    cns_Fcam2d = calib.leftcam2imgplane(cns_Fcam)
     cns_Fcam = cns_Fcam.reshape(-1, 8, 3)
+    cns_Fcam2d = cns_Fcam2d.reshape(-1, 8, 2)
+    # get boxes2d
+    boxes2d = cnsFcam2d_to_bboxes2d(cns_Fcam2d)
+    # nms
+    idx = nms(boxes2d, scores, nms_threshold)
     label = KittiLabel()
     label.data = []
-    for _cns_Fcam in cns_Fcam:
-        label.data.append(KittiObj().from_corners(_cns_Fcam, cls, 1.0))
+    for _cns_Fcam, score in zip(cns_Fcam[idx], scores[idx]):
+        label.data.append(KittiObj().from_corners(_cns_Fcam, cls, score))
     return label
+

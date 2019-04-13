@@ -52,6 +52,8 @@ class KittiCalib:
         Tr_velo_to_cam[0:3, :] = np.array(self.data['Tr_velo_to_cam']).reshape(3, 4)
         Tr_velo_to_cam[3, 3] = 1
         self.Tr_velo_to_cam = Tr_velo_to_cam
+
+        self.P2 = np.array(self.data['P2']).reshape(3,4)
         return self
 
     def leftcam2lidar(self, pts):
@@ -87,6 +89,25 @@ class KittiCalib:
         pts_cam_T = self.R0_rect @ self.Tr_velo_to_cam @ pts_hT # (4, #pts)
         pts_cam = pts_cam_T.T # (#pts, 4)
         return pts_cam[:, :3]
+
+    def leftcam2imgplane(self, pts):
+        '''
+        project the pts from the left camera frame to left camera plane
+        pixels = P2 @ pts_cam
+        inputs:
+            pts(np.array): [#pts, 2]
+            points in the left camera frame
+        '''
+        if self.data is None:
+            print("read_kitti_calib_file should be read first")
+            raise RuntimeError
+        hfiller = np.expand_dims(np.ones(pts.shape[0]), axis=1)
+        pts_hT = np.hstack([pts, hfiller]).T #(4, #pts)
+        pixels_T = self.P2 @ pts_hT #(3, #pts)
+        pixels = pixels_T.T
+        pixels[:, 0] /= pixels[:, 2]
+        pixels[:, 1] /= pixels[:, 2]
+        return pixels[:, :2]
 
 class KittiLabel:
     '''

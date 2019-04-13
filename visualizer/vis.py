@@ -100,19 +100,78 @@ class BEVImage:
         self.data = np.array(bev_img)
         return self
 
+class FVImage:
+    '''
+    class of Front View Image
+    '''
+    def __init__(self):
+        '''
+        initilization
+        '''
+        self.data = None
+    def from_image(self, image):
+        '''
+        load image.
+        inputs:
+            image (np.array): [h, w, 3]
+        '''
+        self.data = image
+        return self
+    def draw_box(self, obj, calib, bool_gt=False, width=3):
+        '''
+        draw bounding box on Front View Image
+        inputs:
+            obj (KittiObj)
+            calib (KittiCalib)
+            Note: It is able to hundle the out-of-coordinate bounding boxes.
+                gt: purple
+                est: yellow
+            Note: The 2D bounding box is computed from 3D bounding box
+        '''
+        if self.data is None:
+            print("from_lidar should be run first")
+            raise RuntimeError
+        cns_Fcam = obj.get_bbox3dcorners()
+        cns_Fcam2d = calib.leftcam2imgplane(cns_Fcam)
+        minx = int(np.min(cns_Fcam2d[:, 0]))
+        maxx = int(np.max(cns_Fcam2d[:, 0]))
+        miny = int(np.min(cns_Fcam2d[:, 1]))
+        maxy = int(np.max(cns_Fcam2d[:, 1]))
+        fv_img = Image.fromarray(self.data)
+        draw = ImageDraw.Draw(fv_img)
+        p1 = np.array([minx, miny])
+        p2 = np.array([minx, maxy])
+        p3 = np.array([maxx, maxy])
+        p4 = np.array([maxx, miny])
+        color = 'purple' if bool_gt else 'yellow'
+        draw.line([p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], p1[0], p1[1]], fill=color, width=width)
+        self.data = np.array(fv_img)
+        return self
+
 if __name__ == "__main__":
     import sys
     sys.path.append("../")
     from det3.dataloarder.data import KittiData
     from PIL import Image
-    data = KittiData('/usr/app/data/KITTI/dev/', '000000')
-    calib, _, label, pc = data.read_data()
-    bevimg = BEVImage(x_range=(0, 70), y_range=(-30,30), grid_size=(0.05, 0.05))
-    bevimg.from_lidar(pc, scale=1)
+    # data = KittiData('/usr/app/data/KITTI/dev/', '000000')
+    # calib, _, label, pc = data.read_data()
+    # bevimg = BEVImage(x_range=(0, 70), y_range=(-30,30), grid_size=(0.05, 0.05))
+    # bevimg.from_lidar(pc, scale=1)
+    # for obj in label.read_kitti_label_file().data:
+    #     if obj.type == 'Pedestrian':
+    #         bevimg.draw_box(obj, calib, bool_gt=False)
+    #     print(obj)
+    # bevimg_img = Image.fromarray(bevimg.data)
+    # bevimg_img.save("lala.png")
+
+    data = KittiData('/usr/app/data/KITTI/dev/', '000007')
+    calib, img, label, pc = data.read_data()
+    fvimg = FVImage()
+    fvimg.from_image(img)
     for obj in label.read_kitti_label_file().data:
-        if obj.type == 'Pedestrian':
-            bevimg.draw_box(obj, calib, bool_gt=False)
+        if obj.type == 'Car':
+            fvimg.draw_box(obj, calib, bool_gt=False)
         print(obj)
-    bevimg_img = Image.fromarray(bevimg.data)
-    bevimg_img.save("lala.png")
+    fvimg_img = Image.fromarray(fvimg.data)
+    fvimg_img.save("/usr/app/vis/dev/fv.png")    
 

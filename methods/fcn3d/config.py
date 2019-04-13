@@ -11,10 +11,10 @@ __C.TAG = 'DEV'
 __C.DATADIR = '/usr/app/data/KITTI/'
 __C.seed = None
 __C.gpu = 0
-__C.lr = 0.001
+__C.lr = 0.0001
 __C.momentum = 0.9
 __C.weight_decay = 1e-4
-__C.resume = '/usr/app/det3/methods/fcn3d/saved_weights/DEV/307.pth.tar'
+__C.resume = None
 __C.start_epoch = 0
 __C.epochs = 500
 __C.x_range = (0, 80)            # Lidar Frame
@@ -26,9 +26,10 @@ __C.cls = 'Car'
 __C.print_freq = 1
 __C.threshold = 0.99
 __C.alpha = 1
-__C.beta = 10
+__C.beta = 5
 __C.eta = 10
 __C.gamma = 0
+__C.nms_threshold = 0.1
 
 __C.KITTI_cls = {
     'Car': ['Car', 'Van'],
