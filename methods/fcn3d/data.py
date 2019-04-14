@@ -19,7 +19,7 @@ class KITTIDataFCN3D():
         """
 
         self.kitti_datasets = {
-            x:KittiDatasetFCN3D(data_dir=data_dir, train_val_flag=x, cfg=cfg) for x in ["train","val","dev"]}
+            x:KittiDatasetFCN3D(data_dir=data_dir, train_val_flag=x, cfg=cfg) for x in ["train","val"]}
 
         if distributed:
             train_sampler = torch.utils.data.distributed.DistributedSampler(
@@ -42,14 +42,6 @@ class KITTIDataFCN3D():
                 batch_size=1,
                 num_workers=num_workers,
                 pin_memory=True,
-                shuffle=False
-            ),
-            "dev": torch.utils.data.DataLoader(
-                self.kitti_datasets["dev"],
-                batch_size=batch_size,
-                num_workers=num_workers,
-                pin_memory=True,
-                sampler=train_sampler,
                 shuffle=False
             )}
 
