@@ -12,10 +12,12 @@ sys.path.append('../')
 import warnings
 import os
 import shutil
+import logging
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from PIL import Image, ImageDraw
+from tensorboardX import SummaryWriter
 from det3.methods.fcn3d.config import cfg
 from det3.methods.fcn3d.model import FCN3D
 from det3.methods.fcn3d.criteria import FCN3DLoss
@@ -30,6 +32,12 @@ log_dir = os.path.join(root_dir, 'logs', cfg.TAG)
 os.makedirs(save_dir, exist_ok=True)
 os.makedirs(log_dir, exist_ok=True)
 shutil.copy(os.path.join(root_dir, 'config.py'), os.path.join(log_dir, 'config.py'))
+logging.basicConfig(filename=os.path.join(log_dir, 'log.txt'), level=logging.INFO)
+tsbd = SummaryWriter(log_dir=log_dir)
+
+def output_log(s):
+    print(s)
+    logging.critical(s)
 
 def main():
     if cfg.seed is not None:
@@ -46,7 +54,7 @@ def main():
     if cfg.gpu is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
                       'disable data parallelism.')
-        print("Use GPU: {} for training".format(cfg.gpu))
+        output_log("Use GPU: {} for training".format(cfg.gpu))
         torch.cuda.set_device(cfg.gpu)
         model = model.cuda(cfg.gpu)
     else:
@@ -54,36 +62,41 @@ def main():
 
     # define loss function and optimizer
     criterion = FCN3DLoss(alpha=cfg.alpha, beta=cfg.beta, eta=cfg.eta, gamma=cfg.gamma)
-    optimizer = torch.optim.SGD(model.parameters(), cfg.lr,
-                                momentum=cfg.momentum,
-                                weight_decay=cfg.weight_decay)
+    # optimizer = torch.optim.SGD(model.parameters(), cfg.lr,
+    #                             momentum=cfg.momentum,
+    #                             weight_decay=cfg.weight_decay)
+    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr,
+                                 betas=(0.9, 0.999), eps=1e-08,
+                                 weight_decay=cfg.weight_decay, amsgrad=False)
 
     # optionally resume from a checkpoint
     if cfg.resume:
         if os.path.isfile(cfg.resume):
-            print("=> loading checkpoint '{}'".format(cfg.resume))
+            output_log("=> loading checkpoint '{}'".format(cfg.resume))
             checkpoint = torch.load(cfg.resume)
             cfg.start_epoch = checkpoint['epoch']
             best_loss1 = checkpoint['best_loss1']
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
-            print("=> loaded checkpoint '{}' (epoch {})"
+            output_log("=> loaded checkpoint '{}' (epoch {})"
                   .format(cfg.resume, checkpoint['epoch']))
         else:
-            print("=> no checkpoint found at '{}'".format(cfg.resume))
+            output_log("=> no checkpoint found at '{}'".format(cfg.resume))
 
     cudnn.benchmark = True
 
-    kitti_data = KITTIDataFCN3D(data_dir=cfg.DATADIR, cfg=cfg, batch_size=2).kitti_loaders
-    train_loader = kitti_data['dev']
+    kitti_data = KITTIDataFCN3D(data_dir=cfg.DATADIR, cfg=cfg, batch_size=cfg.batch_size).kitti_loaders
+    train_loader = kitti_data['train']
     val_loader = KittiDatasetFCN3D(data_dir='/usr/app/data/KITTI', train_val_flag='val', cfg=cfg)
 
     for epoch in range(cfg.start_epoch, cfg.epochs):
         adjust_learning_rate(optimizer, epoch, cfg.lr)
-        train(train_loader, model, criterion, optimizer, epoch, cfg)
-        loss1 = validate(val_loader, model, criterion, epoch, cfg)
-        is_best = loss1 < best_loss1
-        best_loss1 = min(loss1, best_loss1)
+        train_loss = train(train_loader, model, criterion, optimizer, epoch, cfg)
+        tsbd.add_scalar('train/loss', train_loss, epoch)
+        val_loss = validate(val_loader, model, criterion, epoch, cfg)
+        tsbd.add_scalar('val/loss', val_loss, epoch)
+        is_best = val_loss < best_loss1
+        best_loss1 = min(val_loss, best_loss1)
         save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
@@ -126,12 +139,13 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
         end = time.time()
 
         if i % cfg.print_freq == 0:
-            print('Epoch: [{0}][{1}/{2}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})'.format(
-                      epoch, i, len(train_loader), batch_time=batch_time,
-                      data_time=data_time, loss=losses))
+            output_log('Epoch: [{0}][{1}/{2}]\t'
+                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                       'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                       'Loss {loss.val:.4f} ({loss.avg:.4f})'.format(
+                           epoch, i, len(train_loader), batch_time=batch_time,
+                           data_time=data_time, loss=losses))
+    return losses.avg
 
 
 
@@ -185,10 +199,10 @@ def validate(val_loader, model, criterion, epoch, cfg):
             bevimg_img.save(os.path.join(log_dir, 'val_imgs', str(epoch), str(i)+'.png'))
 
             if i % cfg.print_freq == 0:
-                print('Test: [{0}/{1}]\t'
-                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                      'Loss {loss.val:.4f} ({loss.avg:.4f})'.format(
-                          i, len(val_loader), batch_time=batch_time, loss=losses))
+                output_log('Test: [{0}/{1}]\t'
+                           'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                           'Loss {loss.val:.4f} ({loss.avg:.4f})'.format(
+                               i, len(val_loader), batch_time=batch_time, loss=losses))
     return losses.avg
 
 def adjust_learning_rate(optimizer, epoch, lr_):
