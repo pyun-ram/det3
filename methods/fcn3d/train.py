@@ -13,6 +13,7 @@ import warnings
 import os
 import shutil
 import logging
+import math
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -49,7 +50,7 @@ def main():
                       'which can slow down your training considerably! '
                       'You may see unexpected behavior when restarting '
                       'from checkpoints.')
-    best_loss1 = 0
+    best_loss1 = math.inf
     model = FCN3D()
     if cfg.gpu is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
