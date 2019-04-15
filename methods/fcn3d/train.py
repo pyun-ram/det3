@@ -112,7 +112,7 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
     # switch to train mode
     model.train()
     end = time.time()
-    for i, (voxel, gt_objgrid, gt_reggrid) in enumerate(train_loader):
+    for i, (tag, voxel, gt_objgrid, gt_reggrid) in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
         if cfg.gpu is not None:
@@ -158,7 +158,7 @@ def validate(val_loader, model, criterion, epoch, cfg):
     os.makedirs(os.path.join(log_dir, 'val_imgs', str(epoch)), exist_ok=True)
     with torch.no_grad():
         end = time.time()
-        for i, (voxel, gt_objgrid, gt_reggrid, pc, label, calib) in enumerate(val_loader):
+        for i, (tag, voxel, gt_objgrid, gt_reggrid, pc, label, calib) in enumerate(val_loader):
             if cfg.gpu is not None:
                 voxel = torch.from_numpy(voxel).cuda(cfg.gpu, non_blocking=True)
                 gt_objgrid = torch.from_numpy(gt_objgrid).cuda(cfg.gpu, non_blocking=True)
@@ -196,7 +196,7 @@ def validate(val_loader, model, criterion, epoch, cfg):
                     bevimg.draw_box(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
 
             bevimg_img = Image.fromarray(bevimg.data)
-            bevimg_img.save(os.path.join(log_dir, 'val_imgs', str(epoch), str(i)+'.png'))
+            bevimg_img.save(os.path.join(log_dir, 'val_imgs', str(epoch), '{:06d}.png'.format(tag)))
 
             if i % cfg.print_freq == 0:
                 output_log('Test: [{0}/{1}]\t'

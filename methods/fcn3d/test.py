@@ -79,7 +79,7 @@ def main():
 
     cudnn.benchmark = True
 
-    val_loader = KittiDatasetFCN3D(data_dir='/usr/app/data/KITTI', train_val_flag='dev', cfg=cfg)
+    val_loader = KittiDatasetFCN3D(data_dir='/usr/app/data/KITTI', train_val_flag='val', cfg=cfg)
     val_loss = evaluate(val_loader, model, criterion, cfg)
 
 def evaluate(data_loader, model, criterion, cfg):
