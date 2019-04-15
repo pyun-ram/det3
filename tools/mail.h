@@ -1,6 +1,8 @@
 /*
 Note: This is from https://github.com/prclibo/kitti_eval/blob/master/evaluate_object_3d_offline.cpp
+apt-get install libboost-dev
 g++ -o tools/evaluate_object_3d_offline tools/evaluate_object_3d_offline.cpp
+./tools/evaluate_object_3d_offline groundtruth_dir result_dir
  */
 #ifndef MAIL_H
 #define MAIL_H

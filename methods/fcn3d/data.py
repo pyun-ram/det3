@@ -69,6 +69,7 @@ class KittiDatasetFCN3D(Dataset):
 
     def __getitem__(self, idx):
         calib, _, label, pc = KittiData(self.data_dir, self.idx_list[idx]).read_data()
+        tag = int(self.idx_list[idx])
         pc = filter_camera_angle(pc)
         voxel = voxelize_pc(pc, res=self.cfg.resolution, x_range=self.cfg.x_range,
                             y_range=self.cfg.y_range, z_range=self.cfg.z_range)
@@ -95,13 +96,13 @@ class KittiDatasetFCN3D(Dataset):
         voxel = np.expand_dims(voxel, axis=0).astype(np.float32)
         gt_objgrid = gt_objgrid.astype(np.float32)
         gt_reggrid = gt_reggrid.astype(np.float32)
-        if self.train_val_flag in ['train', 'dev'] :
-            return voxel, gt_objgrid, gt_reggrid
-        elif self.train_val_flag == 'val':
+        if self.train_val_flag in ['train'] :
+            return tag, voxel, gt_objgrid, gt_reggrid
+        elif self.train_val_flag in ['val', 'dev']:
             voxel = np.expand_dims(voxel, axis=0).astype(np.float32)
             gt_objgrid = np.expand_dims(gt_objgrid, axis=0).astype(np.float32)
             gt_reggrid = np.expand_dims(gt_reggrid, axis=0).astype(np.float32)
-            return voxel, gt_objgrid, gt_reggrid, pc, label, calib
+            return tag, voxel, gt_objgrid, gt_reggrid, pc, label, calib
         else:
             raise NotImplementedError
 
