@@ -314,6 +314,6 @@ def parse_grid_to_label(obj_grid, reg_grid, score_threshold, nms_threshold, cali
     label = KittiLabel()
     label.data = []
     for _cns_Fcam, score in zip(cns_Fcam[idx], scores[idx]):
-        label.data.append(KittiObj().from_corners(_cns_Fcam, cls, score))
+        label.data.append(KittiObj().from_corners(calib, _cns_Fcam, cls, score))
     return label
 

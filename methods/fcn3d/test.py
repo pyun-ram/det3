@@ -22,7 +22,7 @@ from det3.methods.fcn3d.model import FCN3D
 from det3.methods.fcn3d.criteria import FCN3DLoss
 from det3.methods.fcn3d.data import KittiDatasetFCN3D
 from det3.methods.fcn3d.utils import parse_grid_to_label
-from det3.visualizer.vis import BEVImage
+from det3.visualizer.vis import BEVImage, FVImage
 
 root_dir = __file__.split('/')
 root_dir = os.path.join(root_dir[0], root_dir[1])
@@ -90,7 +90,7 @@ def evaluate(data_loader, model, criterion, cfg):
     model.eval()
     with torch.no_grad():
         end = time.time()
-        for i, (tag, voxel, gt_objgrid, gt_reggrid, pc, label, calib) in enumerate(data_loader):
+        for i, (tag, voxel, img, gt_objgrid, gt_reggrid, pc, label, calib) in enumerate(data_loader):
             if cfg.gpu is not None:
                 voxel = torch.from_numpy(voxel).cuda(cfg.gpu, non_blocking=True)
                 gt_objgrid = torch.from_numpy(gt_objgrid).cuda(cfg.gpu, non_blocking=True)
@@ -110,11 +110,14 @@ def evaluate(data_loader, model, criterion, cfg):
             end = time.time()
 
             bevimg = BEVImage(x_range=cfg.x_range, y_range=cfg.y_range, grid_size=(0.05, 0.05))
-            bevimg.from_lidar(pc[:, :], scale=1)
+            bevimg.from_lidar(pc, scale=1)
+            fvimg = FVImage()
+            fvimg.from_image(img)
 
             for obj in label.data:
                 if obj.type in cfg.KITTI_cls[cfg.cls]:
                     bevimg.draw_box(obj, calib, bool_gt=True, width=3)
+                    fvimg.draw_box(obj, calib, bool_gt=True, width=3)
 
             rec_label = parse_grid_to_label(est_objgrid.cpu().numpy()[0, ::], est_reggrid.cpu().numpy()[0, ::],
                                             score_threshold=cfg.threshold, nms_threshold=cfg.nms_threshold,
@@ -126,9 +129,11 @@ def evaluate(data_loader, model, criterion, cfg):
             for obj in rec_label.data:
                 if obj.type in cfg.KITTI_cls[cfg.cls]:
                     bevimg.draw_box(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
-
+                    fvimg.draw_box(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
             bevimg_img = Image.fromarray(bevimg.data)
-            bevimg_img.save(os.path.join(log_dir, 'eval_results', 'imgs', '{:06d}.png'.format(tag)))
+            bevimg_img.save(os.path.join(log_dir, 'eval_results', 'imgs', '{:06d}_bv.png'.format(tag)))
+            fvimg_img = Image.fromarray(fvimg.data)
+            fvimg_img.save(os.path.join(log_dir, 'eval_results', 'imgs', '{:06d}_fv.png'.format(tag)))
             res_path = os.path.join(log_dir, 'eval_results', 'data', '{:06d}.txt'.format(tag))
             write_str_to_file(str(rec_label), res_path)
             output_log('write out {} objects to {:06d}'.format(len(str(rec_label).split('\n')), tag))

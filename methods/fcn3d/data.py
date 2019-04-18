@@ -43,7 +43,14 @@ class KITTIDataFCN3D():
                 num_workers=num_workers,
                 pin_memory=True,
                 shuffle=False
-            )}
+            ),
+            "dev": torch.utils.data.DataLoader(
+                self.kitti_datasets["dev"],
+                batch_size=1,
+                num_workers=num_workers,
+                pin_memory=True,
+                shuffle=False
+            )            }
 
 class KittiDatasetFCN3D(Dataset):
     '''
@@ -68,7 +75,7 @@ class KittiDatasetFCN3D(Dataset):
         return len(os.listdir(self.velodyne_dir))
 
     def __getitem__(self, idx):
-        calib, _, label, pc = KittiData(self.data_dir, self.idx_list[idx]).read_data()
+        calib, img, label, pc = KittiData(self.data_dir, self.idx_list[idx]).read_data()
         tag = int(self.idx_list[idx])
         pc = filter_camera_angle(pc)
         voxel = voxelize_pc(pc, res=self.cfg.resolution, x_range=self.cfg.x_range,
@@ -102,7 +109,7 @@ class KittiDatasetFCN3D(Dataset):
             voxel = np.expand_dims(voxel, axis=0).astype(np.float32)
             gt_objgrid = np.expand_dims(gt_objgrid, axis=0).astype(np.float32)
             gt_reggrid = np.expand_dims(gt_reggrid, axis=0).astype(np.float32)
-            return tag, voxel, gt_objgrid, gt_reggrid, pc, label, calib
+            return tag, voxel, img, gt_objgrid, gt_reggrid, pc, label, calib
         else:
             raise NotImplementedError
 

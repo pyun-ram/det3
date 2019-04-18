@@ -95,7 +95,7 @@ class KittiCalib:
         project the pts from the left camera frame to left camera plane
         pixels = P2 @ pts_cam
         inputs:
-            pts(np.array): [#pts, 2]
+            pts(np.array): [#pts, 3]
             points in the left camera frame
         '''
         if self.data is None:
@@ -251,7 +251,7 @@ class KittiObj():
         top = utils.apply_tr(bottom, np.array([0, -h, 0]))
         return np.vstack([bottom, top])
     
-    def from_corners(self, corners, cls, score):
+    def from_corners(self, calib, corners, cls, score):
         '''
         initialize from corner points
         inputs:
@@ -300,16 +300,21 @@ class KittiObj():
         ) / 8.0 + np.pi  / 2.0
         if np.isclose(self.ry, np.pi/2.0):
             self.ry = 0.0
+        cns_Fcam2d = calib.leftcam2imgplane(corners)
+        minx = int(np.min(cns_Fcam2d[:, 0]))
+        maxx = int(np.max(cns_Fcam2d[:, 0]))
+        miny = int(np.min(cns_Fcam2d[:, 1]))
+        maxy = int(np.max(cns_Fcam2d[:, 1]))
         self.ry = utils.clip_ry(self.ry)
         self.type = cls
         self.score = score
-        self.truncated = -1
-        self.occluded = -1
-        self.alpha = -1
-        self.bbox_l = -1
-        self.bbox_t = -1
-        self.bbox_r = -1
-        self.bbox_b = -1
+        self.truncated = 0
+        self.occluded = 0
+        self.alpha = 0
+        self.bbox_l = minx
+        self.bbox_t = miny
+        self.bbox_r = maxx
+        self.bbox_b = maxy
         return self
 
     def equal(self, obj, acc_cls, rtol):
