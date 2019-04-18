@@ -102,6 +102,7 @@ class TestKittiObj(unittest.TestCase):
     # TODO:TEST from_corners
     def test_from_corners(self):
         kittiobj = KittiObj()
+        calib = KittiCalib("./unit-test/data/test_KittiCalib_000000.txt").read_kitti_calib_file()
         cns = np.array([[1.24242996, 1.47, 8.6559879],
                 [2.44236996, 1.47, 8.6439881],
                 [2.43757004, 1.47, 8.1640121],
@@ -110,15 +111,15 @@ class TestKittiObj(unittest.TestCase):
                 [2.44236996, -0.42, 8.6439881],
                 [2.43757004, -0.42, 8.1640121],
                 [1.23763004, -0.42, 8.1760119]])
-        kittiobj.from_corners(cns, 'Pedestrian', 1.0)
+        kittiobj.from_corners(calib, cns, 'Pedestrian', 1.0)
         self.assertEqual(kittiobj.type, 'Pedestrian')
-        self.assertEqual(kittiobj.truncated, -1)
-        self.assertEqual(kittiobj.occluded, -1)
-        self.assertEqual(kittiobj.alpha, -1)
-        self.assertEqual(kittiobj.bbox_l, -1)
-        self.assertEqual(kittiobj.bbox_t, -1)
-        self.assertEqual(kittiobj.bbox_r, -1)
-        self.assertEqual(kittiobj.bbox_b, -1)
+        self.assertEqual(kittiobj.truncated, 0)
+        self.assertEqual(kittiobj.occluded, 0)
+        self.assertEqual(kittiobj.alpha, 0)
+        self.assertTrue(np.allclose(kittiobj.bbox_l, 712.4,  rtol=0.1))
+        self.assertTrue(np.allclose(kittiobj.bbox_t, 143.0,  rtol=0.1))
+        self.assertTrue(np.allclose(kittiobj.bbox_r, 810.73, rtol=0.1))
+        self.assertTrue(np.allclose(kittiobj.bbox_b, 307.92, rtol=0.1))        
         self.assertTrue(np.allclose(kittiobj.h, 1.89, rtol=1e-5))
         self.assertTrue(np.allclose(kittiobj.w, 0.48, rtol=1e-5))
         self.assertTrue(np.allclose(kittiobj.l, 1.2, rtol=1e-5))
