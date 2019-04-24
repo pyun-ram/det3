@@ -10,7 +10,7 @@ from numpy.linalg import inv
 try:
     from ..utils import utils
 except:
-    # Run script python3 dataloader/data.py
+    # Run script python3 dataloader/kittidata.py
     import sys
     sys.path.append("../")
     import det3.utils.utils as utils
@@ -29,7 +29,7 @@ class KittiCalib:
         self.R0_rect = None
         self.Tr_velo_to_cam = None
 
-    def read_kitti_calib_file(self):
+    def read_calib_file(self):
         '''
         read KITTI calib file
         '''
@@ -65,7 +65,7 @@ class KittiCalib:
                 points in the left camera frame
         '''
         if self.data is None:
-            print("read_kitti_calib_file should be read first")
+            print("read_calib_file should be read first")
             raise RuntimeError
         hfiller = np.expand_dims(np.ones(pts.shape[0]), axis=1)
         pts_hT = np.hstack([pts, hfiller]).T #(4, #pts)
@@ -82,7 +82,7 @@ class KittiCalib:
                 points in the lidar frame
         '''
         if self.data is None:
-            print("read_kitti_calib_file should be read first")
+            print("read_calib_file should be read first")
             raise RuntimeError
         hfiller = np.expand_dims(np.ones(pts.shape[0]), axis=1)
         pts_hT = np.hstack([pts, hfiller]).T #(4, #pts)
@@ -99,7 +99,7 @@ class KittiCalib:
             points in the left camera frame
         '''
         if self.data is None:
-            print("read_kitti_calib_file should be read first")
+            print("read_calib_file should be read first")
             raise RuntimeError
         hfiller = np.expand_dims(np.ones(pts.shape[0]), axis=1)
         pts_hT = np.hstack([pts, hfiller]).T #(4, #pts)
@@ -118,7 +118,7 @@ class KittiLabel:
         self.path = label_path
         self.data = None
 
-    def read_kitti_label_file(self, no_dontcare=True):
+    def read_label_file(self, no_dontcare=True):
         '''
         read KITTI label file
         '''
@@ -357,6 +357,9 @@ class KittiData:
         '''
         read data
         returns:
+            calib(KittiCalib)
+            image(np.array): [w, h, 3]
+            label(KittiLabel)
             pc(np.array): [# of points, 4]
                 point cloud in lidar frame.
                 [x, y, z]
@@ -364,13 +367,13 @@ class KittiData:
                       |
                 y<----.z
         '''
-        calib = KittiCalib(self.calib_path).read_kitti_calib_file()
+        calib = KittiCalib(self.calib_path).read_calib_file()
         image = utils.read_image(self.image2_path)
-        label = KittiLabel(self.label2_path).read_kitti_label_file()
+        label = KittiLabel(self.label2_path).read_label_file()
         pc = utils.read_pc_from_bin(self.velodyne_path)
         return calib, image, label, pc
 
 if __name__ == "__main__":
-    label = KittiLabel("/usr/app/data/KITTI/dev/label_2/000009.txt").read_kitti_label_file()
+    label = KittiLabel("/usr/app/data/KITTI/dev/label_2/000009.txt").read_label_file()
     for obj in label.data:
         print(obj)

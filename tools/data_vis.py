@@ -13,7 +13,7 @@ import sys
 sys.path.append("../")
 from PIL import Image
 from det3.utils.utils import get_idx_list
-from det3.dataloarder.data import KittiData
+from det3.dataloarder.kittidata import KittiData
 from det3.visualizer.vis import BEVImage
 
 def main():
@@ -39,7 +39,7 @@ def main():
         calib, img, label, pc = KittiData(data_dir, idx).read_data()
         bevimg = BEVImage(x_range=(0, 70), y_range=(-40, 40), grid_size=(0.05, 0.05))
         bevimg.from_lidar(pc, scale=1)
-        for obj in label.read_kitti_label_file().data:
+        for obj in label.read_label_file().data:
             bevimg.draw_box(obj, calib, bool_gt=True)
         bevimg_img = Image.fromarray(bevimg.data)
         bevimg_img.save(os.path.join(output_dir, idx+'.png'))

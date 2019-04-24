@@ -30,8 +30,17 @@ def read_image(path):
 # BUG HERE
 def read_pc_from_pcd(pcd_path):
     """Load PointCloud data from pcd file."""
-    p = np.fromfile(pcd_path, dtype=np.float32).reshape(-1, 4)
-    return p
+    from open3d import read_point_cloud
+    pcd = read_point_cloud(pcd_path)
+    pc = np.asarray(pcd.points)
+    return pc
+
+def read_pc_from_ply(ply_path):
+    '''Load PointCloud data from ply file'''
+    from open3d import read_point_cloud
+    pcd = read_point_cloud(ply_path)
+    pc = np.asarray(pcd.points)
+    return pc
 
 def read_pc_from_bin(bin_path):
     """Load PointCloud data from bin file."""

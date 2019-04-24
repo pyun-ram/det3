@@ -6,7 +6,7 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 import numpy as np
 import sys
 sys.path.append('../')
-from det3.dataloarder.data import KittiObj, KittiLabel
+from det3.dataloarder.kittidata import KittiObj, KittiLabel
 
 def filter_camera_angle(pts):
     """
