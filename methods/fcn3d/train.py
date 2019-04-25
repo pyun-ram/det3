@@ -22,7 +22,6 @@ from tensorboardX import SummaryWriter
 from det3.methods.fcn3d.config import cfg
 from det3.methods.fcn3d.model import FCN3D
 from det3.methods.fcn3d.criteria import FCN3DLoss
-from det3.methods.fcn3d.data import KITTIDataFCN3D, KittiDatasetFCN3D
 from det3.visualizer.vis import BEVImage
 from det3.methods.fcn3d.utils import parse_grid_to_label
 
@@ -86,9 +85,18 @@ def main():
 
     cudnn.benchmark = True
 
-    kitti_data = KITTIDataFCN3D(data_dir=cfg.DATADIR, cfg=cfg, batch_size=cfg.batch_size).kitti_loaders
-    train_loader = kitti_data['train']
-    val_loader = KittiDatasetFCN3D(data_dir='/usr/app/data/KITTI', train_val_flag='val', cfg=cfg)
+    if "CARLA" in cfg.DATADIR.split("/"):
+        from det3.methods.fcn3d.carladata import CarlaDataFCN3D, CarlaDatasetFCN3D
+        kitti_data = CarlaDataFCN3D(data_dir=cfg.DATADIR, cfg=cfg, batch_size=cfg.batch_size).carla_loaders
+        train_loader = kitti_data['train']
+        val_loader = CarlaDatasetFCN3D(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
+    elif "KITTI" in cfg.DATADIR.split("/"):
+        from det3.methods.fcn3d.kittidata import KITTIDataFCN3D, KittiDatasetFCN3D
+        kitti_data = KITTIDataFCN3D(data_dir=cfg.DATADIR, cfg=cfg, batch_size=cfg.batch_size).kitti_loaders
+        train_loader = kitti_data['train']
+        val_loader = KittiDatasetFCN3D(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
+    else:
+        raise NotImplementedError
 
     for epoch in range(cfg.start_epoch, cfg.epochs):
         adjust_learning_rate(optimizer, epoch, cfg.lr)

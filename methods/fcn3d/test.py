@@ -20,7 +20,6 @@ from PIL import Image
 from det3.methods.fcn3d.config import cfg
 from det3.methods.fcn3d.model import FCN3D
 from det3.methods.fcn3d.criteria import FCN3DLoss
-from det3.methods.fcn3d.data import KittiDatasetFCN3D
 from det3.methods.fcn3d.utils import parse_grid_to_label
 from det3.visualizer.vis import BEVImage, FVImage
 
@@ -79,7 +78,13 @@ def main():
 
     cudnn.benchmark = True
 
-    val_loader = KittiDatasetFCN3D(data_dir='/usr/app/data/KITTI', train_val_flag='val', cfg=cfg)
+    if "CARLA" in cfg.DATADIR.split("/"):
+        from det3.methods.fcn3d.carladata import CarlaDatasetFCN3D
+        val_loader = CarlaDatasetFCN3D(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
+    elif "KITTI" in cfg.DATADIR.split("/"):
+        from det3.methods.fcn3d.kittidata import KittiDatasetFCN3D
+        val_loader = KittiDatasetFCN3D(data_dir='/usr/app/data/KITTI', train_val_flag='val', cfg=cfg)
+
     val_loss = evaluate(val_loader, model, criterion, cfg)
 
 def evaluate(data_loader, model, criterion, cfg):
@@ -112,7 +117,10 @@ def evaluate(data_loader, model, criterion, cfg):
             bevimg = BEVImage(x_range=cfg.x_range, y_range=cfg.y_range, grid_size=(0.05, 0.05))
             bevimg.from_lidar(pc, scale=1)
             fvimg = FVImage()
-            fvimg.from_image(img)
+            if img is not None:
+                fvimg.from_image(img)
+            else:
+                fvimg.from_lidar(calib, pc)
 
             for obj in label.data:
                 if obj.type in cfg.KITTI_cls[cfg.cls]:

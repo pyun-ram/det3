@@ -7,10 +7,12 @@ import numpy as np
 import sys
 sys.path.append('../')
 from det3.dataloarder.kittidata import KittiObj, KittiLabel
+from det3.dataloarder.carladata import CarlaObj, CarlaLabel
+from det3.utils.utils import istype, apply_R, apply_tr, rotz
 
 def filter_camera_angle(pts):
     """
-    Filter camera angles (45 degrees) for KiTTI Datasets
+    Filter camera angles (45 degrees) for KiTTI/CARLA Datasets
     inputs:
         pts (np.array): [#points, >=3]
             orders: [x,y,z]
@@ -56,7 +58,7 @@ def filter_label_cls(label, actuall_cls):
     '''
     filter label and get the objs in cls.
     inputs:
-        label (KittiLabel):
+        label (KittiLabel/CarlaLabel):
             Kitti Label read from txt file
         cls (str):
             'Car', 'Pedestrian', 'Cyclist'
@@ -71,22 +73,48 @@ def filter_label_range(label, calib, x_range, y_range, z_range):
     '''
     filter label and get the objs in the xyz_range specified area.
     inputs:
-        label (KittiLabel):
+        label (KittiLabel/CarlaLabel):
             Kitti Label read from txt file
-        x_range (tuple): (x_min(float), x_max(float)) in Lidar Frame
-        y_range (tuple): (y_min(float), y_max(float)) in Lidar Frame
-        z_range (tuple): (z_min(float), z_max(float)) in Lidar Frame
+        x_range (tuple): (x_min(float), x_max(float)) in Lidar Frame / IMU Frame
+        y_range (tuple): (y_min(float), y_max(float)) in Lidar Frame / IMU Frame
+        z_range (tuple): (z_min(float), z_max(float)) in Lidar Frame / IMU Frame
     '''
     tmp = []
     for obj in label.data:
-        cam_pt = np.array([[obj.x, obj.y-obj.h/2.0, obj.z]])
-        lidar_pt = calib.leftcam2lidar(cam_pt)
+        if istype(label, "KittiLabel") and istype(calib, "KittiCalib"):
+            cam_pt = np.array([[obj.x, obj.y-obj.h/2.0, obj.z]])
+            lidar_pt = calib.leftcam2lidar(cam_pt)
+        elif istype(label, "CarlaLabel") and istype(calib, "CarlaCalib"):
+            lidar_pt = np.array([[obj.x, obj.y+obj.h/2.0, obj.z]]) # IMU Frame
+        else:
+            raise NotImplementedError
         if (x_range[0] <= lidar_pt[0, 0] <= x_range[1] and
-                y_range[0] <= lidar_pt[0, 1] <= y_range[1] and
-                z_range[0] <= lidar_pt[0, 2] <= z_range[1]):
+            y_range[0] <= lidar_pt[0, 1] <= y_range[1] and
+            z_range[0] <= lidar_pt[0, 2] <= z_range[1]):
             tmp.append(obj)
     label.data = tmp
     return label
+
+def filter_label_pts(label, calib, pc, threshold=10):
+    '''
+    filter label and get the objs in the xyz_range specified area.
+    inputs:
+        label (KittiLabel/CarlaLabel)
+        calib (KittiCalib/CarlaCalib)
+        pc
+            PC in LiDAR frame/IMU frame
+    '''
+    if istype(label, "CarlaLabel") and istype(calib, "CarlaCalib"):
+        tmp = []
+        for obj in label.data:
+            #get pts from pc
+            num_pts = obj.get_pts(pc, calib).shape[0]
+            if num_pts > threshold:
+                tmp.append(obj)
+        label.data = tmp
+        return label
+    else:
+        raise NotImplementedError
 
 def lidar2grid(pts, res, x_range, y_range, z_range):
     '''
@@ -141,9 +169,9 @@ def create_objectgrid(label, calib, res, x_range, y_range, z_range):
     '''
     create the object grid for training
     inputs:
-        label (KittiLabel):
+        label (KittiLabel/CarlaLabel):
             filtered label
-        calib (KittiCalib)
+        calib (KittiCalib/CarlaCalib)
         res (tuple): (dx(float), dy(float), dz(float))
             resolution of grid
         x_range (tuple): (x_min(float), x_max(float))
@@ -161,10 +189,17 @@ def create_objectgrid(label, calib, res, x_range, y_range, z_range):
              np.floor((y_max - y_min)/dy).astype(np.int32),
              np.floor((x_max - x_min)/dx).astype(np.int32))
             )
-    centers_Fcam = [np.array([obj.x, obj.y-obj.h/2.0, obj.z]).reshape(-1, 3) for obj in label.data]
-    centers_Fcam = np.vstack(centers_Fcam)
-    centers_Flidar = calib.leftcam2lidar(centers_Fcam)
-    centers_Fgrid = lidar2grid(centers_Flidar, res, x_range, y_range, z_range)
+    if istype(label, "KittiLabel") and istype(calib, "KittiCalib"):
+        centers_Fcam = [np.array([obj.x, obj.y-obj.h/2.0, obj.z]).reshape(-1, 3) for obj in label.data]
+        centers_Fcam = np.vstack(centers_Fcam)
+        centers_Flidar = calib.leftcam2lidar(centers_Fcam)
+        centers_Fgrid = lidar2grid(centers_Flidar, res, x_range, y_range, z_range)
+    elif istype(label, "CarlaLabel") and istype(calib, "CarlaCalib"):
+        centers_FIMU = [np.array([obj.x, obj.y+obj.h/2.0, obj.z]).reshape(-1, 3) for obj in label.data]
+        centers_FIMU = np.vstack(centers_FIMU)
+        centers_Fgrid = lidar2grid(centers_FIMU, res, x_range, y_range, z_range)
+    else:
+        raise NotImplementedError
     grid = np.zeros(
         (1,
          np.floor((z_max - z_min)/dz).astype(np.int32),
@@ -180,9 +215,9 @@ def create_regressgrid(label, calib, res, x_range, y_range, z_range):
     '''
     create the regression grid for training
     inputs:
-        label (KittiLabel):
+        label (KittiLabel/CarlaLabel):
             filtered label
-        calib (KittiCalib)
+        calib (KittiCalib/CarlaCalib)
         res (tuple): (dx(float), dy(float), dz(float))
             resolution of grid
         x_range (tuple): (x_min(float), x_max(float))
@@ -199,15 +234,25 @@ def create_regressgrid(label, calib, res, x_range, y_range, z_range):
              np.floor((y_max - y_min)/dy).astype(np.int32),
              np.floor((x_max - x_min)/dx).astype(np.int32))
             )
-    centers_Fcam = [np.array([obj.x, obj.y-obj.h/2.0, obj.z]).reshape(-1, 3) for obj in label.data]
-    centers_Fcam = np.vstack(centers_Fcam)
-    centers_Flidar = calib.leftcam2lidar(centers_Fcam)
-    centers_Fgrid = lidar2grid(centers_Flidar, res, x_range, y_range, z_range)
-    cns_Fcam = [obj.get_bbox3dcorners() for obj in label.data]
-    cns_Fcam = np.vstack(cns_Fcam)
-    cns_Flidar = calib.leftcam2lidar(cns_Fcam).reshape(-1, 8, 3)
-    rec_centers_Flidar = grid2lidar(centers_Fgrid, res, x_range, y_range, z_range)
-    cns_Ftmp = [cns_Flidar_ - rec_centers_Flidar_ for cns_Flidar_, rec_centers_Flidar_ in zip(cns_Flidar, rec_centers_Flidar)]
+    if istype(label, "KittiLabel") and istype(calib, "KittiCalib"):
+        centers_Fcam = [np.array([obj.x, obj.y-obj.h/2.0, obj.z]).reshape(-1, 3) for obj in label.data]
+        centers_Fcam = np.vstack(centers_Fcam)
+        centers_Flidar = calib.leftcam2lidar(centers_Fcam)
+        centers_Fgrid = lidar2grid(centers_Flidar, res, x_range, y_range, z_range)
+        cns_Fcam = [obj.get_bbox3dcorners() for obj in label.data]
+        cns_Fcam = np.vstack(cns_Fcam)
+        cns_Flidar = calib.leftcam2lidar(cns_Fcam).reshape(-1, 8, 3)
+        rec_centers_Flidar = grid2lidar(centers_Fgrid, res, x_range, y_range, z_range)
+        cns_Ftmp = [cns_Flidar_ - rec_centers_Flidar_ for cns_Flidar_, rec_centers_Flidar_ in zip(cns_Flidar, rec_centers_Flidar)]
+    elif istype(label, "CarlaLabel") and istype(calib, "CarlaCalib"):
+        centers_FIMU = [np.array([obj.x, obj.y+obj.h/2.0, obj.z]).reshape(-1, 3) for obj in label.data]
+        centers_FIMU = np.vstack(centers_FIMU)
+        centers_Fgrid = lidar2grid(centers_FIMU, res, x_range, y_range, z_range)
+        cns_FIMU = [obj.get_bbox3dcorners() for obj in label.data]
+        cns_FIMU = np.vstack(cns_FIMU)
+        cns_FIMU = cns_FIMU.reshape(-1, 8, 3)
+        rec_centers_FIMU = grid2lidar(centers_Fgrid, res, x_range, y_range, z_range)
+        cns_Ftmp = [cns_FIMU_ - rec_centers_FIMU_ for cns_FIMU_, rec_centers_FIMU_ in zip(cns_FIMU, rec_centers_FIMU)]
     grid = np.zeros(
         (24, np.floor((z_max - z_min)/dz).astype(np.int32),
          np.floor((y_max - y_min)/dy).astype(np.int32),
@@ -279,7 +324,7 @@ def parse_grid_to_label(obj_grid, reg_grid, score_threshold, nms_threshold, cali
             the posterior probability >= threshold in the obj_grid will be returned.
         nms_threshold (float):
             the threshold for NMS IoU selection
-        calib (KittiCalib)
+        calib (KittiCalib/CarlaCalib)
         cls (str)
         res (tuple): (dx(float), dy(float), dz(float))
             resolution of grid
@@ -287,33 +332,60 @@ def parse_grid_to_label(obj_grid, reg_grid, score_threshold, nms_threshold, cali
         y_range (tuple): (y_min(float), y_max(float))
         z_range (tuple): (z_min(float), z_max(float))
     return:
-        res: (KittiLabel)
+        res: (KittiLabel/CarlaLabel)
     '''
     num_of_objs = np.vstack(np.where(obj_grid >= score_threshold)).T.shape[0]
-    if num_of_objs == 0:
-        label = KittiLabel()
-        label.data = []
-        return label
     # get scores
     scores = obj_grid[obj_grid >= score_threshold]
-    # get cns_Fcam
-    centers_Fgrid = np.vstack(np.where(obj_grid >= score_threshold)).T[:, 1:]
-    centers_Flidar = grid2lidar(centers_Fgrid, res, x_range, y_range, z_range, bias=None)
-    bias_Ftmp = [reg_grid[:, center_Fgrid[0], center_Fgrid[1], center_Fgrid[2]].reshape(8, 3) for center_Fgrid in centers_Fgrid]
-    cns_Flidar = [_bias_Ftmp + center_Flidar for _bias_Ftmp, center_Flidar in zip(bias_Ftmp, centers_Flidar)]
-    cns_Flidar = np.vstack(cns_Flidar)
-    cns_Fcam = calib.lidar2leftcam(cns_Flidar)
-    # get cns_Fcam2d
-    cns_Fcam2d = calib.leftcam2imgplane(cns_Fcam)
-    cns_Fcam = cns_Fcam.reshape(-1, 8, 3)
-    cns_Fcam2d = cns_Fcam2d.reshape(-1, 8, 2)
-    # get boxes2d
-    boxes2d = cnsFcam2d_to_bboxes2d(cns_Fcam2d)
-    # nms
-    idx = nms(boxes2d, scores, nms_threshold)
-    label = KittiLabel()
-    label.data = []
-    for _cns_Fcam, score in zip(cns_Fcam[idx], scores[idx]):
-        label.data.append(KittiObj().from_corners(calib, _cns_Fcam, cls, score))
-    return label
-
+    if istype(calib, "KittiCalib"):
+        if num_of_objs == 0:
+            label = KittiLabel()
+            label.data = []
+            return label
+        # get cns_Fcam
+        centers_Fgrid = np.vstack(np.where(obj_grid >= score_threshold)).T[:, 1:]
+        centers_Flidar = grid2lidar(centers_Fgrid, res, x_range, y_range, z_range, bias=None)
+        bias_Ftmp = [reg_grid[:, center_Fgrid[0], center_Fgrid[1], center_Fgrid[2]].reshape(8, 3) for center_Fgrid in centers_Fgrid]
+        cns_Flidar = [_bias_Ftmp + center_Flidar for _bias_Ftmp, center_Flidar in zip(bias_Ftmp, centers_Flidar)]
+        cns_Flidar = np.vstack(cns_Flidar)
+        cns_Fcam = calib.lidar2leftcam(cns_Flidar)
+        # get cns_Fcam2d
+        cns_Fcam2d = calib.leftcam2imgplane(cns_Fcam)
+        cns_Fcam = cns_Fcam.reshape(-1, 8, 3)
+        cns_Fcam2d = cns_Fcam2d.reshape(-1, 8, 2)
+        # get boxes2d
+        boxes2d = cnsFcam2d_to_bboxes2d(cns_Fcam2d)
+        # nms
+        idx = nms(boxes2d, scores, nms_threshold)
+        label = KittiLabel()
+        label.data = []
+        for _cns_Fcam, score in zip(cns_Fcam[idx], scores[idx]):
+            label.data.append(KittiObj().from_corners(calib, _cns_Fcam, cls, score))
+        return label
+    elif istype(calib, "CarlaCalib"):
+        if num_of_objs == 0:
+            label = CarlaLabel()
+            label.data = []
+            return label
+        # get cns_Fcam
+        centers_Fgrid = np.vstack(np.where(obj_grid >= score_threshold)).T[:, 1:]
+        centers_FIMU = grid2lidar(centers_Fgrid, res, x_range, y_range, z_range, bias=None)
+        bias_Ftmp = [reg_grid[:, center_Fgrid[0], center_Fgrid[1], center_Fgrid[2]].reshape(8, 3) for center_Fgrid in centers_Fgrid]
+        cns_FIMU = [_bias_Ftmp + center_FIMU for _bias_Ftmp, center_FIMU in zip(bias_Ftmp, centers_FIMU)]
+        cns_FIMU = np.vstack(cns_FIMU)
+        cns_Fcam = calib.imu2cam(cns_FIMU)
+        # get cns_Fcam2d
+        cns_Fcam2d = calib.cam2imgplane(cns_Fcam)
+        cns_Fcam = cns_Fcam.reshape(-1, 8, 3)
+        cns_Fcam2d = cns_Fcam2d.reshape(-1, 8, 2)
+        # get boxes2d
+        boxes2d = cnsFcam2d_to_bboxes2d(cns_Fcam2d)
+        # nms
+        idx = nms(boxes2d, scores, nms_threshold)
+        label = CarlaLabel()
+        label.data = []
+        for _cns_Fcam, score in zip(cns_Fcam[idx], scores[idx]):
+            label.data.append(CarlaObj().from_corners(calib, _cns_Fcam, cls, score))
+        return label
+    else:
+        raise NotImplementedError

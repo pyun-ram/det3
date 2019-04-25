@@ -81,8 +81,6 @@ class CarlaCalib:
         inputs:
             pts (np.array): [#pts, 3]
                 point clouds in imu frame
-            key (str):  'Tr_imu_to_velo_XX',
-                        It should be corresopnd to self.data.keys()
         returns:
             pts_cam (np.array): [#pts, 3]
                 point cloud in camera frame
@@ -93,6 +91,23 @@ class CarlaCalib:
         pts_imu_y = pts_imu[:, 1:2]
         pts_imu_z = pts_imu[:, 2:3]
         return np.hstack([-pts_imu_y, -pts_imu_z, pts_imu_x])
+
+    def cam2imu(self, pts):
+        '''
+        convert pts in camera frame to imu frame
+        inputs:
+            pts (np.array): [#pts, 3]
+                point clouds in camera frame
+        returns:
+            pts_imu (np.array): [#pts, 3]
+                point cloud in imu frame
+        '''
+        assert pts.shape[1] == 3
+        pts_cam = pts
+        pts_cam_x = pts_cam[:, 0:1]
+        pts_cam_y = pts_cam[:, 1:2]
+        pts_cam_z = pts_cam[:, 2:3]
+        return np.hstack([pts_cam_z, -pts_cam_x, -pts_cam_y])
 
     def cam2imgplane(self, pts):
         '''
@@ -168,6 +183,23 @@ class CarlaObj():
                 self.bbox_l, self.bbox_t, self.bbox_r, self.bbox_b, \
                 self.h, self.w, self.l, self.x, self.y, self.z, self.ry, self.score)
 
+    def get_pts(self, pc, calib):
+        '''
+        get points from pc
+        inputs:
+            pc: (np.array) [#pts, 3]
+                in imu frame
+        '''
+        bottom_Fimu = np.array([self.x, self.y, self.z]).reshape(1, 3)
+        center_Fimu = bottom_Fimu + np.array([0, 0, self.h/2.0]).reshape(1, 3)
+        pc_ = utils.apply_tr(pc, -center_Fimu)
+        pc_ = utils.apply_R(pc_, utils.rotz(-self.ry))
+        idx_x = np.logical_and(pc_[:, 0] <= self.l/2.0, pc_[:, 0] >= -self.l/2.0)
+        idx_y = np.logical_and(pc_[:, 1] <= self.w/2.0, pc_[:, 1] >= -self.w/2.0)
+        idx_z = np.logical_and(pc_[:, 2] <= self.h/2.0, pc_[:, 2] >= -self.h/2.0)
+        idx = np.logical_and(idx_x, np.logical_and(idx_y, idx_z))
+        return pc[idx]
+
     def get_bbox3dcorners(self):
         '''
         get the 8 corners of the bbox3d in imu frame.
@@ -221,6 +253,73 @@ class CarlaObj():
                 np.isclose(self.z, obj.z, rtol) and
                 np.isclose(math.cos(2 * (self.ry - obj.ry)), 1, rtol))
 
+    def from_corners(self, calib, corners, cls, score):
+        '''
+        initialize from corner points
+        inputs:
+            corners (np.array) [8,3]
+                corners in camera frame
+                orders
+            [-l/2, 0,  w/2],
+            [ l/2, 0,  w/2],
+            [ l/2, 0, -w/2],
+            [-l/2, 0, -w/2],
+            [-l/2, h,  w/2],
+            [ l/2, h,  w/2],
+            [ l/2, h, -w/2],
+            [-l/2, h, -w/2],
+            cls (str): 'Car', 'Pedestrian', 'Cyclist'
+            score (float): 0-1
+        '''
+        assert cls in ['Car', 'Pedestrian', 'Cyclist']
+        assert score <= 1.0
+        assert score >= 0.0
+        x_Fcam = np.sum(corners[:, 0], axis=0)/ 8.0
+        y_Fcam = np.sum(corners[0:4, 1], axis=0)/ 4.0
+        z_Fcam = np.sum(corners[:, 2], axis=0)/ 8.0
+        xyz_FIMU = calib.cam2imu(np.array([x_Fcam, y_Fcam, z_Fcam]).reshape(1,3))
+        self.x, self.y, self.z = xyz_FIMU.reshape(3)
+        self.h = np.sum(abs(corners[4:, 1] - corners[:4, 1])) / 4.0
+        self.l = np.sum(
+            np.sqrt(np.sum((corners[0, [0, 2]] - corners[1, [0, 2]])**2)) +
+            np.sqrt(np.sum((corners[2, [0, 2]] - corners[3, [0, 2]])**2)) +
+            np.sqrt(np.sum((corners[4, [0, 2]] - corners[5, [0, 2]])**2)) +
+            np.sqrt(np.sum((corners[6, [0, 2]] - corners[7, [0, 2]])**2))
+            ) / 4.0
+        self.w = np.sum(
+            np.sqrt(np.sum((corners[0, [0, 2]] - corners[3, [0, 2]])**2)) +
+            np.sqrt(np.sum((corners[1, [0, 2]] - corners[2, [0, 2]])**2)) +
+            np.sqrt(np.sum((corners[4, [0, 2]] - corners[7, [0, 2]])**2)) +
+            np.sqrt(np.sum((corners[5, [0, 2]] - corners[6, [0, 2]])**2))
+            ) / 4.0
+        self.ry = np.sum(
+            math.atan2(corners[2, 2] - corners[1, 2], corners[2, 0] - corners[1, 0]) +
+            math.atan2(corners[6, 2] - corners[5, 2], corners[6, 0] - corners[5, 0]) +
+            math.atan2(corners[3, 2] - corners[0, 2], corners[3, 0] - corners[0, 0]) +
+            math.atan2(corners[7, 2] - corners[4, 2], corners[7, 0] - corners[4, 0]) +
+            math.atan2(corners[1, 0] - corners[0, 0], corners[0, 2] - corners[1, 2]) +
+            math.atan2(corners[5, 0] - corners[4, 0], corners[4, 2] - corners[5, 2]) +
+            math.atan2(corners[2, 0] - corners[3, 0], corners[3, 2] - corners[2, 2]) +
+            math.atan2(corners[6, 0] - corners[7, 0], corners[7, 2] - corners[6, 2])
+        ) / 8.0 + np.pi  / 2.0
+        if np.isclose(self.ry, np.pi/2.0):
+            self.ry = 0.0
+        cns_Fcam2d = calib.cam2imgplane(corners)
+        minx = int(np.min(cns_Fcam2d[:, 0]))
+        maxx = int(np.max(cns_Fcam2d[:, 0]))
+        miny = int(np.min(cns_Fcam2d[:, 1]))
+        maxy = int(np.max(cns_Fcam2d[:, 1]))
+        self.ry = utils.clip_ry(self.ry)
+        self.type = cls
+        self.score = score
+        self.truncated = 0
+        self.occluded = 0
+        self.alpha = 0
+        self.bbox_l = minx
+        self.bbox_t = miny
+        self.bbox_r = maxx
+        self.bbox_b = maxy
+        return self
 class CarlaLabel:
     '''
     class storing Carla 3d object detection label
@@ -263,7 +362,7 @@ class CarlaLabel:
             eot: float
         Notes: O(N^2)
         '''
-        assert isinstance(label, CarlaLabel)
+        assert utils.istype(label, "CarlaLabel")
         if len(self.data) != len(label.data):
             return False
         if len(self.data) == 0:
@@ -308,7 +407,7 @@ class CarlaData:
         velodyne_list = os.listdir(root_dir)
         velodyne_list = [itm if 'velo' in itm.split('_') else None for itm in velodyne_list]
         self.velodyne_list = list(filter(lambda itm: itm is not None, velodyne_list))
-        self.velodyne_paths = [os.path.join(root_dir, itm, idx+'.pcd') for itm in self.velodyne_list]
+        self.velodyne_paths = [os.path.join(root_dir, itm, idx+'.npy') for itm in self.velodyne_list]
 
     def read_data(self):
         '''
@@ -326,7 +425,7 @@ class CarlaData:
         
         for k, v in zip(self.velodyne_list, self.velodyne_paths):
             assert k == v.split('/')[-2]
-            pc[k] = utils.read_pc_from_pcd(v)
+            pc[k] = utils.read_pc_from_npy(v)
         return pc, label, calib
 
 if __name__ == "__main__":
@@ -335,7 +434,7 @@ if __name__ == "__main__":
     import os
     os.makedirs('/usr/app/vis/dev/bev/', exist_ok=True)
     os.makedirs('/usr/app/vis/dev/fv/', exist_ok=True)
-    for i in range(100, 300):
+    for i in range(0, 300):
         tag = "{:06d}".format(i)
         pc, label, calib = CarlaData('/usr/app/data/CARLA/dev/', tag).read_data()
         bevimg =  BEVImage(x_range=(-50, 50), y_range=(-50, 50), grid_size=(0.05, 0.05))

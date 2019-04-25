@@ -58,6 +58,8 @@ class TestCarlarCalib(unittest.TestCase):
                             [719.13884937, 217.33792497]]
                             )
         self.assertTrue(np.allclose(results, calib.cam2imgplane(pts), rtol=1.e-5))
+    # TODO: test_cam2imu
+
 class TestCarlaObj(unittest.TestCase):
     def test_init(self):
         obj = CarlaObj('Car 0.00 0 1.55 614.24 181.78 727.31 284.77 1.57 1.73 4.15 1.00 1.75 13.22 1.62')
@@ -130,6 +132,8 @@ class TestCarlaObj(unittest.TestCase):
                         [-24.12977693, -85.44147344,   1.86283435],
                         [-24.13213107, -84.10565306,   1.86283435]])
         self.assertTrue(np.allclose(res, obj.get_bbox3dcorners(), rtol=1e-2))
+    # TODO: test_getpts
+    # TODO: test_fromcorners
 class TestCarlarLabel(unittest.TestCase):
     def test_init(self):
         label = CarlaLabel('./unit-test/data/test_CarlaLabel_000000.txt')

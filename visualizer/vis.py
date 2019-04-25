@@ -8,12 +8,14 @@ from PIL import Image, ImageDraw
 try:
     from ..dataloarder.kittidata import KittiObj
     from ..dataloarder.carladata import CarlaObj, CarlaCalib
+    from ..utils.utils import istype
 except:
     # Run script
     import sys
     sys.path.append("../")
     from det3.dataloarder.kittidata import KittiObj
     from det3.dataloarder.carladata import CarlaObj, CarlaCalib
+    from det3.utils.utils import istype
 
 class BEVImage:
     '''
@@ -60,7 +62,7 @@ class BEVImage:
         bevimg = bevimg - np.min(bevimg)
         divisor = np.max(bevimg) - np.min(bevimg)
         factor = 10 * num_of_pts / 4000 # for better visualization
-        bevimg = np.clip((bevimg / divisor * 255.0 * factor), a_min=0, a_max=255) 
+        bevimg = np.clip((bevimg / divisor * 255.0 * 100), a_min=0, a_max=255)
         # if blue pts and white background
         # bevimg = (255 - bevimg).astype(np.uint8)
         # tmp = np.ones((height, width, 3)).astype(np.uint8) * 255
@@ -95,7 +97,7 @@ class BEVImage:
         draw bounding box on BEV Image
         inputs:
             obj (KittiObj/CarlaObj)
-            calib (KittiCalib/CarlaObj)
+            calib (KittiCalib/CarlaCalib)
             Note: It is able to hundle the out-of-coordinate bounding boxes.
                 gt: purple
                 est: yellow
@@ -103,11 +105,11 @@ class BEVImage:
         if self.data is None:
             print("from_lidar should be run first")
             raise RuntimeError
-        if obj.__class__.__name__ is 'KittiObj':
+        if istype(obj, 'KittiObj') and istype(calib, 'KittiCalib'):
             cns_Fcam = obj.get_bbox3dcorners()[:4, :]
             cns_Flidar = calib.leftcam2lidar(cns_Fcam)
             cns_FBEV = self.lidar2BEV(cns_Flidar)
-        elif obj.__class__.__name__ is 'CarlaObj':
+        elif istype(obj, 'CarlaObj') and istype(calib, 'CarlaCalib'):
             cns_Fimu = obj.get_bbox3dcorners()[:4, :]
             cns_FBEV = self.lidar2BEV(cns_Fimu)
         else:
@@ -179,10 +181,10 @@ class FVImage:
         if self.data is None:
             print("from_lidar should be run first")
             raise RuntimeError
-        if obj.__class__.__name__=="KittiObj" and calib.__class__.__name__=="KittiCalib":
+        if istype(obj, "KittiObj") and istype(calib, "KittiCalib"):
             cns_Fcam = obj.get_bbox3dcorners()
             cns_Fcam2d = calib.leftcam2imgplane(cns_Fcam)
-        elif obj.__class__.__name__=="CarlaObj" and calib.__class__.__name__=="CarlaCalib":
+        elif istype(obj, "CarlaObj") and istype(calib, "CarlaCalib"):
             cns_Fimu = obj.get_bbox3dcorners()
             cns_Fcam = calib.imu2cam(cns_Fimu)
             cns_Fcam2d = calib.cam2imgplane(cns_Fcam)

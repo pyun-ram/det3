@@ -28,19 +28,24 @@ def read_image(path):
     return np.array(Image.open(path, 'r'))
 
 # BUG HERE
-def read_pc_from_pcd(pcd_path):
-    """Load PointCloud data from pcd file."""
-    from open3d import read_point_cloud
-    pcd = read_point_cloud(pcd_path)
-    pc = np.asarray(pcd.points)
-    return pc
+# def read_pc_from_pcd(pcd_path):
+#     """Load PointCloud data from pcd file."""
+#     from open3d import read_point_cloud
+#     pcd = read_point_cloud(pcd_path)
+#     pc = np.asarray(pcd.points)
+#     return pc
 
-def read_pc_from_ply(ply_path):
-    '''Load PointCloud data from ply file'''
-    from open3d import read_point_cloud
-    pcd = read_point_cloud(ply_path)
-    pc = np.asarray(pcd.points)
-    return pc
+# def read_pc_from_ply(ply_path):
+#     '''Load PointCloud data from ply file'''
+#     from open3d import read_point_cloud
+#     pcd = read_point_cloud(ply_path)
+#     pc = np.asarray(pcd.points)
+#     return pc
+
+def read_pc_from_npy(npy_path):
+    """Load PointCloud data from npy file."""
+    p = np.load(npy_path)
+    return p
 
 def read_pc_from_bin(bin_path):
     """Load PointCloud data from bin file."""
@@ -111,3 +116,14 @@ def clip_ry(ry):
     while ry >= np.pi:
         ry -= np.pi
     return ry
+
+def istype(obj, type_name):
+    '''
+    check if obj is class <type_name>
+    inputs:
+        obj: object
+        type_name: str
+    return:
+        True is obj is class <type_name>
+    '''
+    return obj.__class__.__name__ is type_name
