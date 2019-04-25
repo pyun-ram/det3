@@ -59,7 +59,7 @@ class BEVImage:
                 num_of_pts += 1
         bevimg = bevimg - np.min(bevimg)
         divisor = np.max(bevimg) - np.min(bevimg)
-        factor = 5 * num_of_pts / 4000 # for better visualization
+        factor = 10 * num_of_pts / 4000 # for better visualization
         bevimg = np.clip((bevimg / divisor * 255.0 * factor), a_min=0, a_max=255) 
         # if blue pts and white background
         # bevimg = (255 - bevimg).astype(np.uint8)
@@ -209,7 +209,7 @@ if __name__ == "__main__":
     from det3.dataloarder.kittidata import KittiData
     from det3.dataloarder.carladata import CarlaData
     from PIL import Image
-    for i in range(150, 200):
+    for i in range(100, 300):
         tag = "{:06d}".format(i)
         pc, label, calib = CarlaData('/usr/app/data/CARLA/dev', tag).read_data()
         bevimg = BEVImage(x_range=(-100, 100), y_range=(-50,50), grid_size=(0.05, 0.05))

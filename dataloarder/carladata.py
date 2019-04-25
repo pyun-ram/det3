@@ -331,24 +331,30 @@ class CarlaData:
 
 if __name__ == "__main__":
     from det3.visualizer.vis import BEVImage, FVImage
-    from PIL import Image    
-    for i in range(150, 180):
+    from PIL import Image
+    import os
+    os.makedirs('/usr/app/vis/dev/bev/', exist_ok=True)
+    os.makedirs('/usr/app/vis/dev/fv/', exist_ok=True)
+    for i in range(100, 300):
         tag = "{:06d}".format(i)
         pc, label, calib = CarlaData('/usr/app/data/CARLA/dev/', tag).read_data()
-        bevimg =  BEVImage(x_range=(-100, 100), y_range=(-50, 50), grid_size=(0.05, 0.05))
-        bevimg.from_lidar(calib.lidar2imu(pc['velo_top'], key='Tr_imu_to_velo_top'))
+        bevimg =  BEVImage(x_range=(-50, 50), y_range=(-50, 50), grid_size=(0.05, 0.05))
+        point_cloud = np.vstack([calib.lidar2imu(pc['velo_top'], key='Tr_imu_to_velo_top'),
+                                 calib.lidar2imu(pc['velo_left'], key='Tr_imu_to_velo_left'),
+                                 calib.lidar2imu(pc['velo_right'], key='Tr_imu_to_velo_right'),
+                                ])
+        bevimg.from_lidar(point_cloud)
         for obj in label.data:
             bevimg.draw_box(obj, calib)
             print(obj)
         bevimg_img = Image.fromarray(bevimg.data)
-        bevimg_img.save("/usr/app/vis/dev/{}_bev.png".format(tag))
+        bevimg_img.save("/usr/app/vis/dev/bev/{}.png".format(tag))
         fvimg = FVImage()
         fvimg.from_lidar(calib, calib.lidar2imu(pc['velo_top'], key='Tr_imu_to_velo_top'))
-        print(fvimg.data.shape)
         for obj in label.data:
             fvimg.draw_box(obj, calib)
             print(obj)
         fvimg_img = Image.fromarray(fvimg.data)
-        fvimg_img.save('/usr/app/vis/dev/{}_fv.png'.format(tag))
+        fvimg_img.save('/usr/app/vis/dev/fv/{}.png'.format(tag))
 
 
