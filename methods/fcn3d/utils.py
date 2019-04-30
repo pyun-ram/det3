@@ -279,6 +279,8 @@ def cnsFcam2d_to_bboxes2d(cns_Fcam2d):
     boxes2d = np.hstack([minx_Fcam2d, maxx_Fcam2d, miny_Fcam2d, maxy_Fcam2d])
     return boxes2d
 
+# TODO: oriented nms on bev img
+# https://github.com/aaronfriedman6/MV3D_VoxelNet/blob/5184cb327a69da4056784d3070a90592a536a9c9/MV3D/src/tracklets/evaluate_tracklets.py#L27
 def nms(boxes, scores, threshold):
     '''
     Non-Maximum Surpression (NMS).
