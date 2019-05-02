@@ -1,3 +1,9 @@
+'''
+File Created: Thursday, 11th April 2019 6:44:00 pm
+Author: Peng YUN (pyun@ust.hk)
+Copyright 2018 - 2019 RAM-Lab, RAM-Lab
+'''
+
 import torch
 import torch.nn as nn
 
