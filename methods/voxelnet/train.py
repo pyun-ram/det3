@@ -85,7 +85,7 @@ def main():
     cudnn.benchmark = True
 
     kitti_data = KITTIDataVoxelNet(data_dir=cfg.DATADIR, cfg=cfg, batch_size=cfg.batch_size).kitti_loaders
-    train_loader = kitti_data['dev']
+    train_loader = kitti_data['train']
     val_loader = KittiDatasetVoxelNet(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
 
     for epoch in range(cfg.start_epoch, cfg.epochs):
