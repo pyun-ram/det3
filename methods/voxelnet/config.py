@@ -7,8 +7,25 @@ from easydict import EasyDict as edict
 __C = edict()
 cfg = __C
 
+__C.TAG = 'VoxelNet-000A'
 __C.cls = 'Car'
+__C.DATADIR = '/usr/app/data/KITTI/'
+__C.gpu = 0
+__C.resume = None
+__C.start_epoch = 0
+__C.epochs = 300
+__C.lr = 1e-4
+# __C.momentum = 0.9
+__C.weight_decay = 0
+__C.batch_size = 1
+__C.seed = 123
+__C.alpha = 1
+__C.beta = 10
+__C.eta = 10
+__C.gamma = 0
+
 __C.voxel_point_count = 35
+__C.print_freq = 1
 __C.x_range = (0, 70.4)            # Lidar Frame
 __C.y_range = (-40, 40)          # Lidar Frame
 __C.z_range = (-3, 1)        # Lidar Frame
@@ -32,3 +49,5 @@ if __C.cls == 'Car':
     __C.ANCHOR_Z = -1.0 - cfg.ANCHOR_H/2
     __C.RPN_POS_IOU = 0.6
     __C.RPN_NEG_IOU = 0.45
+__C.RPN_SCORE_THRESH = 0.8 #0.96
+__C.RPN_NMS_THRESH = 0.4

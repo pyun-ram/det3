@@ -9,7 +9,7 @@ sys.path.append("../")
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Linear, InstanceNorm2d, Conv3d, InstanceNorm3d, Conv2d, InstanceNorm2d, ConvTranspose2d
+from torch.nn import Linear, Conv3d, Conv2d, ConvTranspose2d, BatchNorm2d, BatchNorm3d
 from det3.methods.voxelnet.layer import VFELayer
 
 class FeatureNet(nn.Module):
@@ -28,8 +28,16 @@ class FeatureNet(nn.Module):
         self.vfe1 = VFELayer(in_channels=in_channels, out_channels=32)
         self.vfe2 = VFELayer(in_channels=32, out_channels=128)
         self.dense = Linear(128, 128, bias=True)
-        self.instance_norm = InstanceNorm2d(128)
+        self.instance_norm = BatchNorm2d(128)
         self.out_gridsize = out_gridsize
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='relu')
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)                
+            # TODO: Note InstanceNorm2d is not initialized
 
     def forward(self, x, coordinate):
         '''
@@ -77,11 +85,19 @@ class MiddleLayer(nn.Module):
     def __init__(self):
         super(MiddleLayer, self).__init__()
         self.layer1 = Conv3d(128, 64, [3, 3, 3], [2, 1, 1], padding=[1, 1, 1], dilation=1, groups=1, bias=True)
-        self.layer1_inorm = InstanceNorm3d(64)
+        self.layer1_inorm = BatchNorm3d(64)
         self.layer2 = Conv3d(64, 64, [3, 3, 3], [1, 1, 1], padding=[0, 1, 1], dilation=1, groups=1, bias=True)
-        self.layer2_inorm = InstanceNorm3d(64)
+        self.layer2_inorm = BatchNorm3d(64)
         self.layer3 = Conv3d(64, 64, [3, 3, 3], [2, 1, 1], padding=[1, 1, 1], dilation=1, groups=1, bias=True)
-        self.layer3_inorm = InstanceNorm3d(64)
+        self.layer3_inorm = BatchNorm3d(64)
+        for m in self.modules():
+            if isinstance(m, nn.Conv3d):
+                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='relu')
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm3d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)                
+            # TODO: Note InstanceNorm3d is not initialized
 
     def forward(self, x):
         x = self.layer1(x)
@@ -104,49 +120,61 @@ class RPN(nn.Module):
         super(RPN, self).__init__()
         # block1
         self.block1_conv1 = Conv2d(128, 128, [3, 3], [2, 2], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block1_inorm1 = InstanceNorm2d(128)
+        self.block1_inorm1 = BatchNorm2d(128)
         self.block1_conv2 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block1_inorm2 = InstanceNorm2d(128)
+        self.block1_inorm2 = BatchNorm2d(128)
         self.block1_conv3 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block1_inorm3 = InstanceNorm2d(128)
+        self.block1_inorm3 = BatchNorm2d(128)
         self.block1_conv4 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block1_inorm4 = InstanceNorm2d(128)
+        self.block1_inorm4 = BatchNorm2d(128)
         self.block1_trconv5 = ConvTranspose2d(128, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block1_inorm5 = InstanceNorm2d(256)
+        self.block1_inorm5 = BatchNorm2d(256)
         # block2
         self.block2_conv1 = Conv2d(128, 128, [3, 3], [2, 2], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block2_inorm1 = InstanceNorm2d(128)
+        self.block2_inorm1 = BatchNorm2d(128)
         self.block2_conv2 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block2_inorm2 = InstanceNorm2d(128)
+        self.block2_inorm2 = BatchNorm2d(128)
         self.block2_conv3 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block2_inorm3 = InstanceNorm2d(128)
+        self.block2_inorm3 = BatchNorm2d(128)
         self.block2_conv4 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block2_inorm4 = InstanceNorm2d(128)
+        self.block2_inorm4 = BatchNorm2d(128)
         self.block2_conv5 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block2_inorm5 = InstanceNorm2d(128)
+        self.block2_inorm5 = BatchNorm2d(128)
         self.block2_conv6 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block2_inorm6 = InstanceNorm2d(128)
+        self.block2_inorm6 = BatchNorm2d(128)
         self.block2_trconv7 = ConvTranspose2d(128, 256, [2, 2], [2, 2], padding=[0,0], dilation=1, groups=1, bias=True)
-        self.block2_inorm7 = InstanceNorm2d(256)
+        self.block2_inorm7 = BatchNorm2d(256)
         # block3
         self.block3_conv1 = Conv2d(128, 256, [3, 3], [2, 2], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block3_inorm1 = InstanceNorm2d(256)
+        self.block3_inorm1 = BatchNorm2d(256)
         self.block3_conv2 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block3_inorm2 = InstanceNorm2d(256)
+        self.block3_inorm2 = BatchNorm2d(256)
         self.block3_conv3 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block3_inorm3 = InstanceNorm2d(256)
+        self.block3_inorm3 = BatchNorm2d(256)
         self.block3_conv4 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block3_inorm4 = InstanceNorm2d(256)
+        self.block3_inorm4 = BatchNorm2d(256)
         self.block3_conv5 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block3_inorm5 = InstanceNorm2d(256)
+        self.block3_inorm5 = BatchNorm2d(256)
         self.block3_conv6 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
-        self.block3_inorm6 = InstanceNorm2d(256)
+        self.block3_inorm6 = BatchNorm2d(256)
         self.block3_trconv7 = ConvTranspose2d(256, 256, [4, 4], [4, 4], padding=[0,0], dilation=1, groups=1, bias=True)
-        self.block3_inorm7 = InstanceNorm2d(256)
+        self.block3_inorm7 = BatchNorm2d(256)
 
         # head
         self.head_conv_cls = Conv2d(768, 2, [1, 1], [1, 1], padding=[0, 0], dilation=1, groups=1, bias=True)
         self.head_conv_reg = Conv2d(768, 14, [1, 1], [1, 1], padding=[0, 0], dilation=1, groups=1, bias=True)
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='relu')
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.ConvTranspose2d):
+                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='relu')
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)                
+            # TODO: Note InstanceNorm2d is not initialized
+
     def forward(self, x):
         # block1
         x = self.block1_conv1(x)
@@ -217,6 +245,18 @@ class RPN(nn.Module):
         rmap = self.head_conv_reg(x_)
         return pmap, rmap
 
+class VoxelNet(nn.Module):
+    def __init__(self, in_channels, out_gridsize):
+        super(VoxelNet, self).__init__()
+        self.featurenet = FeatureNet(in_channels=in_channels, out_gridsize=out_gridsize)
+        self.middlelayer = MiddleLayer()
+        self.rpn = RPN()
+    def forward(self, x, coordinate):
+        x = self.featurenet(x, coordinate)
+        x = self.middlelayer(x)
+        x = self.rpn(x)
+        return x
+
 
 if __name__ == "__main__":
     data = torch.randn(1, 3, 35, 7) # [#batch, #vox, #pts, #feature]
@@ -227,10 +267,14 @@ if __name__ == "__main__":
             coordinate[i, j, :] = torch.LongTensor([torch.randint(out_gridsize[0], size=(1,)),
                                                     torch.randint(out_gridsize[1], size=(1,)),
                                                     torch.randint(out_gridsize[2], size=(1,))])
-    featurenet = FeatureNet(in_channels=7, out_gridsize=out_gridsize).cuda()
-    middlelayer = MiddleLayer().cuda()
-    rpn = RPN().cuda()
-    result = featurenet(data.cuda(), coordinate.cuda())
-    result = middlelayer(result)
-    result = rpn(result)
+    # featurenet = FeatureNet(in_channels=7, out_gridsize=out_gridsize).cuda()
+    # middlelayer = MiddleLayer().cuda()
+    # rpn = RPN().cuda()
+    # result = featurenet(data.cuda(), coordinate.cuda())
+    # result = middlelayer(result)
+    # result = rpn(result)
+    voxelnet = VoxelNet(in_channels=7, out_gridsize=out_gridsize).cuda()
+    pmap, rmap = voxelnet(data.cuda(), coordinate.cuda())
+    print(pmap.shape)
+    print(rmap.shape)
     print("DONE")

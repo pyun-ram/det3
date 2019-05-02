@@ -23,6 +23,14 @@ class VFELayer(nn.Module):
         self.dense = Linear(in_channels, self.units, bias=True)
         self.bn = BatchNorm2d(self.units) # TODO: Batch Norm or Instance Norm?
 
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='relu')
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
     def forward(self, x, mask):
         '''
         inputs:
