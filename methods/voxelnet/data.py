@@ -101,7 +101,7 @@ class KittiDatasetVoxelNet(Dataset):
         #                                 cls=self.cfg.cls, calib=calib, threshold_score=self.cfg.RPN_SCORE_THRESH,
         #                                 threshold_nms=self.cfg.RPN_NMS_THRESH)
         # rec_bool = label.equal(rec_label, acc_cls=self.cfg.KITTI_cls[self.cfg.cls], rtol=1e-5)
-        # print(tag, rec_bool, len(label.data), rec_label)        
+        # print(tag, rec_bool, len(label.data), rec_label)
         if self.train_val_flag in ['train', 'dev']:
             return tag, voxel_feature, coordinate, gt_pos_map, gt_neg_map, gt_target
         elif self.train_val_flag in ['val']:

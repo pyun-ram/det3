@@ -328,15 +328,8 @@ def parse_grid_to_label(obj_map, reg_map, anchors, anchor_size, cls, calib, thre
         btmcenter_Fcam = calib.lidar2leftcam(btmcenter_Flidar)
         obj.x, obj.y, obj.z = btmcenter_Fcam.flatten()
         obj.h, obj.w, obj.l, obj.ry = h, w, l, ry
-        obj.score = score
-        obj.type = cls
-        obj.bbox_b = 0
-        obj.bbox_t = 0
-        obj.bbox_l = 0
-        obj.bbox_r = 0
-        obj.alpha = 0
-        obj.truncated = 0
-        obj.occluded = 0
+        cns_Fcam = obj.get_bbox3dcorners()
+        obj.from_corners(calib, cns_Fcam, cls, score)
         label.data.append(obj)
     return label
 
