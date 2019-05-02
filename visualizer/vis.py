@@ -146,26 +146,32 @@ class FVImage:
         inputs:
             calib (CarlaCalib)
             pts (np.array) [#pts, >=3]
-                pts in FIMU
+                pts in FIMU (CARLA) or in FLidar (Kitti)
         '''
-        if calib.__class__.__name__ == 'CarlaCalib':
+        if istype(calib, "CarlaCalib"):
             pts_Fcam = calib.imu2cam(pts)
             pts_Fimg = calib.cam2imgplane(pts_Fcam)
             width = np.ceil(calib.P0[0, 2] * 2).astype(np.int)
             height = np.ceil(calib.P0[1, 2] * 2).astype(np.int)
-            self.data = np.zeros((height, width))
-            for (x, y), (x_, y_, z_) in zip(pts_Fimg, pts_Fcam):
-                x, y = int(x), int(y)
-                if 0 <= x < width and 0 <= y < height:
-                    self.data[y, x] = (np.sqrt(x_*x_ + y_*y_ + z_*z_) if self.data[y, x] == 0
-                                       else min(np.sqrt(x_*x_ + y_*y_ + z_*z_), self.data[y, x]))
-            self.data = self.data - np.min(self.data)
-            divisor = np.max(self.data) - np.min(self.data)
-            self.data = np.clip(self.data / divisor * 255 * 2, a_min=0, a_max=255)
-            self.data = np.tile(self.data.reshape(height, width, 1), 3).astype(np.uint8)
-            return self
+        elif istype(calib, "KittiCalib"):
+            pts_Fcam = calib.lidar2leftcam(pts[:, :3])
+            pts_Fimg = calib.leftcam2imgplane(pts_Fcam)
+            width = np.ceil(calib.P2[0, 2] * 2).astype(np.int)
+            height = np.ceil(calib.P2[1, 2] * 2).astype(np.int)
         else:
             raise NotImplementedError
+
+        self.data = np.zeros((height, width))
+        for (x, y), (x_, y_, z_) in zip(pts_Fimg, pts_Fcam):
+            x, y = int(x), int(y)
+            if 0 <= x < width and 0 <= y < height:
+                self.data[y, x] = (np.sqrt(x_*x_ + y_*y_ + z_*z_) if self.data[y, x] == 0
+                                   else min(np.sqrt(x_*x_ + y_*y_ + z_*z_), self.data[y, x]))
+        self.data = self.data - np.min(self.data)
+        divisor = np.max(self.data) - np.min(self.data)
+        self.data = np.clip(self.data / divisor * 255 * 2, a_min=0, a_max=255)
+        self.data = np.tile(self.data.reshape(height, width, 1), 3).astype(np.uint8)
+        return self
 
     def draw_box(self, obj, calib, bool_gt=False, width=3):
         '''

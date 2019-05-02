@@ -8,7 +8,7 @@ import sys
 sys.path.append("../")
 from det3.methods.voxelnet.box_overlaps import bbox_overlaps
 from det3.utils.utils import rotz, apply_R, apply_tr
-from det3.dataloarder.data import KittiLabel, KittiObj
+from det3.dataloarder.kittidata import KittiLabel, KittiObj
 
 def filter_camera_angle(pts):
     """

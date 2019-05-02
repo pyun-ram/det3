@@ -99,7 +99,7 @@ class TestKittiObj(unittest.TestCase):
                         [2.43757004, -0.42, 8.1640121],
                         [1.23763004, -0.42, 8.1760119]])
         self.assertTrue(np.allclose(kittiobj.get_bbox3dcorners(), ans, rtol=1e-5))
-    # TODO:TEST from_corners
+
     def test_from_corners(self):
         kittiobj = KittiObj()
         calib = KittiCalib("./unit-test/data/test_KittiCalib_000000.txt").read_calib_file()
@@ -153,7 +153,7 @@ class TestKittiObj(unittest.TestCase):
         kittiobj2 = KittiObj('Pedestrian 0.0 0.0 -0.2 712.4 143.0 810.73 307.92 1.89 0.48 1.2 1.84 1.47 8.41 1.31')
         self.assertTrue(not kittiobj1.equal(kittiobj2, 'Pedestrian', rtol=1e-5))
         self.assertTrue(not kittiobj2.equal(kittiobj1, 'Pedestrian', rtol=1e-5))        
-
+    #TODO TESTGETPTS
 class TestKittiLabel(unittest.TestCase):
     def test_init(self):
         kittilabel = KittiLabel('./unit-test/data/test_KittiLabel_000003.txt')
