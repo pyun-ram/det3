@@ -92,17 +92,16 @@ def main():
         adjust_learning_rate(optimizer, epoch, cfg.lr)
         train_loss = train(train_loader, model, criterion, optimizer, epoch, cfg)
         tsbd.add_scalar('train/loss', train_loss, epoch)
-        if epoch % 10 == 0:
-            val_loss = validate(val_loader, model, criterion, epoch, cfg)
-            tsbd.add_scalar('val/loss', val_loss, epoch)
-            is_best = val_loss < best_loss1
-            best_loss1 = min(val_loss, best_loss1)
-            save_checkpoint({
-                'epoch': epoch + 1,
-                'state_dict': model.state_dict(),
-                'best_loss1': best_loss1,
-                'optimizer' : optimizer.state_dict(),
-            }, is_best, save_dir=save_dir, filename=str(epoch)+'.pth.tar')
+        val_loss = validate(val_loader, model, criterion, epoch, cfg)
+        tsbd.add_scalar('val/loss', val_loss, epoch)
+        is_best = val_loss < best_loss1
+        best_loss1 = min(val_loss, best_loss1)
+        save_checkpoint({
+            'epoch': epoch + 1,
+            'state_dict': model.state_dict(),
+            'best_loss1': best_loss1,
+            'optimizer' : optimizer.state_dict(),
+        }, is_best, save_dir=save_dir, filename=str(epoch)+'.pth.tar')
 
 
 def train(train_loader, model, criterion, optimizer, epoch, cfg):
