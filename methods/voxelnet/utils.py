@@ -33,11 +33,11 @@ def voxelize_pc(pts, res, x_range, y_range, z_range, num_pts_in_vox):
         x_range (tuple): (x_min(float), x_max(float))
         y_range (tuple): (y_min(float), y_max(float))
         z_range (tuple): (z_min(float), z_max(float))
-        num_pts_in_vox (int): 
-            # of points in a voxel        
+        num_pts_in_vox (int):
+            # of points in a voxel
     return:
         grid (np.array): in zyx order of Lidar Frame
-    reference: 
+    reference:
         https://github.com/qianguih/voxelnet
     """
     x_min, x_max = x_range
@@ -49,7 +49,7 @@ def voxelize_pc(pts, res, x_range, y_range, z_range, num_pts_in_vox):
     logic_y = np.logical_and(pts[:, 1] >= y_min, pts[:, 1] < y_max)
     logic_z = np.logical_and(pts[:, 2] >= z_min, pts[:, 2] < z_max)
     pts_Flidar = pts[:, :4][np.logical_and(logic_x, np.logical_and(logic_y, logic_z))].copy()
-    pts_Fgrid = np.floor((pts_Flidar[:, :3] - np.array([x_min, y_min, z_min], dtype=np.float32)) 
+    pts_Fgrid = np.floor((pts_Flidar[:, :3] - np.array([x_min, y_min, z_min], dtype=np.float32))
                          / np.array([dx, dy, dz], dtype=np.float32))
     pts_Fgrid = pts_Fgrid[:, ::-1] # x y z -> z y x in LiDAR frame
 
@@ -87,8 +87,6 @@ def filter_label_cls(label, actuall_cls):
     inputs:
         label (KittiLabel):
             Kitti Label read from txt file
-        cls (str):
-            'Car', 'Pedestrian', 'Cyclist'
         actuall_cls (list):
             The actuall class correspond to cls.
             e.g. ['Car', 'Van'] for cls=='Car'
@@ -124,7 +122,7 @@ def filter_label_pts(label, pc, calib, threshold_pts=10):
         label (KittiLabel):
             Kitti Label read from txt file
         pc (np.array) [#pts, 3]
-            in LiDAR Frame
+            point cloud in LiDAR Frame
         calib (KittiCalib)
         threshold_pts (int)
     '''
@@ -175,7 +173,7 @@ def create_anchors(x_range, y_range, target_shape, anchor_z, anchor_size):
 
     return anchors
 
-def create_rpn_target(label, calib, target_shape, anchors, cls, threshold_pos_iou, threshold_neg_iou, anchor_size):
+def create_rpn_target(label, calib, target_shape, anchors, threshold_pos_iou, threshold_neg_iou, anchor_size):
     '''
     create target for regression and classfication
     inputs:
@@ -184,20 +182,24 @@ def create_rpn_target(label, calib, target_shape, anchors, cls, threshold_pos_io
         target_shape (tuple): (y_size (int), x_size(int))
             final output shape of VoxelNet in y and x dimension
         anchors (np.array): [y_size, x_size, 2, 7] (cx, cy, cz, h, w, l, r) in lidar frame
-        cls (str):
-            'Car', 'Pedestrian', 'Cyclist'
+        threshold_pos_iou (float):
+            anchor iou > threshold_pos_iou is counted as pos anchor
+        threshold_neg_iou (float)
+            anchor iou < threshold_neg_iou is counted as neg anchor
+        anchor_size (tuple): (l(float), w(float), h(float))
+            lwh <-> xzy (camera) <->yxz(lidar)            
     return:
         pos_equal_one, neg_equal_one, targets
+    references:
+        https://github.com/qianguih/voxelnet
     '''
-    # Note: Hard code here. The batch size for voxelnet can only be 1
     _, _, anchor_h = anchor_size
-    batch_size = 1
-    targets = np.zeros((batch_size, *target_shape, 14))
-    pos_equal_one = np.zeros((batch_size, *target_shape, 2))
-    neg_equal_one = np.zeros((batch_size, *target_shape, 2))
+    targets = np.zeros((*target_shape, 14))
+    pos_equal_one = np.zeros((*target_shape, 2))
+    neg_equal_one = np.zeros((*target_shape, 2))
     if label.isempty():
         return pos_equal_one, neg_equal_one, targets
-    batch_gt_boxes3d = label_to_gt_box3d(label, calib)
+    gt_boxes3d = label_to_gt_box3d(label, calib)
     anchors_reshaped = anchors.reshape(-1, 7)
     anchors_d = np.sqrt(anchors_reshaped[:, 4]**2 + anchors_reshaped[:, 5]**2)
     anchors_standup_2d = anchor_to_standup_box2d(anchors_reshaped[:, [0, 1, 4, 5]])
@@ -236,31 +238,31 @@ def create_rpn_target(label, calib, target_shape, anchors, cls, threshold_pos_io
     # cal the target and set the equal one
     index_x, index_y, index_z = np.unravel_index(
         id_pos, (*target_shape, 2))
-    pos_equal_one[0, index_x, index_y, index_z] = 1
+    pos_equal_one[index_x, index_y, index_z] = 1
 
     # ATTENTION: index_z should be np.array
-    targets[0, index_x, index_y, np.array(index_z) * 7] = (
-        batch_gt_boxes3d[0][id_pos_gt, 0] - anchors_reshaped[id_pos, 0]) / anchors_d[id_pos]
-    targets[0, index_x, index_y, np.array(index_z) * 7 + 1] = (
-        batch_gt_boxes3d[0][id_pos_gt, 1] - anchors_reshaped[id_pos, 1]) / anchors_d[id_pos]
-    targets[0, index_x, index_y, np.array(index_z) * 7 + 2] = (
-        batch_gt_boxes3d[0][id_pos_gt, 2] - anchors_reshaped[id_pos, 2]) / anchor_h
-    targets[0, index_x, index_y, np.array(index_z) * 7 + 3] = np.log(
-        batch_gt_boxes3d[0][id_pos_gt, 3] / anchors_reshaped[id_pos, 3])
-    targets[0, index_x, index_y, np.array(index_z) * 7 + 4] = np.log(
-        batch_gt_boxes3d[0][id_pos_gt, 4] / anchors_reshaped[id_pos, 4])
-    targets[0, index_x, index_y, np.array(index_z) * 7 + 5] = np.log(
-        batch_gt_boxes3d[0][id_pos_gt, 5] / anchors_reshaped[id_pos, 5])
-    targets[0, index_x, index_y, np.array(index_z) * 7 + 6] = (
-        batch_gt_boxes3d[0][id_pos_gt, 6] - anchors_reshaped[id_pos, 6])
+    targets[index_x, index_y, np.array(index_z) * 7] = (
+        gt_boxes3d[id_pos_gt, 0] - anchors_reshaped[id_pos, 0]) / anchors_d[id_pos]
+    targets[index_x, index_y, np.array(index_z) * 7 + 1] = (
+        gt_boxes3d[id_pos_gt, 1] - anchors_reshaped[id_pos, 1]) / anchors_d[id_pos]
+    targets[index_x, index_y, np.array(index_z) * 7 + 2] = (
+        gt_boxes3d[id_pos_gt, 2] - anchors_reshaped[id_pos, 2]) / anchor_h
+    targets[index_x, index_y, np.array(index_z) * 7 + 3] = np.log(
+        gt_boxes3d[id_pos_gt, 3] / anchors_reshaped[id_pos, 3])
+    targets[index_x, index_y, np.array(index_z) * 7 + 4] = np.log(
+        gt_boxes3d[id_pos_gt, 4] / anchors_reshaped[id_pos, 4])
+    targets[index_x, index_y, np.array(index_z) * 7 + 5] = np.log(
+        gt_boxes3d[id_pos_gt, 5] / anchors_reshaped[id_pos, 5])
+    targets[index_x, index_y, np.array(index_z) * 7 + 6] = (
+        gt_boxes3d[id_pos_gt, 6] - anchors_reshaped[id_pos, 6])
 
     index_x, index_y, index_z = np.unravel_index(
         id_neg, (*target_shape, 2))
-    neg_equal_one[0, index_x, index_y, index_z] = 1
+    neg_equal_one[index_x, index_y, index_z] = 1
     # to avoid a box be pos/neg in the same time
     index_x, index_y, index_z = np.unravel_index(
         id_highest, (*target_shape, 2))
-    neg_equal_one[0, index_x, index_y, index_z] = 0
+    neg_equal_one[index_x, index_y, index_z] = 0
 
     return pos_equal_one, neg_equal_one, targets
 
@@ -268,18 +270,27 @@ def parse_grid_to_label(obj_map, reg_map, anchors, anchor_size, cls, calib, thre
     '''
         parse the regression map to labels
         inputs:
-            obj_map (np.array) [#batch, target_shape[0], target_shape[1], 2]
-            reg_map (np.array) [#batch, target_shape[0], target_shape[1], 14]
+            obj_map (np.array) [target_shape[0], target_shape[1], 2]
+            reg_map (np.array) [target_shape[0], target_shape[1], 14]
             anchors (np.array) [target_shape[0], target_shape[1], 2, 7]
+            anchor_size (tuple): (l(float), w(float), h(float))
+                lwh <-> xzy (camera) <->yxz(lidar)
+            cls (str)
+            calib (KittiCalib)
+            threshold_score (float):
+                result with score >= threshold_score will be counted
+            threshold_nms (float):
+                result with iou <= threshold_iou will be counted
         returns:
-            boxes3d (np.array) [#batch, target_shape[0]*target_shape[1]*2, 7]
+            label
         reference:
             https://github.com/qianguih/voxelnet
-
     '''
+    obj_map = obj_map.transpose(1, 2, 0)
+    reg_map = reg_map.transpose(1, 2, 0)
     _, _, anchor_h = anchor_size
     anchors_reshaped = anchors.reshape(-1, 7)
-    deltas = reg_map.reshape(reg_map.shape[0], -1, 7)
+    deltas = reg_map.reshape(-1, 7)
     anchors_d = np.sqrt(anchors_reshaped[:, 4]**2 + anchors_reshaped[:, 5]**2)
     boxes3d = np.zeros_like(deltas)
     boxes3d[..., [0, 1]] = deltas[..., [0, 1]] * \
@@ -290,17 +301,17 @@ def parse_grid_to_label(obj_map, reg_map, anchors, anchor_size, cls, calib, thre
         deltas[..., [3, 4, 5]]) * anchors_reshaped[..., [3, 4, 5]]
     boxes3d[..., 6] = deltas[..., 6] + anchors_reshaped[..., 6]
 
-    boxes2d = boxes3d[:, :, [0, 1, 4, 5, 6]]
-    probs = obj_map.reshape(1, -1)
+    boxes2d = boxes3d[:, [0, 1, 4, 5, 6]]
+    probs = obj_map.reshape(-1)
 
-    ind = np.where(probs[0, :] >= threshold_score)[0]
+    ind = np.where(probs[:] >= threshold_score)[0]
     if ind.shape[0] == 0:
         label = KittiLabel()
         label.data = []
         return label
-    tmp_boxes3d = boxes3d[0, ind, ...]
-    tmp_boxes2d = boxes2d[0, ind, ...]
-    tmp_scores = probs[0, ind]
+    tmp_boxes3d = boxes3d[ind, ...]
+    tmp_boxes2d = boxes2d[ind, ...]
+    tmp_scores = probs[ind]
     boxes2d = center_to_standup_box2d(tmp_boxes2d)
     boxes2d = boxes2d[:, [0, 2, 1, 3]]
     ind = nms(boxes2d, tmp_scores, threshold_nms)
@@ -335,9 +346,7 @@ def label_to_gt_box3d(label, calib):
         label (KittiLabel)
         calib (KittiCalib)
     returns:
-        label_np (np.array) [#batch, #obj, 7]
-    Note:
-        It only supports batch_size=1
+        label_np (np.array) [#obj, 7]
     '''
     boxes3d = []
     if label.isempty():
@@ -351,7 +360,7 @@ def label_to_gt_box3d(label, calib):
         x, y, z = btmcenter_Flidar.reshape(-1)
         box3d = [x, y, z, h, w, l, ry]
         boxes3d.append(np.array(box3d).reshape(-1, 7))
-    return np.vstack(boxes3d).reshape(1, -1, 7)
+    return np.vstack(boxes3d).reshape(-1, 7)
 
 def anchor_to_standup_box2d(anchors):
     '''
@@ -391,7 +400,7 @@ def center_to_standup_box2d(boxes_center):
     num_boxes = boxes_center.shape[0]
     boxes_corner = []
     for i in range(num_boxes):
-        x, y, w, l, ry = boxes_center[i,:]
+        x, y, w, l, ry = boxes_center[i, :]
         box_corner = np.array([
             [-l/2, w/2,  0 ],
             [-l/2, -w/2, 0],

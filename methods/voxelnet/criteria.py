@@ -7,12 +7,16 @@ import torch
 import torch.nn as nn
 
 class VoxelNetLoss(nn.Module):
-    """
-
-    """
     def __init__(self, alpha=1, beta=1.5, eta=1, gamma=2):
+        '''
+        Loss function for VoxelNet
+        inputs:
+            alpha: weight of pos cls
+            bet: weight of neg cls
+            eta: weight of cls
+            gamma: hyperparameter of focal loss
+        '''
         super(VoxelNetLoss, self).__init__()
-        # self.iden_mse = nn.MSELoss()
         self.alpha = alpha
         self.beta = beta
         self.eta = eta
@@ -26,7 +30,7 @@ class VoxelNetLoss(nn.Module):
 
     def forward(self, est, gt):
         small_addon_for_BCE = 1e-6
-        pos_equal_one_for_reg = torch.cat([gt["obj"][:, 0:1, :, :].repeat(1,7,1,1), gt["obj"][:, 1:2, :, :].repeat(1,7,1,1)], dim=1)
+        pos_equal_one_for_reg = torch.cat([gt["obj"][:, 0:1, :, :].repeat(1, 7, 1, 1), gt["obj"][:, 1:2, :, :].repeat(1, 7, 1, 1)], dim=1)
         pos_equal_one_sum = torch.clamp(torch.sum(gt['obj']), min=1)
         neg_equal_one_sum = torch.clamp(torch.sum(gt['neg-obj']), min=1)
         cls_pos_loss = (-gt["obj"] * (1 - est["obj"] + small_addon_for_BCE) ** self.gamma * torch.log(    est["obj"] + small_addon_for_BCE)) / pos_equal_one_sum * self.alpha
@@ -45,9 +49,12 @@ class VoxelNetLoss(nn.Module):
         losses["cls_neg_loss"] = cls_neg_loss
         return losses
 
-def smooth_l1(deltas, targets, sigma=3.0):
+def smooth_l1(est, gt, sigma=3.0):
+    '''
+        smooth_l1 distance
+    '''
     sigma2 = sigma * sigma
-    diffs = deltas - targets
+    diffs = est - gt
     smooth_l1_signs = torch.le(torch.abs(diffs), 1.0 / sigma2).float()
 
     smooth_l1_option1 = diffs * diffs * 0.5 * sigma2

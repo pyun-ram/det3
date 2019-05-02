@@ -7,7 +7,12 @@
 # Last Modified : Sat 23 Dec 2017 03:18:37 PM CST
 # Created By : Jeasine Ma [jeasinema[at]gmail[dot]com]
 # Thanks to Jeasine Ma! :)
-# In the root dir: RUN python3 methods/voxelnet/setup.py build_ext --inplace
+# In the det3/methods/voxelnet/box_overlaps/: RUN python3 setup.py build_ext --inplace
+# cd det3/methods/voxelnet/box_overlaps/
+# python3 setup.py build_ext --inplace
+# mv det3/methods/voxelnet/box_overlaps/det3/methods/voxelnet/box_overlaps/*.so det3/methods/voxelnet/box_overlaps
+# rm det3/methods/voxelnet/box_overlaps/det3/methods/voxelnet/box_overlaps/
+
 from distutils.core import setup
 from Cython.Build import cythonize
 

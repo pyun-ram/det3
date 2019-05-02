@@ -193,17 +193,15 @@ def validate(val_loader, model, criterion, epoch, cfg):
             bevimg.from_lidar(pc[:, :], scale=1)
 
             for obj in label.data:
-                if obj.type in cfg.KITTI_cls[cfg.cls]:
-                    bevimg.draw_box(obj, calib, bool_gt=True, width=3)
-            est_pmap_np = est_pmap.cpu().numpy().transpose(0, 2, 3, 1)
-            est_rmap_np = est_rmap.cpu().numpy().transpose(0, 2, 3, 1)
-            rec_label = parse_grid_to_label(est_pmap_np, est_rmap_np, anchors,
+                bevimg.draw_box(obj, calib, bool_gt=True, width=3)
+            est_pmap_np = est_pmap.cpu().numpy()
+            est_rmap_np = est_rmap.cpu().numpy()
+            rec_label = parse_grid_to_label(est_pmap_np[0], est_rmap_np[0], anchors,
                                             anchor_size=(cfg.ANCHOR_L, cfg.ANCHOR_W, cfg.ANCHOR_H),
                                             cls=cfg.cls, calib=calib, threshold_score=cfg.RPN_SCORE_THRESH,
                                             threshold_nms=cfg.RPN_NMS_THRESH)
             for obj in rec_label.data:
-                if obj.type in cfg.KITTI_cls[cfg.cls]:
-                    bevimg.draw_box(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
+                bevimg.draw_box(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
 
             bevimg_img = Image.fromarray(bevimg.data)
             bevimg_img.save(os.path.join(log_dir, 'val_imgs', str(epoch), '{:06d}.png'.format(tag)))
