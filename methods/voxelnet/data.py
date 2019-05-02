@@ -41,7 +41,7 @@ class KITTIDataVoxelNet():
                 batch_size=1,
                 num_workers=num_workers,
                 pin_memory=True,
-                shuffle=False
+                shuffle=True
             )}
 
 class KittiDatasetVoxelNet(Dataset):

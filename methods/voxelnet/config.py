@@ -7,7 +7,7 @@ from easydict import EasyDict as edict
 __C = edict()
 cfg = __C
 
-__C.TAG = 'VoxelNet-000A'
+__C.TAG = 'VoxelNet-000B'
 __C.cls = 'Car'
 __C.DATADIR = '/usr/app/data/KITTI/'
 __C.gpu = 0
@@ -20,7 +20,7 @@ __C.weight_decay = 0
 __C.batch_size = 1
 __C.seed = 123
 __C.alpha = 1
-__C.beta = 10
+__C.beta = 5
 __C.eta = 10
 __C.gamma = 0
 

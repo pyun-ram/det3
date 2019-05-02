@@ -198,6 +198,7 @@ def create_rpn_target(label, calib, target_shape, anchors, threshold_pos_iou, th
     pos_equal_one = np.zeros((*target_shape, 2))
     neg_equal_one = np.zeros((*target_shape, 2))
     if label.isempty():
+        neg_equal_one = np.ones((*target_shape, 2))
         return pos_equal_one, neg_equal_one, targets
     gt_boxes3d = label_to_gt_box3d(label, calib)
     anchors_reshaped = anchors.reshape(-1, 7)
