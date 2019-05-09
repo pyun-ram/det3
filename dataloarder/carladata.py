@@ -32,8 +32,8 @@ class CarlaCalib:
         self.path = calib_path
         self.data = None
         self.num_of_lidar = None
-        self.P0 = np.array([[50, 0., 600, 0.],
-                            [0., 50, 180, 0.],
+        self.P0 = np.array([[450, 0., 600, 0.],
+                            [0., 450, 180, 0.],
                             [0., 0., 1, 0.]])
     def read_calib_file(self):
         '''

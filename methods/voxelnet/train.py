@@ -22,7 +22,6 @@ from tensorboardX import SummaryWriter
 from det3.methods.voxelnet.config import cfg
 from det3.methods.voxelnet.model import VoxelNet
 from det3.methods.voxelnet.criteria import VoxelNetLoss
-from det3.methods.voxelnet.data import KittiDatasetVoxelNet, KITTIDataVoxelNet
 from det3.visualizer.vis import BEVImage
 from det3.methods.voxelnet.utils import parse_grid_to_label
 
@@ -83,10 +82,18 @@ def main():
             output_log("=> no checkpoint found at '{}'".format(cfg.resume))
 
     cudnn.benchmark = True
-
-    kitti_data = KITTIDataVoxelNet(data_dir=cfg.DATADIR, cfg=cfg, batch_size=cfg.batch_size).kitti_loaders
-    train_loader = kitti_data['train']
-    val_loader = KittiDatasetVoxelNet(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
+    if "KITTI" in cfg.DATADIR.split("/"):
+        from det3.methods.voxelnet.kittidata import KittiDatasetVoxelNet, KITTIDataVoxelNet
+        kitti_data = KITTIDataVoxelNet(data_dir=cfg.DATADIR, cfg=cfg, batch_size=cfg.batch_size).kitti_loaders
+        train_loader = kitti_data['train']
+        val_loader = KittiDatasetVoxelNet(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
+    elif "CARLA" in cfg.DATADIR.split("/"):
+        from det3.methods.voxelnet.carladata import CarlaDatasetVoxelNet, CarlaDataVoxelNet
+        carla_data = CarlaDataVoxelNet(data_dir=cfg.DATADIR, cfg=cfg, batch_size=cfg.batch_size).carla_loaders
+        train_loader = carla_data['train']
+        val_loader = CarlaDatasetVoxelNet(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
+    else:
+        raise NotImplementedError
 
     for epoch in range(cfg.start_epoch, cfg.epochs):
         adjust_learning_rate(optimizer, epoch, cfg.lr)

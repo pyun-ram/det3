@@ -7,8 +7,9 @@ import numpy as np
 import sys
 sys.path.append("../")
 from det3.methods.voxelnet.box_overlaps import bbox_overlaps
-from det3.utils.utils import rotz, apply_R, apply_tr
+from det3.utils.utils import istype, rotz, apply_R, apply_tr
 from det3.dataloarder.kittidata import KittiLabel, KittiObj
+from det3.dataloarder.carladata import CarlaLabel, CarlaObj
 
 def filter_camera_angle(pts):
     """
@@ -85,8 +86,8 @@ def filter_label_cls(label, actuall_cls):
     '''
     filter label and get the objs in cls.
     inputs:
-        label (KittiLabel):
-            Kitti Label read from txt file
+        label (KittiLabel/CarlaLabel):
+            Label read from txt file
         actuall_cls (list):
             The actuall class correspond to cls.
             e.g. ['Car', 'Van'] for cls=='Car'
@@ -98,19 +99,24 @@ def filter_label_range(label, calib, x_range, y_range, z_range):
     '''
     filter label and get the objs in the xyz_range specified area.
     inputs:
-        label (KittiLabel):
-            Kitti Label read from txt file
-        x_range (tuple): (x_min(float), x_max(float)) in Lidar Frame
-        y_range (tuple): (y_min(float), y_max(float)) in Lidar Frame
-        z_range (tuple): (z_min(float), z_max(float)) in Lidar Frame
+        label (KittiLabel/CarlaLabel):
+            Label read from txt file
+        x_range (tuple): (x_min(float), x_max(float)) in Lidar Frame / IMU Frame
+        y_range (tuple): (y_min(float), y_max(float)) in Lidar Frame / IMU Frame
+        z_range (tuple): (z_min(float), z_max(float)) in Lidar Frame / IMU Frame
     '''
     tmp = []
     for obj in label.data:
-        cam_pt = np.array([[obj.x, obj.y-obj.h/2.0, obj.z]])
-        lidar_pt = calib.leftcam2lidar(cam_pt)
+        if istype(label, "KittiLabel") and istype(calib, "KittiCalib"):
+            cam_pt = np.array([[obj.x, obj.y-obj.h/2.0, obj.z]])
+            lidar_pt = calib.leftcam2lidar(cam_pt)
+        elif istype(label, "CarlaLabel") and istype(calib, "CarlaCalib"):
+            lidar_pt = np.array([[obj.x, obj.y+obj.h/2.0, obj.z]]) # IMU Frame
+        else:
+            raise NotImplementedError
         if (x_range[0] <= lidar_pt[0, 0] <= x_range[1] and
-                y_range[0] <= lidar_pt[0, 1] <= y_range[1] and
-                z_range[0] <= lidar_pt[0, 2] <= z_range[1]):
+            y_range[0] <= lidar_pt[0, 1] <= y_range[1] and
+            z_range[0] <= lidar_pt[0, 2] <= z_range[1]):
             tmp.append(obj)
     label.data = tmp
     return label
@@ -119,11 +125,11 @@ def filter_label_pts(label, pc, calib, threshold_pts=10):
     '''
     filter label and get the objs with #pts >= threshold_pts.
     inputs:
-        label (KittiLabel):
-            Kitti Label read from txt file
+        label (KittiLabel/CarlaLabel):
+            Label read from txt file
         pc (np.array) [#pts, 3]
             point cloud in LiDAR Frame
-        calib (KittiCalib)
+        calib (KittiCalib/CarlaLabel)
         threshold_pts (int)
     '''
     tmp = []
@@ -177,8 +183,8 @@ def create_rpn_target(label, calib, target_shape, anchors, threshold_pos_iou, th
     '''
     create target for regression and classfication
     inputs:
-        label (KittiLabel)
-        calib (KittiCalib)
+        label (KittiLabel/CarlaLabel)
+        calib (KittiCalib/CarlaCalib)
         target_shape (tuple): (y_size (int), x_size(int))
             final output shape of VoxelNet in y and x dimension
         anchors (np.array): [y_size, x_size, 2, 7] (cx, cy, cz, h, w, l, r) in lidar frame
@@ -205,12 +211,20 @@ def create_rpn_target(label, calib, target_shape, anchors, threshold_pos_iou, th
     anchors_d = np.sqrt(anchors_reshaped[:, 4]**2 + anchors_reshaped[:, 5]**2)
     anchors_standup_2d = anchor_to_standup_box2d(anchors_reshaped[:, [0, 1, 4, 5]])
 
-    gtcns_Fcam = [obj.get_bbox3dcorners() for obj in label.data]
-    gtcns_Fcam = np.vstack(gtcns_Fcam)
-    cns_Flidar = calib.leftcam2lidar(gtcns_Fcam).reshape(-1, 8, 3)
-    cns_Flidar_2d = cns_Flidar[:, :4, :2]
-    gt_standup_2d = corner_to_standup_box2d(cns_Flidar_2d)
-
+    if istype(label, "KittiLabel") and istype(calib, "KittiCalib"):
+        gtcns_Fcam = [obj.get_bbox3dcorners() for obj in label.data]
+        gtcns_Fcam = np.vstack(gtcns_Fcam)
+        cns_Flidar = calib.leftcam2lidar(gtcns_Fcam).reshape(-1, 8, 3)
+        cns_Flidar_2d = cns_Flidar[:, :4, :2]
+        gt_standup_2d = corner_to_standup_box2d(cns_Flidar_2d)
+    elif istype(label, "CarlaLabel") and istype(calib, "CarlaCalib"):
+        cns_FIMU = [obj.get_bbox3dcorners() for obj in label.data]
+        cns_FIMU = np.vstack(cns_FIMU)
+        cns_FIMU = cns_FIMU.reshape(-1, 8, 3)
+        cns_FIMU_2d = cns_FIMU[:, :4, :2]
+        gt_standup_2d = corner_to_standup_box2d(cns_FIMU_2d)
+    else:
+        raise NotImplementedError
     iou = bbox_overlaps(
         np.ascontiguousarray(anchors_standup_2d).astype(np.float32),
         np.ascontiguousarray(gt_standup_2d).astype(np.float32),
@@ -277,7 +291,7 @@ def parse_grid_to_label(obj_map, reg_map, anchors, anchor_size, cls, calib, thre
             anchor_size (tuple): (l(float), w(float), h(float))
                 lwh <-> xzy (camera) <->yxz(lidar)
             cls (str)
-            calib (KittiCalib)
+            calib (KittiCalib/CarlaCalib)
             threshold_score (float):
                 result with score >= threshold_score will be counted
             threshold_nms (float):
@@ -306,8 +320,12 @@ def parse_grid_to_label(obj_map, reg_map, anchors, anchor_size, cls, calib, thre
     probs = obj_map.reshape(-1)
 
     ind = np.where(probs[:] >= threshold_score)[0]
-    if ind.shape[0] == 0:
+    if ind.shape[0] == 0 and istype(calib, "KittiCalib"):
         label = KittiLabel()
+        label.data = []
+        return label
+    elif ind.shape[0] == 0 and istype(calib, "CarlaCalib"):
+        label = CarlaLabel()
         label.data = []
         return label
     tmp_boxes3d = boxes3d[ind, ...]
@@ -318,27 +336,41 @@ def parse_grid_to_label(obj_map, reg_map, anchors, anchor_size, cls, calib, thre
     ind = nms(boxes2d, tmp_scores, threshold_nms)
     tmp_boxes3d = tmp_boxes3d[ind, ...]
     tmp_scores = tmp_scores[ind, ...]
-
-    label = KittiLabel()
-    label.data = []
-    for box3d, score in zip(tmp_boxes3d, tmp_scores):
-        obj = KittiObj()
-        x, y, z, h, w, l, ry = box3d
-        btmcenter_Flidar = np.array([x, y, z]).reshape(1, -1)
-        btmcenter_Fcam = calib.lidar2leftcam(btmcenter_Flidar)
-        obj.x, obj.y, obj.z = btmcenter_Fcam.flatten()
-        obj.h, obj.w, obj.l, obj.ry = h, w, l, ry
-        cns_Fcam = obj.get_bbox3dcorners()
-        obj.from_corners(calib, cns_Fcam, cls, score)
-        label.data.append(obj)
+    if istype(calib, "KittiCalib"):
+        label = KittiLabel()
+        label.data = []
+        for box3d, score in zip(tmp_boxes3d, tmp_scores):
+            obj = KittiObj()
+            x, y, z, h, w, l, ry = box3d
+            btmcenter_Flidar = np.array([x, y, z]).reshape(1, -1)
+            btmcenter_Fcam = calib.lidar2leftcam(btmcenter_Flidar)
+            obj.x, obj.y, obj.z = btmcenter_Fcam.flatten()
+            obj.h, obj.w, obj.l, obj.ry = h, w, l, ry
+            cns_Fcam = obj.get_bbox3dcorners()
+            obj.from_corners(calib, cns_Fcam, cls, score)
+            label.data.append(obj)
+    elif istype(calib, "CarlaCalib"):
+        label = CarlaLabel()
+        label.data = []
+        for box3d, score in zip(tmp_boxes3d, tmp_scores):
+            obj = CarlaObj()
+            x, y, z, h, w, l, ry = box3d
+            obj.x, obj.y, obj.z = x, y, z
+            obj.h, obj.w, obj.l, obj.ry = h, w, l, ry
+            cns_FIMU = obj.get_bbox3dcorners()
+            cns_Fcam = calib.imu2cam(cns_FIMU)
+            obj.from_corners(calib, cns_Fcam, cls, score)
+            label.data.append(obj)
+    else:
+        raise NotImplementedError
     return label
 
 def label_to_gt_box3d(label, calib):
     '''
     convert label into numpy array for further parallel operation
     inputs:
-        label (KittiLabel)
-        calib (KittiCalib)
+        label (KittiLabel/CarlaLabel)
+        calib (KittiCalib/CarlaCalib)
     returns:
         label_np (np.array) [#obj, 7]
     '''
@@ -350,9 +382,15 @@ def label_to_gt_box3d(label, calib):
         w = obj.w
         l = obj.l
         ry = obj.ry
-        btmcenter_Flidar = calib.leftcam2lidar(np.array([obj.x, obj.y, obj.z]).reshape(1, -1))
-        x, y, z = btmcenter_Flidar.reshape(-1)
-        box3d = [x, y, z, h, w, l, ry]
+        if istype(label, "KittiLabel") and istype(calib, "KittiCalib"):
+            btmcenter_Flidar = calib.leftcam2lidar(np.array([obj.x, obj.y, obj.z]).reshape(1, -1))
+            x, y, z = btmcenter_Flidar.reshape(-1)
+            box3d = [x, y, z, h, w, l, ry]
+        elif istype(label, "CarlaLabel") and istype(calib, "CarlaCalib"):
+            x, y, z = obj.x, obj.y, obj.z
+            box3d = [x, y, z, h, w, l, ry]
+        else:
+            raise NotImplementedError
         boxes3d.append(np.array(box3d).reshape(-1, 7))
     return np.vstack(boxes3d).reshape(-1, 7)
 

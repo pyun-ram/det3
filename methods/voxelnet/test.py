@@ -71,10 +71,10 @@ def main():
     cudnn.benchmark = True
 
     if "CARLA" in cfg.DATADIR.split("/"):
-        from det3.methods.fcn3d.carladata import CarlaDatasetFCN3D
-        val_loader = CarlaDatasetFCN3D(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
+        from det3.methods.voxelnet.carladata import CarlaDatasetVoxelNet
+        val_loader = CarlaDatasetVoxelNet(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
     elif "KITTI" in cfg.DATADIR.split("/"):
-        from det3.methods.voxelnet.data import KittiDatasetVoxelNet
+        from det3.methods.voxelnet.kittidata import KittiDatasetVoxelNet
         val_loader = KittiDatasetVoxelNet(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
     else:
         raise NotImplementedError
