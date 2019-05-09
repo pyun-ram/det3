@@ -49,6 +49,9 @@ class TestCarlarCalib(unittest.TestCase):
         self.assertTrue(np.allclose(results, calib.imu2cam(pts), rtol=1.e-5))
     def test_cam2imgplane(self):
         calib = CarlaCalib("./unit-test/data/test_CarlaCalib_000000.txt").read_calib_file()
+        calib.P0 = np.array([[50, 0., 600, 0.],
+                            [0., 50, 180, 0.],
+                            [0., 0., 1, 0.]])
         pts = np.array([[ -2.69413924 , -3.09194338,  -6.80046272],
                         [ -2.7376864  , -3.09210932,  -6.77902794],
                         [-33.10041809 ,-10.37361813, -13.89153004]]
