@@ -16,7 +16,7 @@ import logging
 import numpy as np
 from det3.dataloarder.kittidata import KittiData, KittiLabel, KittiObj
 from det3.utils.utils import roty
-from det3.methods.deep3dbox.utils import recover_loc_by_geometry
+from det3.methods.deep3dbox.utils import recover_loc_by_geometry, filter_label_range
 
 root_dir = __file__.split('/')
 root_dir = os.path.join(root_dir[0], root_dir[1])
@@ -43,6 +43,7 @@ def main():
     for idx in idx_list:
         print(idx)
         calib, _, gt_label, _ = KittiData(data_dir, idx).read_data()
+        gt_label = filter_label_range(gt_label, calib, x_range=(0, 70.4), y_range=(-40, 40), z_range=(-3, 1))
         est_label = KittiLabel()
         est_label.data = []
         for obj in gt_label.data:

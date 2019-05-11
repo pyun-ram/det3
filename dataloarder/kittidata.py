@@ -105,8 +105,8 @@ class KittiCalib:
         pts_hT = np.hstack([pts, hfiller]).T #(4, #pts)
         pixels_T = self.P2 @ pts_hT #(3, #pts)
         pixels = pixels_T.T
-        pixels[:, 0] /= pixels[:, 2]
-        pixels[:, 1] /= pixels[:, 2]
+        pixels[:, 0] /= pixels[:, 2] + 1e-6
+        pixels[:, 1] /= pixels[:, 2] + 1e-6
         return pixels[:, :2]
 
 class KittiLabel:

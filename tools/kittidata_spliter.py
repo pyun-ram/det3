@@ -2,10 +2,10 @@
 File Created: Sunday, 17th March 2019 11:18:42 am
 Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
-Usage: python3 tools/data_spliter.py \
+Usage: python3 tools/kittidata_spliter.py \
     --data-dir /usr/app/data/KITTI/training \
-    --idx-file /usr/app/data/KITTI/split_index/dev.txt \
-    --output-dir /usr/app/data/KITTI/dev
+    --idx-file /usr/app/data/KITTI/split_index/train.txt \
+    --output-dir /usr/app/data/KITTI/train
 '''
 import argparse
 import os
