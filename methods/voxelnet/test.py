@@ -89,6 +89,8 @@ def evaluate(data_loader, model, criterion, cfg):
     with torch.no_grad():
         end = time.time()
         for i, (tag, voxel_feature, coordinate, gt_pos_map, gt_neg_map, gt_target, anchors, pc, label, calib) in enumerate(data_loader):
+            if i > 10:
+                break
             if cfg.gpu is not None:
                 voxel_feature = torch.from_numpy(voxel_feature).contiguous().cuda(cfg.gpu, non_blocking=True)
                 coordinate = torch.from_numpy(coordinate).contiguous().cuda(cfg.gpu, non_blocking=True)
@@ -116,7 +118,7 @@ def evaluate(data_loader, model, criterion, cfg):
             if img is not None:
                 fvimg.from_image(img)
             else:
-                fvimg.from_lidar(calib, pc)
+                fvimg.from_lidar(calib, pc[:, :3])
 
             for obj in label.data:
                 if obj.type in cfg.KITTI_cls[cfg.cls]:
