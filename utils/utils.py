@@ -60,7 +60,7 @@ def rotx(t):
     s = np.sin(t)
     return np.array([[1, 0, 0],
                      [0, c, -s],
-                     [0, s, c]])
+                     [0, s, c]]).astype(float)
 
 def roty(t):
     ''' Rotation about the y-axis.
@@ -69,7 +69,7 @@ def roty(t):
     s = np.sin(t)
     return np.array([[c, 0, s],
                      [0, 1, 0],
-                     [-s, 0, c]])
+                     [-s, 0, c]]).astype(float)
 
 def rotz(t):
     ''' Rotation about the z-axis.
@@ -78,7 +78,7 @@ def rotz(t):
     s = np.sin(t)
     return np.array([[c, -s, 0],
                      [s, c, 0],
-                     [0, 0, 1]])
+                     [0, 0, 1]]).astype(float)
 
 def apply_R(pts, R):
     '''

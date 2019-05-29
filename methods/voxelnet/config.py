@@ -7,12 +7,12 @@ from easydict import EasyDict as edict
 __C = edict()
 cfg = __C
 
-__C.TAG = 'VoxelNet-000B'
+__C.TAG = 'VoxelNet-CARLA-000A'
 __C.cls = 'Car'
-__C.DATADIR = '/usr/app/data/KITTI/'
+__C.DATADIR = '/usr/app/data/CARLA/'
 __C.gpu = 0
-# __C.resume = '/usr/app/det3/methods/voxelnet/saved_weights/VoxelNet-000B/140.pth.tar'
-__C.resume = None
+__C.resume = '/usr/app/det3/methods/voxelnet/saved_weights/VoxelNet-CARLA-000A/best.pth.tar'
+# __C.resume = None
 __C.start_epoch = 0
 __C.epochs = 150
 __C.lr = 1e-3
@@ -51,4 +51,4 @@ if __C.cls == 'Car':
     __C.RPN_POS_IOU = 0.6
     __C.RPN_NEG_IOU = 0.45
 __C.RPN_SCORE_THRESH = 0.8 #0.96
-__C.RPN_NMS_THRESH = 0.25
+__C.RPN_NMS_THRESH = 0.01
