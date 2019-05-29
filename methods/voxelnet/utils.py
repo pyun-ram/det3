@@ -193,7 +193,7 @@ def create_rpn_target(label, calib, target_shape, anchors, threshold_pos_iou, th
         threshold_neg_iou (float)
             anchor iou < threshold_neg_iou is counted as neg anchor
         anchor_size (tuple): (l(float), w(float), h(float))
-            lwh <-> xzy (camera) <->yxz(lidar)            
+            lwh <-> xzy (camera) <->yxz(lidar)  
     return:
         pos_equal_one, neg_equal_one, targets
     references:
@@ -316,7 +316,7 @@ def parse_grid_to_label(obj_map, reg_map, anchors, anchor_size, cls, calib, thre
         deltas[..., [3, 4, 5]]) * anchors_reshaped[..., [3, 4, 5]]
     boxes3d[..., 6] = deltas[..., 6] + anchors_reshaped[..., 6]
 
-    boxes2d = boxes3d[:, [0, 1, 4, 5, 6]]
+    # boxes2d = boxes3d[:, [0, 1, 4, 5, 6]]
     probs = obj_map.reshape(-1)
 
     ind = np.where(probs[:] >= threshold_score)[0]
@@ -329,12 +329,8 @@ def parse_grid_to_label(obj_map, reg_map, anchors, anchor_size, cls, calib, thre
         label.data = []
         return label
     tmp_boxes3d = boxes3d[ind, ...]
-    tmp_boxes2d = boxes2d[ind, ...]
     tmp_scores = probs[ind]
-    boxes2d = center_to_standup_box2d(tmp_boxes2d)
-    boxes2d = boxes2d[:, [0, 2, 1, 3]]
-    # ind = nms(boxes2d, tmp_scores, threshold_nms)
-    ind = nms_general(tmp_boxes3d, tmp_scores, threshold_nms,mode='2d-rot')
+    ind = nms_general(tmp_boxes3d, tmp_scores, threshold_nms, mode='2d-rot')
     tmp_boxes3d = tmp_boxes3d[ind, ...]
     tmp_scores = tmp_scores[ind, ...]
     if istype(calib, "KittiCalib"):
@@ -488,6 +484,12 @@ def nms_general(boxes, scores, threshold, mode='2d-rot'):
     inputs:
         boxes (np.array) [# boxes, 7]
             3D boxes [x, y, z, l, w, h, ry]
+               ^y
+               |
+            (z).----->x
+            bottom center :[x,y,z]
+            l, w, h <-> x, y, z
+            ry : rotation along z axis
         scores (np.array) [# boxes, ]
         threshold (float): keep the boxes with the IoU <= thresold
         mode (str): '2d', '2d-rot', '3d-rot'
@@ -511,8 +513,20 @@ def compute_iou(box, others, mode='2d-rot'):
     inputs:
         box (np.array) [1, 7]
             3D boxes [x, y, z, l, w, h, ry]
+               ^y
+               |
+            (z).----->x
+            bottom center :[x,y,z]
+            l, w, h <-> x, y, z
+            ry : rotation along z axis
         others (np.array) [#boxes, 7]
             3D boxes [x, y, z, l, w, h, ry]
+               ^y
+               |
+            (z).----->x
+            bottom center :[x,y,z]
+            l, w, h <-> x, y, z
+            ry : rotation along z axis
         mode (str): '2d-rot', '3d-rot'
     return:
         ious(np.array) [#boxes,]
@@ -527,7 +541,14 @@ def compute_iou(box, others, mode='2d-rot'):
         # compute iou
         iou = inter / (box_area + others_area - inter)
     elif mode == '3d-rot':
-        pass
+        # compute box volume
+        box_vol = compute_volume(box)
+        # compute others volume
+        others_vol = compute_volume(others)
+        # compute intersection
+        inter = compute_intersec(box, others, mode)
+        # compute iou
+        iou = inter / (box_vol + others_vol - inter)
     else:
         raise NotImplementedError
     return iou
@@ -537,10 +558,34 @@ def compute_area(boxes):
     compute area of boxes.
     inputs:
         boxes (np.array) [#boxes, 7]
+            3D boxes [x, y, z, l, w, h, ry]
+               ^y
+               |
+            (z).----->x
+            bottom center :[x,y,z]
+            l, w, h <-> x, y, z
+            ry : rotation along z axis
     return:
         areas (np.array) [#boxes, ]
     '''
     return boxes[:, 3] * boxes[:, 4]
+
+def compute_volume(boxes):
+    '''
+    compute area of boxes.
+    inputs:
+        boxes (np.array) [#boxes, 7]
+        3D boxes [x, y, z, l, w, h, ry]
+               ^y
+               |
+            (z).----->x
+            bottom center :[x,y,z]
+            l, w, h <-> x, y, z
+            ry : rotation along z axis
+    return:
+        vols (np.array) [#boxes, ]
+    '''
+    return boxes[:, 3] * boxes[:, 4] * boxes[:, 5]
 
 def compute_intersec(box, others, mode):
     '''
@@ -548,8 +593,20 @@ def compute_intersec(box, others, mode):
     inputs:
         box (np.array) [1, 7]
             3D boxes [x, y, z, l, w, h, ry]
+               ^y
+               |
+            (z).----->x
+            bottom center :[x,y,z]
+            l, w, h <-> x, y, z
+            ry : rotation along z axis
         others (np.array) [#boxes, 7]
             3D boxes [x, y, z, l, w, h, ry]
+               ^y
+               |
+            (z).----->x
+            bottom center :[x,y,z]
+            l, w, h <-> x, y, z
+            ry : rotation along z axis
         mode (str): '2d-rot', '3d-rot'
     return:
         inter(np.array) [#boxes,]
@@ -562,6 +619,20 @@ def compute_intersec(box, others, mode):
         inter = np.zeros(others.shape[0])
         for i, plg in enumerate(all_plg2d[1:]):
             inter[i] = all_plg2d[0].intersection(plg).area
+    elif mode == '3d-rot':
+        min_h_box = all_boxes[0, 2]
+        max_h_box = all_boxes[0, 2] + all_boxes[0, 5]
+        min_h_others = all_boxes[1:, 2]
+        max_h_others = all_boxes[1:, 2] + all_boxes[1:, 5]
+        max_of_min = np.maximum(min_h_box, min_h_others)
+        min_of_max = np.minimum(max_h_box, max_h_others)
+        inter_z = np.maximum(0, min_of_max - max_of_min)
+        inter_xy = np.zeros(others.shape[0])
+        for i, plg in enumerate(all_plg2d[1:]):
+            inter_xy[i] = all_plg2d[0].intersection(plg).area
+        inter = inter_xy * inter_z
+    else:
+        raise NotImplementedError
     return inter
 
 def boxes3d2polygon(boxes):
@@ -569,6 +640,12 @@ def boxes3d2polygon(boxes):
     convert boxes defined by [x, y, z, l, w, h, ry] into polygons
     inputs:
         boxes: (#boxes, 7) [x, y, z, l, w, h, ry]
+               ^y
+               |
+            (z).----->x
+            bottom center :[x,y,z]
+            l, w, h <-> x, y, z
+            ry : rotation along z axis
     outputs:
         polygons (list) [#boxes]
     '''
@@ -593,7 +670,7 @@ def boxes3d2polygon(boxes):
     all_cns[:, 7, :] = all_cns[:, 3, :] + np.concatenate([array0, array0, all_h], axis=1)
     for i in range(all_cns.shape[0]):
         all_cns[i, :, :] = apply_R(all_cns[i, :, :], rotz(all_ry[i]))
-        all_cns[i, :, :] = apply_tr(all_cns[i, :, :], np.array([all_x[i], all_y[i], all_z[i]]).reshape(1,3))
+        all_cns[i, :, :] = apply_tr(all_cns[i, :, :], np.array([all_x[i], all_y[i], all_z[i]]).reshape(1, 3))
     all_cns2d = all_cns[:, :4, :2]
     all_plg2d = []
     for cns in all_cns:
@@ -621,15 +698,15 @@ def corner_to_standup_box2d(boxes_corner):
     return standup_boxes2d
 
 if __name__ == "__main__":
-    box =    np.array( [1, 2, 0, 2, 4, 1, 45 /180.0 * np.pi]).reshape(1, -1)
+    box =    np.array( [1, 2, 1, 2, 4, 1, 45 /180.0 * np.pi]).reshape(1, -1)
     others = np.array([[3, 0, 0, 4, 2, 1, 0],
                        [6, 6, 0, 2, 2, 1, 0],
                        [0, 3, 0, 3, 3, 1, 0]])
     # inter = compute_intersec(box, others, mode='2d-rot')
     boxes = np.vstack([box, others])
     scores = np.array([1, 0.6, 0.7, 0.8])
-    idx = nms_general(boxes, scores, 0.05, mode='2d-rot')
-    
+    idx = nms_general(boxes, scores, 0.05, mode='3d-rot')
+
     from matplotlib import pyplot as plt
     from descartes import PolygonPatch
     all_plg2d = boxes3d2polygon(boxes)
@@ -639,9 +716,9 @@ if __name__ == "__main__":
     #     ax.add_patch(PolygonPatch(plg))
     # plt.axis("auto")
     # plt.savefig("/usr/app/vis/all_box.png")
-    fig = plt.figure(1, figsize=(5,5), dpi=90)
+    fig = plt.figure(1, figsize=(5, 5), dpi=90)
     ax = fig.add_subplot(111)
     for i in idx:
         ax.add_patch(PolygonPatch(all_plg2d[i]))
     plt.axis("auto")
-    plt.savefig("/usr/app/vis/after_nms.png")    
+    plt.savefig("/usr/app/vis/after_nms.png")
