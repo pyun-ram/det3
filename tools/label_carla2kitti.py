@@ -2,6 +2,7 @@
 File Created: Saturday, 22nd June 2019 4:31:40 pm
 Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
+Function: Convert Carla label(imu frame) to Kitti label(left-cam frame) for evaluation with kitti official scripts.
 python3 tools/label_carla2kitti.py \
     --input-dir /usr/app/data/CARLA/train/label_imu/ \
     --calib-dir /usr/app/data/CARLA/train/calib/ \

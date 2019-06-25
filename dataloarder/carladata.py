@@ -32,6 +32,10 @@ class CarlaCalib:
         self.path = calib_path
         self.data = None
         self.num_of_lidar = None
+        # Note: Dangerous hard code here:
+        # If modify this P0, you have to modify the
+        #   tools/evaluate_object_3d_offline_carla.cpp
+        #   unit-test/test_dataloader_carladata.py
         self.P0 = np.array([[450, 0., 600, 0.],
                             [0., 450, 180, 0.],
                             [0., 0., 1, 0.]])

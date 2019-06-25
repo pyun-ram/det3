@@ -136,6 +136,141 @@ FUNCTIONS TO LOAD DETECTION AND GROUND TRUTH DATA ONCE, SAVE RESULTS
 =======================================================================*/
 vector<int32_t> indices;
 
+
+void apply_R(double M[][3], double R[][3], int32_t num_pts)
+{
+  for(int32_t i=0; i < num_pts; i++)
+  {
+    double x, y, z;
+    x = M[i][0];
+    y = M[i][1];
+    z = M[i][2];
+    M[i][0] = x * R[0][0] + y * R[0][1] + z * R[0][2];
+    M[i][1] = x * R[1][0] + y * R[1][1] + z * R[1][2];
+    M[i][2] = x * R[2][0] + y * R[2][1] + z * R[2][2];
+  }
+}
+
+void apply_Tr(double M[][3], double *Tr, int32_t num_pts)
+{
+  for(int32_t i=0; i < num_pts; i++)
+  {
+    M[i][0] = M[i][0] + Tr[0];
+    M[i][1] = M[i][1] + Tr[1];
+    M[i][2] = M[i][2] + Tr[2];
+  }
+}
+
+vector< vector<double> > get_bbox3dcorners(float* box3d)
+{
+  float h, w, l, x, y, z, ry;
+  h = box3d[0];  w = box3d[1];  l = box3d[2];
+  x = box3d[3];  y = box3d[4];  z = box3d[5];
+  ry = box3d[6];
+
+  double corners[8][3];
+  double R[3][3];
+  double Tr[3];
+  for(int32_t i = 0; i < 8; i++)
+    for(int32_t j = 0; j < 3; j++)
+      corners[i][j] = 0;
+  for(int32_t i = 0; i < 4; i++)
+  {
+    corners[i][0] = l/2.0;
+    corners[i][1] = w/2.0;
+  }
+  corners[0][0] *=-1;
+  corners[2][1] *=-1;
+  corners[3][0] *=-1;
+  corners[3][1] *=-1;
+
+  for(int32_t i=0; i < 3; i++)
+    for(int32_t j = 0; j < 3; j++)
+      R[i][j] = 0;
+  R[0][0] = cos(ry);  R[0][1] = -sin(ry);
+  R[1][0] = sin(ry);  R[1][1] = cos(ry);
+  R[2][2] = 1;
+  Tr[0] = x;  Tr[1] = y;  Tr[2] = z;
+  apply_R(corners, R, 4);
+  apply_Tr(corners, Tr, 4);
+  for(int32_t i = 0; i < 4; i++)
+  {
+    corners[i+4][0] = corners[i][0];
+    corners[i+4][1] = corners[i][1];
+    corners[i+4][2] = corners[i][2] + h;
+  }
+
+  vector<vector<double> > v_corners;
+  for(int32_t i = 0; i < 8; i++)
+  {
+    vector<double> corner;
+    corner.push_back(corners[i][0]);
+    corner.push_back(corners[i][1]);
+    corner.push_back(corners[i][2]);
+    v_corners.push_back(corner);
+  }
+
+  return v_corners;
+}
+
+vector< vector<double> > imu2cam(vector< vector<double> > corners_imu)
+{
+  vector< vector<double> > corners_cam;
+  for(int32_t i=0; i<corners_imu.size(); i++)
+  {
+    vector<double> corner_cam;
+    double x,y,z;
+    x = corners_imu[i][0];
+    y = corners_imu[i][1];
+    z = corners_imu[i][2];
+    corner_cam.push_back(-y);
+    corner_cam.push_back(-z);
+    corner_cam.push_back(x);
+    corners_cam.push_back(corner_cam);
+  }
+  return corners_cam;
+}
+
+vector< vector<double> > cam2imgplane(vector< vector<double> >corners)
+{
+  vector< vector<double> > corners_2d;
+  double P[3][4] = {450, 0., 600, 0., 0., 450, 180, 0., 0., 0., 1, 0.};
+  for(int32_t i=0; i < corners.size(); i++)
+  {
+    double x,y,z;
+    vector<double> corner_2d;
+    x = corners[i][0];
+    y = corners[i][1];
+    z = corners[i][2];
+    corners[i][0] = P[0][0] * x + P[0][1] * y + P[0][2] * z + P[0][3];
+    corners[i][1] = P[1][0] * x + P[1][1] * y + P[1][2] * z + P[1][3];
+    corners[i][2] = P[2][0] * x + P[2][1] * y + P[2][2] * z + P[2][3] + 1e-6;
+    corner_2d.push_back(corners[i][0] / corners[i][2]);
+    corner_2d.push_back(corners[i][1] / corners[i][2]);
+    corners_2d.push_back(corner_2d);
+  }
+  return corners_2d;
+}
+
+vector<double> find_min_max(double* v, const unsigned int n)
+{
+  double res_min=1e8;
+  double res_max = -1e8;
+  vector<double> res;
+  for(int32_t i = 0; i < n; i++)
+    if (v[i] < res_min)
+      res_min=v[i];
+
+  for(int32_t i = 0; i < n; i++)
+    if (v[i] > res_max)
+      res_max=v[i];
+
+  res.push_back(res_min);
+  res.push_back(res_max);
+  return res;
+}
+
+
 vector<tDetection> loadDetections(string file_name, bool &compute_aos,
         vector<bool> &eval_image, vector<bool> &eval_ground,
         vector<bool> &eval_3d, bool &success) {
@@ -151,13 +286,55 @@ vector<tDetection> loadDetections(string file_name, bool &compute_aos,
     tDetection d;
     double trash;
     char str[255];
+    double truncation, occ, alpha, x1, y1, x2, y2, h, w, l, t1, t2, t3, ry, score;
     if (fscanf(fp, "%s %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
-                   str, &trash, &trash, &d.box.alpha, &d.box.x1, &d.box.y1,
-                   &d.box.x2, &d.box.y2, &d.h, &d.w, &d.l, &d.t1, &d.t2, &d.t3,
-                   &d.ry, &d.thresh)==16) {
+                   str, &truncation, &occ, &alpha,
+                   &x1,   &y1,     &x2,    &y2,
+                   &h,      &w,        &l,       &t1,
+                   &t2,      &t3,        &ry , &score)==16) {
 
         // d.thresh = 1;
       d.box.type = str;
+      d.box.alpha = alpha;
+      d.w = l;
+      d.l = h;
+      d.h = w;
+      d.t1 = -t2;
+      d.t2 = -t3;
+      d.t3 = t1;
+      d.ry = -ry;
+      d.thresh = score;
+      if (x1 == 0 && x2 == 0 && y1 == 0 && y2 == 0)
+      {
+        float box3d[7] = {h, w, l, t1, t2 ,t3, ry};
+        vector< vector<double> > corners_imu = get_bbox3dcorners(box3d);
+        vector< vector<double> > corners_cam = imu2cam(corners_imu);
+        vector< vector<double> > corners_2d = cam2imgplane(corners_cam);
+
+        double xs_2d[8], ys_2d[8];
+        for(int32_t i = 0; i < 8; i++)
+        {
+          xs_2d[i] = corners_2d[i][0];
+          ys_2d[i] = corners_2d[i][1];
+        }
+        vector<double> min_max_x, min_max_y;
+        min_max_x = find_min_max(xs_2d, 8);
+        min_max_y = find_min_max(ys_2d, 8);
+        d.box.x1 = min_max_x[0];
+        d.box.x2 = min_max_x[1];
+        d.box.y1 = min_max_y[0];
+        d.box.y2 = min_max_y[1];
+      }
+      else
+      {
+        d.box.x1 = x1;
+        d.box.x2 = x2;
+        d.box.y1 = y1;
+        d.box.y2 = y2;
+      }
+      // cout<<d.box.type<<" "<< 0<<" "<< 0<<" "<< d.box.alpha<<" "
+      //       <<d.box.x1<<" "<<d.box.y1<<" "<<d.box.x2<<" "<<d.box.y2<<" "
+      //       <<d.h<<" "<<d.w<<" "<<d.l<<" "<<d.t1<<" "<<" "<<d.t2<<" "<<d.t3<<" "<<d.ry <<" "<<d.thresh<<endl;
       detections.push_back(d);
 
       // orientation=-10 is invalid, AOS is not evaluated if at least one orientation is invalid
@@ -195,14 +372,54 @@ vector<tGroundtruth> loadGroundtruth(string file_name,bool &success) {
   while (!feof(fp)) {
     tGroundtruth g;
     char str[255];
-    double occ=1.1;
+    double truncation, occ, alpha, x1, y1, x2, y2, h, w, l, t1, t2, t3, ry;
     if (fscanf(fp, "%s %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
-                   str, &g.truncation, &occ, &g.box.alpha,
-                   &g.box.x1,   &g.box.y1,     &g.box.x2,    &g.box.y2,
-                   &g.h,      &g.w,        &g.l,       &g.t1,
-                   &g.t2,      &g.t3,        &g.ry )==15) {
+                   str, &truncation, &occ, &alpha,
+                   &x1,   &y1,     &x2,    &y2,
+                   &h,      &w,        &l,       &t1,
+                   &t2,      &t3,        &ry )==15) {
       g.box.type = str;
+      g.truncation = truncation;
       g.occlusion = (int32_t)occ;
+      g.box.alpha = alpha;
+      g.w = l;
+      g.l = h;
+      g.h = w;
+      g.t1 = -t2;
+      g.t2 = -t3;
+      g.t3 = t1;
+      g.ry = -ry;
+      if (x1 == 0 && x2 == 0 && y1 == 0 && y2 == 0)
+      {
+        float box3d[7] = {h, w, l, t1, t2 ,t3, ry};
+        vector< vector<double> > corners_imu = get_bbox3dcorners(box3d);
+        vector< vector<double> > corners_cam = imu2cam(corners_imu);
+        vector< vector<double> > corners_2d = cam2imgplane(corners_cam);
+
+        double xs_2d[8], ys_2d[8];
+        for(int32_t i = 0; i < 8; i++)
+        {
+          xs_2d[i] = corners_2d[i][0];
+          ys_2d[i] = corners_2d[i][1];
+        }
+        vector<double> min_max_x, min_max_y;
+        min_max_x = find_min_max(xs_2d, 8);
+        min_max_y = find_min_max(ys_2d, 8);
+        g.box.x1 = min_max_x[0];
+        g.box.x2 = min_max_x[1];
+        g.box.y1 = min_max_y[0];
+        g.box.y2 = min_max_y[1];
+      }
+      else
+      {
+        g.box.x1 = x1;
+        g.box.x2 = x2;
+        g.box.y1 = y1;
+        g.box.y2 = y2;
+      }
+      // cout<<g.box.type<<" "<< g.truncation<<" "<< g.occlusion<<" "<< g.box.alpha<<" "
+      //       <<g.box.x1<<" "<<g.box.y1<<" "<<g.box.x2<<" "<<g.box.y2<<" "
+      //       <<g.h<<" "<<g.w<<" "<<g.l<<" "<<g.t1<<" "<<" "<<g.t2<<" "<<g.t3<<" "<<g.ry <<endl;
       groundtruth.push_back(g);
     }
   }
