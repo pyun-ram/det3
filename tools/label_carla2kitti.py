@@ -14,7 +14,7 @@ import numpy as np
 sys.path.append("../")
 from det3.dataloarder.carladata import CarlaLabel, CarlaCalib, CarlaObj
 from det3.dataloarder.kittidata import KittiLabel
-
+from det3.utils.utils import write_str_to_file
 def validate(data_dir:str, idx:str, label_Fcam:KittiLabel, save_dir:str):
     '''
     To validate the function of this script
@@ -95,12 +95,21 @@ def main():
         label_Fcam.data = []
         for obj in label.data:
             obj_Fcam = CarlaObj(str(obj))
-            obj_Fcam.score = obj.score
+            cns_Fimu = obj.get_bbox3dcorners()
+            cns_Fcam = calib.imu2cam(cns_Fimu)
+            cns_Fcam2d = calib.cam2imgplane(cns_Fcam)
+            minx = float(np.min(cns_Fcam2d[:, 0]))
+            maxx = float(np.max(cns_Fcam2d[:, 0]))
+            miny = float(np.min(cns_Fcam2d[:, 1]))
+            maxy = float(np.max(cns_Fcam2d[:, 1]))
+            obj_Fcam.score = 0.99
             obj_Fcam.x, obj_Fcam.y, obj_Fcam.z = calib.imu2cam(np.array([obj.x, obj.y, obj.z]).reshape(1, 3))[0]
             obj_Fcam.w, obj_Fcam.l, obj_Fcam.h = obj.l, obj.h, obj.w
             obj_Fcam.ry = -obj.ry
+            obj_Fcam.bbox_l, obj_Fcam.bbox_t, obj_Fcam.bbox_r, obj_Fcam.bbox_b = minx, miny, maxx, maxy
             label_Fcam.data.append(obj_Fcam)
         # validate("/usr/app/data/CARLA/train/", idx, label_Fcam, "/usr/app/vis/train/")
+        write_str_to_file(str(label_Fcam), os.path.join(output_dir, idx))
 
 if __name__=="__main__":
     main()

@@ -6,6 +6,10 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 import numpy as np
 from PIL import Image
 
+def write_str_to_file(s, file_path):
+    with open(file_path, 'w+') as f:
+        f.write(s)
+
 def get_idx_list(txt_path):
     '''
     get idx from the txt
