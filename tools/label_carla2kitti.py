@@ -102,7 +102,7 @@ def main():
             maxx = float(np.max(cns_Fcam2d[:, 0]))
             miny = float(np.min(cns_Fcam2d[:, 1]))
             maxy = float(np.max(cns_Fcam2d[:, 1]))
-            obj_Fcam.score = 0.99
+            obj_Fcam.score = obj.score
             obj_Fcam.x, obj_Fcam.y, obj_Fcam.z = calib.imu2cam(np.array([obj.x, obj.y, obj.z]).reshape(1, 3))[0]
             obj_Fcam.w, obj_Fcam.l, obj_Fcam.h = obj.l, obj.h, obj.w
             obj_Fcam.ry = -obj.ry
