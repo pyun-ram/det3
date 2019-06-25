@@ -420,6 +420,16 @@ vector<tGroundtruth> loadGroundtruth(string file_name,bool &success) {
       // cout<<g.box.type<<" "<< g.truncation<<" "<< g.occlusion<<" "<< g.box.alpha<<" "
       //       <<g.box.x1<<" "<<g.box.y1<<" "<<g.box.x2<<" "<<g.box.y2<<" "
       //       <<g.h<<" "<<g.w<<" "<<g.l<<" "<<g.t1<<" "<<" "<<g.t2<<" "<<g.t3<<" "<<g.ry <<endl;
+      if(g.box.x1 < 0 or g.box.x1 > 1200)
+        continue;
+      if(g.box.x2 < 0 or g.box.x2 > 1200)
+        continue;
+      if(g.box.y1 < 0 or g.box.y1 > 360)
+        continue;
+      if(g.box.y2 < 0 or g.box.y2 > 360)
+        continue;
+      if(g.z <0 or g.z > 100)
+        continue;
       groundtruth.push_back(g);
     }
   }
