@@ -12,6 +12,7 @@ except:
     import sys
     sys.path.append("../")
     from det3.dataloarder.kittidata import KittiCalib, KittiObj, KittiLabel
+    from det3.utils.utils import read_pc_from_bin
 
 class TestKittiCalib(unittest.TestCase):
     def test_init(self):
@@ -153,7 +154,14 @@ class TestKittiObj(unittest.TestCase):
         kittiobj2 = KittiObj('Pedestrian 0.0 0.0 -0.2 712.4 143.0 810.73 307.92 1.89 0.48 1.2 1.84 1.47 8.41 1.31')
         self.assertTrue(not kittiobj1.equal(kittiobj2, 'Pedestrian', rtol=1e-5))
         self.assertTrue(not kittiobj2.equal(kittiobj1, 'Pedestrian', rtol=1e-5))        
-    #TODO TESTGETPTS
+    def test_getpts(self):
+        pc = read_pc_from_bin("./unit-test/data/test_KittiObj_000016.bin")
+        kittiobj = KittiObj("Truck 0.00 2 2.11 125.12 91.71 474.04 253.26 4.02 2.60 16.79 -9.48 2.08 26.41 1.77")
+        kitticalib = KittiCalib("./unit-test/data/test_KittiObj_000016.txt").read_calib_file()
+        pts = kittiobj.get_pts(pc[:, :3], kitticalib)
+        pts_gt = np.load("./unit-test/data/test_KittiObj_getpts_gt.npy")
+        self.assertTrue(np.allclose(pts, pts_gt, rtol=1e-6))
+
 class TestKittiLabel(unittest.TestCase):
     def test_init(self):
         kittilabel = KittiLabel('./unit-test/data/test_KittiLabel_000003.txt')
