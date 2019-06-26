@@ -46,6 +46,42 @@ class KittiAugmentor:
             obj.ry += dry
         return label, pc
 
+    def tr_obj(self, label: KittiLabel, pc: np.array, calib: KittiCalib, 
+        dx_range: List[float], dy_range: List[float], dz_range: List[float]) -> (KittiLabel, np.array):
+        '''
+        translate object in the LiDAR frame
+        inputs:
+            label: gt
+            pc: [#pts, >= 3]
+            calib:
+            dx_range: [dx_min, dx_max]
+            dy_range: [dy_min, dy_max]
+            dz_range: [dz_min, dz_max]
+        returns:
+            label_tr
+            pc_tr
+        Note: The inputs (label and pc) are not safe
+        '''
+        assert istype(label, "KittiLabel")
+        dx_min, dx_max = dx_range
+        dy_min, dy_max = dy_range
+        dz_min, dz_max = dz_range
+        for obj in label.data:
+            dx = np.random.rand() * (dx_max - dx_min) + dx_min
+            dy = np.random.rand() * (dy_max - dy_min) + dy_min
+            dz = np.random.rand() * (dz_max - dz_min) + dz_min
+            # modify pc
+            idx = obj.get_pts_idx(pc[:, :3], calib)
+            dtr = np.array([dx, dy, dz]).reshape(1, -1)
+            pc[idx, :3] = apply_tr(pc[idx, :3], dtr)
+            # modify obj
+            bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+            bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
+            bottom_Flidar = apply_tr(bottom_Flidar, dtr)
+            bottom_Fcam = calib.lidar2leftcam(bottom_Flidar)
+            obj.x, obj.y, obj.z = bottom_Fcam.flatten()
+        return label, pc
+
     def flip_pc(self, label: KittiLabel, pc: np.array, calib: KittiCalib) -> (KittiLabel, np.array):
         '''
         flip point cloud along the y axis of the Kitti Lidar frame
@@ -91,7 +127,7 @@ if __name__ == "__main__":
         fvimg_img = Image.fromarray(fvimg.data)
         fvimg_img.save(os.path.join('/usr/app/vis/train', idx+'fv.png'))
         kitti_agmtor = KittiAugmentor()
-        label, pc = kitti_agmtor.flip_pc(label, pc, calib)
+        label, pc = kitti_agmtor.tr_obj(label, pc, calib, dx_range = [-0.25, 0.25], dy_range = [-0.25, 0.25], dz_range = [-0.1, 0.1])
         bevimg = BEVImage(x_range=(0, 70), y_range=(-40, 40), grid_size=(0.05, 0.05))
         bevimg.from_lidar(pc, scale=1)
         fvimg = FVImage()
