@@ -7,6 +7,7 @@ import unittest
 import numpy as np
 try:
     from ..dataloarder.kittidata import KittiCalib, KittiObj, KittiLabel
+    from ..utils.utils import read_pc_from_bin
 except:
     # Run script
     import sys

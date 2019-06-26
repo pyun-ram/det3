@@ -46,6 +46,27 @@ class KittiAugmentor:
             obj.ry += dry
         return label, pc
 
+    def flip_pc(self, label: KittiLabel, pc: np.array, calib: KittiCalib) -> (KittiLabel, np.array):
+        '''
+        flip point cloud along the y axis of the Kitti Lidar frame
+        inputs:
+            label: ground truth
+            pc: point cloud
+            calib:
+        Note: The inputs (label and pc) are not safe
+        '''
+        assert istype(label, "KittiLabel")
+        # flip point cloud
+        pc[:, 1] *= -1
+        # modify gt
+        for obj in label.data:
+            bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+            bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
+            bottom_Flidar[0, 1] *= -1
+            bottom_Fcam = calib.lidar2leftcam(bottom_Flidar)
+            obj.x, obj.y, obj.z = bottom_Fcam.flatten()
+            obj.ry *= -1
+        return label, pc
 
 if __name__ == "__main__":
     from det3.dataloarder.kittidata import KittiData
@@ -70,7 +91,7 @@ if __name__ == "__main__":
         fvimg_img = Image.fromarray(fvimg.data)
         fvimg_img.save(os.path.join('/usr/app/vis/train', idx+'fv.png'))
         kitti_agmtor = KittiAugmentor()
-        label, pc = kitti_agmtor.rotate_obj(label, pc, calib, [-10/180.0 * np.pi, 10/180.0 * np.pi])
+        label, pc = kitti_agmtor.flip_pc(label, pc, calib)
         bevimg = BEVImage(x_range=(0, 70), y_range=(-40, 40), grid_size=(0.05, 0.05))
         bevimg.from_lidar(pc, scale=1)
         fvimg = FVImage()
