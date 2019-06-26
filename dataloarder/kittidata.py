@@ -227,16 +227,27 @@ class KittiObj():
                 point cloud in velodyne frame
             calib (KittiCalib)
         '''
+        idx = self.get_pts_idx(pc, calib)
+        return pc[idx]
+
+    def get_pts_idx(self, pc, calib):
+        '''
+        get points from pc
+        inputs:
+            pc: (np.array) [#pts, 3]
+                point cloud in velodyne frame
+            calib (KittiCalib)
+        '''
         bottom_Fcam = np.array([self.x, self.y, self.z]).reshape(1, 3)
         center_Fcam = bottom_Fcam + np.array([0, -self.h/2.0, 0]).reshape(1, 3)
         center_Flidar = calib.leftcam2lidar(center_Fcam)
         pc_ = utils.apply_tr(pc, -center_Flidar)
-        pc_ = utils.apply_R(pc_, utils.rotz(-self.ry+np.pi/2))
+        pc_ = utils.apply_R(pc_, utils.rotz(self.ry+np.pi/2))
         idx_x = np.logical_and(pc_[:, 0] <= self.l/2.0, pc_[:, 0] >= -self.l/2.0)
         idx_y = np.logical_and(pc_[:, 1] <= self.w/2.0, pc_[:, 1] >= -self.w/2.0)
         idx_z = np.logical_and(pc_[:, 2] <= self.h/2.0, pc_[:, 2] >= -self.h/2.0)
         idx = np.logical_and(idx_x, np.logical_and(idx_y, idx_z))
-        return pc[idx]
+        return idx
 
     def get_bbox3dcorners(self):
         '''
