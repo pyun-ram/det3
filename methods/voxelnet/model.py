@@ -39,6 +39,17 @@ def change_default_args(**kwargs):
         return DefaultArgLayer
 
     return layer_wrapper
+# It is from https://github.com/traveller59/torchplus
+class Empty(torch.nn.Module):
+    def __init__(self, *args, **kwargs):
+        super(Empty, self).__init__()
+
+    def forward(self, *args, **kwargs):
+        if len(args) == 1:
+            return args[0]
+        elif len(args) == 0:
+            return None
+        return args
 
 class FeatureNet(nn.Module):
     '''
@@ -151,10 +162,11 @@ class SparseMiddleLayer(nn.Module):
     def __init__(self, sparse_shape):
         super(SparseMiddleLayer, self).__init__()
         self.sparse_shape = sparse_shape
-        BatchNorm1d = change_default_args(
-            eps=1e-3, momentum=0.01)(nn.BatchNorm1d)
-        SpConv3d = change_default_args(bias=False)(spconv.SparseConv3d)
-        SubMConv3d = change_default_args(bias=False)(spconv.SubMConv3d)
+        # BatchNorm1d = change_default_args(
+        #     eps=1e-3, momentum=0.01)(nn.BatchNorm1d)
+        BatchNorm1d = Empty
+        SpConv3d = change_default_args(bias=True)(spconv.SparseConv3d)
+        SubMConv3d = change_default_args(bias=True)(spconv.SubMConv3d)
         self.middle_conv = spconv.SparseSequential(
             SubMConv3d(128, 16, 3, indice_key="subm0"),
             BatchNorm1d(16),

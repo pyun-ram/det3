@@ -33,7 +33,7 @@ os.makedirs(save_dir, exist_ok=True)
 os.makedirs(log_dir, exist_ok=True)
 shutil.copy(os.path.join(root_dir, 'config.py'), os.path.join(log_dir, 'config.py'))
 logging.basicConfig(filename=os.path.join(log_dir, 'log.txt'), level=logging.INFO)
-tsbd = SummaryWriter(log_dir=log_dir)
+tsbd = SummaryWriter(log_dir)
 
 def main():
     if cfg.seed is not None:
@@ -47,8 +47,7 @@ def main():
                       'from checkpoints.')
     best_loss1 = math.inf
     model = VoxelNet(in_channels=7,
-                     out_gridsize=(10, cfg.FEATURE_HEIGHT * cfg.FEATURE_RATIO,
-                                   cfg.FEATURE_WIDTH * cfg.FEATURE_RATIO))
+                     out_gridsize=cfg.MIDGRID_SHAPE, bool_sparse=cfg.sparse)
     if cfg.gpu is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
                       'disable data parallelism.')
@@ -134,7 +133,7 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
             gt_target = gt_target.cuda(cfg.gpu, non_blocking=True)
 
         # compute output
-        est_pmap, est_rmap = model(voxel_feature, coordinate)
+        est_pmap, est_rmap = model(voxel_feature, coordinate, batch_size=cfg.batch_size)
         output = {"obj":est_pmap, 'reg':est_rmap}
         target = {"obj":gt_pos_map, 'reg':gt_target, "neg-obj":gt_neg_map}
         loss_dict = criterion(output, target)
@@ -187,7 +186,7 @@ def validate(val_loader, model, criterion, epoch, cfg):
                 gt_neg_map = torch.from_numpy(gt_neg_map).contiguous().cuda(cfg.gpu, non_blocking=True)
                 gt_target = torch.from_numpy(gt_target).contiguous().cuda(cfg.gpu, non_blocking=True)
             # compute output
-            est_pmap, est_rmap = model(voxel_feature, coordinate)
+            est_pmap, est_rmap = model(voxel_feature, coordinate, batch_size=cfg.batch_size)
             output = {"obj":est_pmap, 'reg':est_rmap}
             target = {"obj":gt_pos_map, 'reg':gt_target, "neg-obj":gt_neg_map}
             loss_dict = criterion(output, target)

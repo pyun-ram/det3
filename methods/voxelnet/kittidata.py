@@ -74,7 +74,7 @@ class KittiDatasetVoxelNet(Dataset):
                                  x_range=self.cfg.x_range,
                                  y_range=self.cfg.y_range,
                                  z_range=self.cfg.z_range,
-                                 num_pts_in_vox=35)
+                                 num_pts_in_vox=self.cfg.voxel_point_count)
         label = filter_label_cls(label, self.cfg.KITTI_cls[self.cls])
         label = filter_label_range(label, calib, x_range=self.cfg.x_range,
                                    y_range=self.cfg.y_range, z_range=self.cfg.z_range)
