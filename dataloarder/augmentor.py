@@ -55,6 +55,7 @@ class KittiAugmentor:
         return:
             bool: True if no overlap exists.
         '''
+        assert istype(label, "KittiLabel")
         boxes = []
         for obj in label.data:
             boxes.append([obj.x, obj.z, -obj.y, obj.l, obj.w, obj.h, -obj.ry]) # Fcam to Flidar
@@ -234,6 +235,28 @@ class CarlaAugmentor:
             self.mode = None
         # print(self.mode)
 
+    def check_overlap(self, label: CarlaLabel) -> bool:
+        '''
+        check if there is overlap in label.
+        inputs:
+            label: the result after agmentation
+        return:
+            bool: True if no overlap exists.
+        '''
+        assert istype(label, "CarlaLabel")
+        boxes = []
+        for obj in label.data:
+            boxes.append([-obj.y, obj.x, obj.z, obj.w, obj.l, obj.h, obj.ry]) # FIMU to Flidar
+        boxes = np.vstack(boxes)
+        while boxes.shape[0] > 0:
+            box = boxes[0:1, :]
+            others = boxes[1:, :]
+            inter = compute_intersec(box, others, mode='2d-rot')
+            if inter.sum() > 0:
+                return False
+            boxes = others
+        return True
+
     def apply(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib) -> (CarlaLabel, np.array):
         assert self.mode is not None
         func = getattr(self, self.mode)
@@ -253,21 +276,31 @@ class CarlaAugmentor:
         returns:
             label_rot
             pc_rot
-        Note: The inputs (label and pc) are not safe
         '''
         assert istype(label, "CarlaLabel")
+        assert istype(calib, "CarlaCalib")
         dry_min, dry_max = dry_range
-        for obj in label.data:
-            dry = np.random.rand() * (dry_max - dry_min) + dry_min
-            # modify pc
-            idx = obj.get_pts_idx(pc[:, :3], calib)
-            bottom_Fimu = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
-            pc[idx, :3] = apply_tr(pc[idx, :3], -bottom_Fimu)
-            pc[idx, :3] = apply_R(pc[idx, :3], rotz(dry))
-            pc[idx, :3] = apply_tr(pc[idx, :3], bottom_Fimu)
-            # modify obj
-            obj.ry += dry
-        return label, pc
+        while True:
+            # copy pc & label
+            pc_ = pc.copy()
+            label_ = CarlaLabel()
+            label_.data = []
+            for obj in label.data:
+                label_.data.append(CarlaObj(str(obj)))
+
+            for obj in label_.data:
+                dry = np.random.rand() * (dry_max - dry_min) + dry_min
+                # modify pc
+                idx = obj.get_pts_idx(pc_[:, :3], calib)
+                bottom_Fimu = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+                pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Fimu)
+                pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(dry))
+                pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Fimu)
+                # modify obj
+                obj.ry += dry
+            if self.check_overlap(label_):
+                break
+        return label_, pc_
 
     def tr_obj(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib,
                dx_range: List[float], dy_range: List[float], dz_range: List[float]) -> (CarlaLabel, np.array):
@@ -283,25 +316,35 @@ class CarlaAugmentor:
         returns:
             label_tr
             pc_tr
-        Note: The inputs (label and pc) are not safe
         '''
         assert istype(label, "CarlaLabel")
+        assert istype(calib, "CarlaCalib")
         dx_min, dx_max = dx_range
         dy_min, dy_max = dy_range
         dz_min, dz_max = dz_range
-        for obj in label.data:
-            dx = np.random.rand() * (dx_max - dx_min) + dx_min
-            dy = np.random.rand() * (dy_max - dy_min) + dy_min
-            dz = np.random.rand() * (dz_max - dz_min) + dz_min
-            # modify pc
-            idx = obj.get_pts_idx(pc[:, :3], calib)
-            dtr = np.array([dx, dy, dz]).reshape(1, -1)
-            pc[idx, :3] = apply_tr(pc[idx, :3], dtr)
-            # modify obj
-            obj.x += dx
-            obj.y += dy
-            obj.z += dz
-        return label, pc
+        while True:
+            # copy pc & label
+            pc_ = pc.copy()
+            label_ = CarlaLabel()
+            label_.data = []
+            for obj in label.data:
+                label_.data.append(CarlaObj(str(obj)))
+
+            for obj in label_.data:
+                dx = np.random.rand() * (dx_max - dx_min) + dx_min
+                dy = np.random.rand() * (dy_max - dy_min) + dy_min
+                dz = np.random.rand() * (dz_max - dz_min) + dz_min
+                # modify pc
+                idx = obj.get_pts_idx(pc_[:, :3], calib)
+                dtr = np.array([dx, dy, dz]).reshape(1, -1)
+                pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
+                # modify obj
+                obj.x += dx
+                obj.y += dy
+                obj.z += dz
+            if self.check_overlap(label_):
+                break
+        return label_, pc_
 
     def flip_pc(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib) -> (CarlaLabel, np.array):
         '''
@@ -310,37 +353,55 @@ class CarlaAugmentor:
             label: ground truth
             pc: point cloud
             calib:
-        Note: The inputs (label and pc) are not safe
         '''
         assert istype(label, "CarlaLabel")
-        # flip point cloud
-        pc[:, 1] *= -1
-        # modify gt
+        assert istype(calib, "CarlaCalib")
+        # copy pc & label
+        pc_ = pc.copy()
+        label_ = CarlaLabel()
+        label_.data = []
         for obj in label.data:
+            label_.data.append(CarlaObj(str(obj)))
+        # flip point cloud
+        pc_[:, 1] *= -1
+        # modify gt
+        for obj in label_.data:
             obj.y *= -1
             obj.ry *= -1
-        return label, pc
+        return label_, pc_
 
     def keep(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib) -> (CarlaLabel, np.array):
-        return label, pc
+        assert istype(label, "CarlaLabel")
+        assert istype(calib, "CarlaCalib")
+        # copy pc & label
+        pc_ = pc.copy()
+        label_ = CarlaLabel()
+        label_.data = []
+        for obj in label.data:
+            label_.data.append(CarlaObj(str(obj)))
+        return label_, pc_
 
 if __name__ == "__main__":
-    from det3.dataloarder.kittidata import KittiData, KittiObj
+    from det3.dataloarder.carladata import CarlaData, CarlaObj
     from det3.utils.utils import read_pc_from_bin
     from det3.visualizer.vis import BEVImage
     from PIL import Image
-    calib, _, label, pc = KittiData("/usr/app/data/KITTI/dev/", idx="000007").read_data()
+    tag = "000200"
+    pc, label, calib = CarlaData("/usr/app/data/CARLA/dev/", idx=tag).read_data()
+    pc = calib.lidar2imu(pc["velo_top"], key="Tr_imu_to_velo_top")
+
     obj0 = label.data[0]
-    obj1 = KittiObj(str(obj0))
-    obj1.ry += 15 / 180.0 * np.pi
-    obj1.x += 2
-    obj1.z += 2.5
+    obj1 = CarlaObj(str(obj0))
+    obj1.y += 0.5
+    obj1.x += 3
+    obj1.ry += 1 / 180.0 * np.pi
+
     label.data = [obj0, obj1]
     bevimg = BEVImage(x_range=(-100, 100), y_range=(-50, 50), grid_size=(0.05, 0.05))
     bevimg.from_lidar(pc)
     for obj in label.data:
         bevimg.draw_box(obj, calib, bool_gt=True)
     bevimg_img = Image.fromarray(bevimg.data)
-    bevimg_img.save("/usr/app/vis/train/{}.png".format("000007"))
-    augmentor = KittiAugmentor()
+    bevimg_img.save("/usr/app/vis/train/{}.png".format(tag))
+    augmentor = CarlaAugmentor()
     print(augmentor.check_overlap(label))

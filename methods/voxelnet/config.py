@@ -34,16 +34,16 @@ __C.KITTI_cls = {
     'Cyclist': ['Cyclist']
     }
 __C.aug_dict = {
-    "p_rot":0.25,
-    "p_tr": 0.25,
-    "p_flip": 0,
-    "p_keep": 0.5
+    "p_rot":0.1,
+    "p_tr": 0.1,
+    "p_flip": 0.1,
+    "p_keep": 0.7
 }
 __C.aug_param = {
-    "dx_range": [-3, 3],
-    "dy_range": [-3, 3],
+    "dx_range": [-0.5, 0.5],
+    "dy_range": [-0.5, 0.5],
     "dz_range": [-0.3, 0.3],
-    "dry_range": [-10 / 180.0 * np.pi, 10 / 180.0 * np.pi]
+    "dry_range": [-5 / 180.0 * np.pi, 5 / 180.0 * np.pi]
 }
 if __C.sparse:
     __C.FEATURE_RATIO = 8

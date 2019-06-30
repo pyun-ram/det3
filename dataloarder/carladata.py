@@ -232,7 +232,8 @@ class CarlaObj():
                       |
                 y<----.z
         '''
-        # lwh <-> yxz (imu)
+        # lwh <-> yxz (imu) # lwh <-> xyz
+        #  (origin comment) # (new comment)
         l, w, h = self.l, self.w, self.h
         x, z, y = self.x, self.z, self.y
         bottom = np.array([
