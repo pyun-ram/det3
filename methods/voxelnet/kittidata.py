@@ -11,6 +11,7 @@ import torch
 from torch.utils.data import Dataset
 from det3.dataloarder.kittidata import KittiData
 from det3.methods.voxelnet.utils import *
+from det3.dataloarder.augmentor import KittiAugmentor
 
 class KITTIDataVoxelNet():
     def __init__(self,data_dir, cfg, batch_size=4, num_workers=1,distributed=False):
@@ -70,6 +71,11 @@ class KittiDatasetVoxelNet(Dataset):
         calib, img, label, pc = KittiData(self.data_dir, self.idx_list[idx]).read_data()
         tag = int(self.idx_list[idx])
         pc = filter_camera_angle(pc)
+        agmtor = KittiAugmentor(p_rot=self.cfg.aug_dict["p_rot"], p_tr=self.cfg.aug_dict["p_tr"],
+                                p_flip=self.cfg.aug_dict["p_flip"],p_keep=self.cfg.aug_dict["p_keep"],
+                                dx_range=self.cfg.aug_param["dx_range"], dy_range=self.cfg.aug_param["dy_range"],
+                                dz_range=self.cfg.aug_param["dz_range"], dry_range=self.cfg.aug_param["dry_range"])
+        label, pc = agmtor.apply(label, pc, calib)
         voxel_dict = voxelize_pc(pc, res=self.cfg.resolution,
                                  x_range=self.cfg.x_range,
                                  y_range=self.cfg.y_range,

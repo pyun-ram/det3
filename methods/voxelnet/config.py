@@ -5,9 +5,11 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
 from easydict import EasyDict as edict
 import math
+import numpy as np
 __C = edict()
 cfg = __C
 
+<<<<<<< HEAD
 __C.TAG = 'VoxelNet-000C'
 __C.cls = 'Car'
 __C.DATADIR = '/usr/app/data/KITTI/'
@@ -16,6 +18,15 @@ __C.gpu = 0
 __C.resume = None
 __C.start_epoch = 0
 __C.epochs = 150
+=======
+__C.TAG = 'VoxelNet-000F'
+__C.cls = 'Car'
+__C.DATADIR = '/usr/app/data/KITTI/'
+__C.gpu = 0
+__C.resume = None
+__C.start_epoch = 0
+__C.epochs = 20
+>>>>>>> 1a04db7... VoxleNet-000F
 __C.lr = 1e-3
 # __C.momentum = 0.9
 __C.weight_decay = 0
@@ -25,14 +36,26 @@ __C.alpha = 1
 __C.beta = 20
 __C.eta = 15
 __C.gamma = 0
-__C.sparse = False
-
+__C.sparse = True
+__C.val_freq = 3
 __C.cls = 'Car'
 __C.KITTI_cls = {
     'Car': ['Car', 'Van'],
     'Pedestrian': ['Pedestrian'],
     'Cyclist': ['Cyclist']
     }
+__C.aug_dict = {
+    "p_rot":0.25,
+    "p_tr": 0.25,
+    "p_flip": 0,
+    "p_keep": 0.5
+}
+__C.aug_param = {
+    "dx_range": [-3, 3],
+    "dy_range": [-3, 3],
+    "dz_range": [-0.3, 0.3],
+    "dry_range": [-10 / 180.0 * np.pi, 10 / 180.0 * np.pi]
+}
 if __C.sparse:
     __C.FEATURE_RATIO = 8
     __C.voxel_point_count = 5
