@@ -5,9 +5,9 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
 import sys
 sys.path.append("../")
-from det3.dataloarder.kittidata import KittiLabel, KittiCalib
-from det3.dataloarder.carladata import CarlaLabel, CarlaCalib
-from det3.utils.utils import istype, apply_R, apply_tr, rotz
+from det3.dataloarder.kittidata import KittiLabel, KittiCalib, KittiObj
+from det3.dataloarder.carladata import CarlaLabel, CarlaCalib, CarlaObj
+from det3.utils.utils import istype, apply_R, apply_tr, rotz, compute_intersec
 import numpy as np
 from typing import List
 
@@ -47,6 +47,27 @@ class KittiAugmentor:
             self.mode = None
         # print(self.mode)
 
+    def check_overlap(self, label: KittiLabel) -> bool:
+        '''
+        check if there is overlap in label.
+        inputs:
+            label: the result after agmentation
+        return:
+            bool: True if no overlap exists.
+        '''
+        boxes = []
+        for obj in label.data:
+            boxes.append([obj.x, obj.z, -obj.y, obj.l, obj.w, obj.h, -obj.ry]) # Fcam to Flidar
+        boxes = np.vstack(boxes)
+        while boxes.shape[0] > 0:
+            box = boxes[0:1, :]
+            others = boxes[1:, :]
+            inter = compute_intersec(box, others, mode='2d-rot')
+            if inter.sum() > 0:
+                return False
+            boxes = others
+        return True
+
     def apply(self, label: KittiLabel, pc: np.array, calib: KittiCalib) -> (KittiLabel, np.array):
         assert self.mode is not None
         func = getattr(self, self.mode)
@@ -66,25 +87,35 @@ class KittiAugmentor:
         returns:
             label_rot
             pc_rot
-        Note: The inputs (label and pc) are not safe
         '''
         assert istype(label, "KittiLabel")
         dry_min, dry_max = dry_range
-        for obj in label.data:
-            dry = np.random.rand() * (dry_max - dry_min) + dry_min
-            # modify pc
-            idx = obj.get_pts_idx(pc[:, :3], calib)
-            bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
-            bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
-            pc[idx, :3] = apply_tr(pc[idx, :3], -bottom_Flidar)
-            # obj.ry += dry is correspond to rotz(-dry)
-            # since obj is in cam frame
-            # pc is in LiDAR frame
-            pc[idx, :3] = apply_R(pc[idx, :3], rotz(-dry))
-            pc[idx, :3] = apply_tr(pc[idx, :3], bottom_Flidar)
-            # modify obj
-            obj.ry += dry
-        return label, pc
+        while True:
+            # copy pc & label
+            pc_ = pc.copy()
+            label_ = KittiLabel()
+            label_.data = []
+            for obj in label.data:
+                label_.data.append(KittiObj(str(obj)))
+
+            for obj in label_.data:
+                # generate random number
+                dry = np.random.rand() * (dry_max - dry_min) + dry_min
+                # modify pc_
+                idx = obj.get_pts_idx(pc_[:, :3], calib)
+                bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+                bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
+                pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Flidar)
+                # obj.ry += dry is correspond to rotz(-dry)
+                # since obj is in cam frame
+                # pc_ is in LiDAR frame
+                pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(-dry))
+                pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Flidar)
+                # modify obj
+                obj.ry += dry
+            if self.check_overlap(label_):
+                break
+        return label_, pc_
 
     def tr_obj(self, label: KittiLabel, pc: np.array, calib: KittiCalib,
                dx_range: List[float], dy_range: List[float], dz_range: List[float]) -> (KittiLabel, np.array):
@@ -100,27 +131,37 @@ class KittiAugmentor:
         returns:
             label_tr
             pc_tr
-        Note: The inputs (label and pc) are not safe
         '''
         assert istype(label, "KittiLabel")
         dx_min, dx_max = dx_range
         dy_min, dy_max = dy_range
         dz_min, dz_max = dz_range
-        for obj in label.data:
-            dx = np.random.rand() * (dx_max - dx_min) + dx_min
-            dy = np.random.rand() * (dy_max - dy_min) + dy_min
-            dz = np.random.rand() * (dz_max - dz_min) + dz_min
-            # modify pc
-            idx = obj.get_pts_idx(pc[:, :3], calib)
-            dtr = np.array([dx, dy, dz]).reshape(1, -1)
-            pc[idx, :3] = apply_tr(pc[idx, :3], dtr)
-            # modify obj
-            bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
-            bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
-            bottom_Flidar = apply_tr(bottom_Flidar, dtr)
-            bottom_Fcam = calib.lidar2leftcam(bottom_Flidar)
-            obj.x, obj.y, obj.z = bottom_Fcam.flatten()
-        return label, pc
+        while True:
+            # copy pc & label
+            pc_ = pc.copy()
+            label_ = KittiLabel()
+            label_.data = []
+            for obj in label.data:
+                label_.data.append(KittiObj(str(obj)))
+
+            for obj in label_.data:
+                # gennerate ramdom number
+                dx = np.random.rand() * (dx_max - dx_min) + dx_min
+                dy = np.random.rand() * (dy_max - dy_min) + dy_min
+                dz = np.random.rand() * (dz_max - dz_min) + dz_min
+                # modify pc_
+                idx = obj.get_pts_idx(pc_[:, :3], calib)
+                dtr = np.array([dx, dy, dz]).reshape(1, -1)
+                pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
+                # modify obj
+                bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+                bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
+                bottom_Flidar = apply_tr(bottom_Flidar, dtr)
+                bottom_Fcam = calib.lidar2leftcam(bottom_Flidar)
+                obj.x, obj.y, obj.z = bottom_Fcam.flatten()
+            if self.check_overlap(label_):
+                break
+        return label_, pc_
 
     def flip_pc(self, label: KittiLabel, pc: np.array, calib: KittiCalib) -> (KittiLabel, np.array):
         '''
@@ -129,23 +170,34 @@ class KittiAugmentor:
             label: ground truth
             pc: point cloud
             calib:
-        Note: The inputs (label and pc) are not safe
         '''
         assert istype(label, "KittiLabel")
-        # flip point cloud
-        pc[:, 1] *= -1
-        # modify gt
+        # copy pc & label
+        pc_ = pc.copy()
+        label_ = KittiLabel()
+        label_.data = []
         for obj in label.data:
+            label_.data.append(KittiObj(str(obj)))
+        # flip point cloud
+        pc_[:, 1] *= -1
+        # modify gt
+        for obj in label_.data:
             bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
             bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
             bottom_Flidar[0, 1] *= -1
             bottom_Fcam = calib.lidar2leftcam(bottom_Flidar)
             obj.x, obj.y, obj.z = bottom_Fcam.flatten()
             obj.ry *= -1
-        return label, pc
+        return label_, pc_
 
     def keep(self, label: KittiLabel, pc: np.array, calib: KittiCalib) -> (KittiLabel, np.array):
-        return label, pc
+        # copy pc & label
+        pc_ = pc.copy()
+        label_ = KittiLabel()
+        label_.data = []
+        for obj in label.data:
+            label_.data.append(KittiObj(str(obj)))
+        return label_, pc_
 
 class CarlaAugmentor:
     def __init__(self, *, p_rot: float = 0, p_tr: float = 0, p_flip: float = 0, p_keep: float = 0,
@@ -273,40 +325,22 @@ class CarlaAugmentor:
         return label, pc
 
 if __name__ == "__main__":
-    from det3.dataloarder.carladata import CarlaData
-    from det3.visualizer.vis import BEVImage, FVImage
+    from det3.dataloarder.kittidata import KittiData, KittiObj
+    from det3.utils.utils import read_pc_from_bin
+    from det3.visualizer.vis import BEVImage
     from PIL import Image
-    import os
-    from det3.utils.utils import get_idx_list
-    idx_list = get_idx_list("/usr/app/data/CARLA/split_index/dev.txt")
-    for idx in idx_list[-100:]:
-        print(idx)
-        pc, label, calib = CarlaData("/usr/app/data/CARLA/dev", idx).read_data()
-        pc = calib.lidar2imu(pc['velo_top'], key='Tr_imu_to_velo_top')
-
-        bevimg = BEVImage(x_range=(0, 70), y_range=(-40, 40), grid_size=(0.05, 0.05))
-        bevimg.from_lidar(pc, scale=1)
-        fvimg = FVImage()
-        fvimg.from_lidar(calib, pc[:, :3])
-        for obj in label.data:
-            bevimg.draw_box(obj, calib, bool_gt=True)
-            fvimg.draw_box(obj, calib, bool_gt=True)
-        bevimg_img = Image.fromarray(bevimg.data)
-        bevimg_img.save(os.path.join('/usr/app/vis/train', idx+'.png'))
-        fvimg_img = Image.fromarray(fvimg.data)
-        fvimg_img.save(os.path.join('/usr/app/vis/train', idx+'fv.png'))
-        carla_agmtor = CarlaAugmentor(p_rot=0.3, p_tr=0.2, p_flip=0, p_keep=0.5,
-                                      dx_range=[-0.25, 0.25], dy_range=[-0.25, 0.25], dz_range=[-0.1, 0.1],
-                                      dry_range=[-10 / 180.0 * np.pi, 10 / 180.0 * np.pi])
-        label, pc = carla_agmtor.apply(label, pc, calib)
-        bevimg = BEVImage(x_range=(0, 70), y_range=(-40, 40), grid_size=(0.05, 0.05))
-        bevimg.from_lidar(pc, scale=1)
-        fvimg = FVImage()
-        fvimg.from_lidar(calib, pc[:, :3])
-        for obj in label.data:
-            bevimg.draw_box(obj, calib, bool_gt=True)
-            fvimg.draw_box(obj, calib, bool_gt=True)
-        bevimg_img = Image.fromarray(bevimg.data)
-        bevimg_img.save(os.path.join('/usr/app/vis/train', idx+'_aug.png'))
-        fvimg_img = Image.fromarray(fvimg.data)
-        fvimg_img.save(os.path.join('/usr/app/vis/train', idx+'_augfv.png'))
+    calib, _, label, pc = KittiData("/usr/app/data/KITTI/dev/", idx="000007").read_data()
+    obj0 = label.data[0]
+    obj1 = KittiObj(str(obj0))
+    obj1.ry += 15 / 180.0 * np.pi
+    obj1.x += 2
+    obj1.z += 2.5
+    label.data = [obj0, obj1]
+    bevimg = BEVImage(x_range=(-100, 100), y_range=(-50, 50), grid_size=(0.05, 0.05))
+    bevimg.from_lidar(pc)
+    for obj in label.data:
+        bevimg.draw_box(obj, calib, bool_gt=True)
+    bevimg_img = Image.fromarray(bevimg.data)
+    bevimg_img.save("/usr/app/vis/train/{}.png".format("000007"))
+    augmentor = KittiAugmentor()
+    print(augmentor.check_overlap(label))

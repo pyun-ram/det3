@@ -74,7 +74,7 @@ class TestKittiAugmentor(unittest.TestCase):
         bevimg_img.save(os.path.join('./unit-test/result/', 'test_KittiAugmentor_trobj_origin.png'))
 
         kitti_agmtor = KittiAugmentor()
-        label, pc = kitti_agmtor.tr_obj(label, pc, calib, dx_range = [-0.25, 0.25], dy_range = [-0.25, 0.25], dz_range = [-0.1, 0.1])
+        label, pc = kitti_agmtor.tr_obj(label, pc, calib, dx_range = [-10, 10], dy_range = [-10, 10], dz_range = [-0.3, 0.3])
         bevimg = BEVImage(x_range=(0, 70), y_range=(-40, 40), grid_size=(0.05, 0.05))
         bevimg.from_lidar(pc, scale=1)
         for obj in label.data:
