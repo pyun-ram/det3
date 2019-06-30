@@ -286,7 +286,7 @@ class RPN(nn.Module):
 
         # head
         self.head_conv_cls = Conv2d(768, 2, [1, 1], [1, 1], padding=[0, 0], dilation=1, groups=1, bias=True)
-        self.head_conv_reg = Conv2d(768, 14, [1, 1], [1, 1], padding=[0, 0], dilation=1, groups=1, bias=True)
+        self.head_conv_reg = Conv2d(768, 16, [1, 1], [1, 1], padding=[0, 0], dilation=1, groups=1, bias=True)
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='relu')

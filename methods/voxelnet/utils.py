@@ -153,7 +153,7 @@ def create_anchors(x_range, y_range, target_shape, anchor_z, anchor_size):
         anchor_size (tuple): (l(float), w(float), h(float))
             lwh <-> xzy (camera) <->yxz(lidar)
     return:
-        anchors (np.array): [y_size, x_size, 2, 7] (cx, cy, cz, h, w, l, r) in lidar frame
+        anchors (np.array): [y_size, x_size, 2, 8] (cx, cy, cz, h, w, l, rcos, rsin) in lidar frame
     reference:
         https://github.com/qianguih/voxelnet
     '''
@@ -171,11 +171,14 @@ def create_anchors(x_range, y_range, target_shape, anchor_z, anchor_size):
     w = np.ones_like(cx) *  w_
     l = np.ones_like(cx) * l_
     h = np.ones_like(cx) * h_
-    r = np.ones_like(cx)
-    r[..., 0] = 0  # 0
-    r[..., 1] = 90 / 180.0 * np.pi  # 90
+    r_cos = np.ones_like(cx)
+    r_cos[...,0] = np.cos(0)
+    r_cos[...,1] = np.cos(90 / 180.0 * np.pi)
+    r_sin = np.ones_like(cx)
+    r_sin[...,0] = np.sin(0)
+    r_sin[...,1] = np.sin(90 / 180.0 * np.pi)
     # 7*(w,l,2) -> (w, l, 2, 7)
-    anchors = np.stack([cx, cy, cz, h, w, l, r], axis=-1)
+    anchors = np.stack([cx, cy, cz, h, w, l, r_cos, r_sin], axis=-1)
 
     return anchors
 
@@ -187,7 +190,7 @@ def create_rpn_target(label, calib, target_shape, anchors, threshold_pos_iou, th
         calib (KittiCalib/CarlaCalib)
         target_shape (tuple): (y_size (int), x_size(int))
             final output shape of VoxelNet in y and x dimension
-        anchors (np.array): [y_size, x_size, 2, 7] (cx, cy, cz, h, w, l, r) in lidar frame
+        anchors (np.array): [y_size, x_size, 2, 8] (cx, cy, cz, h, w, l, rcos, rsin) in lidar frame
         threshold_pos_iou (float):
             anchor iou > threshold_pos_iou is counted as pos anchor
         threshold_neg_iou (float)
@@ -200,14 +203,15 @@ def create_rpn_target(label, calib, target_shape, anchors, threshold_pos_iou, th
         https://github.com/qianguih/voxelnet
     '''
     _, _, anchor_h = anchor_size
-    targets = np.zeros((*target_shape, 14))
+    targets = np.zeros((*target_shape, 16))
     pos_equal_one = np.zeros((*target_shape, 2))
     neg_equal_one = np.zeros((*target_shape, 2))
     if label.isempty():
         neg_equal_one = np.ones((*target_shape, 2))
         return pos_equal_one, neg_equal_one, targets
     gt_boxes3d = label_to_gt_box3d(label, calib)
-    anchors_reshaped = anchors.reshape(-1, 7)
+    gt_boxes3d = np.hstack([gt_boxes3d[:, :6], np.cos(gt_boxes3d[:, 6:7]), np.sin(gt_boxes3d[:, 6:7])])
+    anchors_reshaped = anchors.reshape(-1, 8)
     anchors_d = np.sqrt(anchors_reshaped[:, 4]**2 + anchors_reshaped[:, 5]**2)
     anchors_standup_2d = anchor_to_standup_box2d(anchors_reshaped[:, [0, 1, 4, 5]])
 
@@ -256,20 +260,22 @@ def create_rpn_target(label, calib, target_shape, anchors, threshold_pos_iou, th
     pos_equal_one[index_x, index_y, index_z] = 1
 
     # ATTENTION: index_z should be np.array
-    targets[index_x, index_y, np.array(index_z) * 7] = (
+    targets[index_x, index_y, np.array(index_z) * 8] = (
         gt_boxes3d[id_pos_gt, 0] - anchors_reshaped[id_pos, 0]) / anchors_d[id_pos]
-    targets[index_x, index_y, np.array(index_z) * 7 + 1] = (
+    targets[index_x, index_y, np.array(index_z) * 8 + 1] = (
         gt_boxes3d[id_pos_gt, 1] - anchors_reshaped[id_pos, 1]) / anchors_d[id_pos]
-    targets[index_x, index_y, np.array(index_z) * 7 + 2] = (
+    targets[index_x, index_y, np.array(index_z) * 8 + 2] = (
         gt_boxes3d[id_pos_gt, 2] - anchors_reshaped[id_pos, 2]) / anchor_h
-    targets[index_x, index_y, np.array(index_z) * 7 + 3] = np.log(
+    targets[index_x, index_y, np.array(index_z) * 8 + 3] = np.log(
         gt_boxes3d[id_pos_gt, 3] / anchors_reshaped[id_pos, 3])
-    targets[index_x, index_y, np.array(index_z) * 7 + 4] = np.log(
+    targets[index_x, index_y, np.array(index_z) * 8 + 4] = np.log(
         gt_boxes3d[id_pos_gt, 4] / anchors_reshaped[id_pos, 4])
-    targets[index_x, index_y, np.array(index_z) * 7 + 5] = np.log(
+    targets[index_x, index_y, np.array(index_z) * 8 + 5] = np.log(
         gt_boxes3d[id_pos_gt, 5] / anchors_reshaped[id_pos, 5])
-    targets[index_x, index_y, np.array(index_z) * 7 + 6] = (
+    targets[index_x, index_y, np.array(index_z) * 8 + 6] = (
         gt_boxes3d[id_pos_gt, 6] - anchors_reshaped[id_pos, 6])
+    targets[index_x, index_y, np.array(index_z) * 8 + 7] = (
+        gt_boxes3d[id_pos_gt, 7] - anchors_reshaped[id_pos, 7])
 
     index_x, index_y, index_z = np.unravel_index(
         id_neg, (*target_shape, 2))
@@ -286,8 +292,8 @@ def parse_grid_to_label(obj_map, reg_map, anchors, anchor_size, cls, calib, thre
         parse the regression map to labels
         inputs:
             obj_map (np.array) [target_shape[0], target_shape[1], 2]
-            reg_map (np.array) [target_shape[0], target_shape[1], 14]
-            anchors (np.array) [target_shape[0], target_shape[1], 2, 7]
+            reg_map (np.array) [target_shape[0], target_shape[1], 16]
+            anchors (np.array) [target_shape[0], target_shape[1], 2, 8]
             anchor_size (tuple): (l(float), w(float), h(float))
                 lwh <-> xzy (camera) <->yxz(lidar)
             cls (str)
@@ -304,17 +310,17 @@ def parse_grid_to_label(obj_map, reg_map, anchors, anchor_size, cls, calib, thre
     obj_map = obj_map.transpose(1, 2, 0)
     reg_map = reg_map.transpose(1, 2, 0)
     _, _, anchor_h = anchor_size
-    anchors_reshaped = anchors.reshape(-1, 7)
-    deltas = reg_map.reshape(-1, 7)
+    anchors_reshaped = anchors.reshape(-1, 8)
+    deltas = reg_map.reshape(-1, 8)
     anchors_d = np.sqrt(anchors_reshaped[:, 4]**2 + anchors_reshaped[:, 5]**2)
-    boxes3d = np.zeros_like(deltas)
+    boxes3d = np.zeros((deltas.shape[0], 7))
     boxes3d[..., [0, 1]] = deltas[..., [0, 1]] * \
         anchors_d[:, np.newaxis] + anchors_reshaped[..., [0, 1]]
     boxes3d[..., [2]] = deltas[..., [2]] * \
         anchor_h + anchors_reshaped[..., [2]]
     boxes3d[..., [3, 4, 5]] = np.exp(
         deltas[..., [3, 4, 5]]) * anchors_reshaped[..., [3, 4, 5]]
-    boxes3d[..., 6] = deltas[..., 6] + anchors_reshaped[..., 6]
+    boxes3d[..., 6] = np.arctan2(deltas[..., 7] + anchors_reshaped[..., 7], deltas[..., 6] + anchors_reshaped[..., 6])
 
     # boxes2d = boxes3d[:, [0, 1, 4, 5, 6]]
     probs = obj_map.reshape(-1)

@@ -9,13 +9,13 @@ import numpy as np
 __C = edict()
 cfg = __C
 
-__C.TAG = 'VoxelNet-000F'
+__C.TAG = 'VoxelNet-dev-XXX'
 __C.cls = 'Car'
 __C.DATADIR = '/usr/app/data/KITTI/'
 __C.gpu = 0
-__C.resume = "/usr/app/det3/methods/voxelnet/saved_weights/VoxelNet-000F/18.pth.tar"
+__C.resume = None
 __C.start_epoch = 0
-__C.epochs = 20
+__C.epochs = 100
 __C.lr = 1e-3
 # __C.momentum = 0.9
 __C.weight_decay = 0
@@ -26,7 +26,7 @@ __C.beta = 20
 __C.eta = 15
 __C.gamma = 0
 __C.sparse = True
-__C.val_freq = 3
+__C.val_freq = 25
 __C.cls = 'Car'
 __C.KITTI_cls = {
     'Car': ['Car', 'Van'],

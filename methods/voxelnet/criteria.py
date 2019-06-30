@@ -30,7 +30,7 @@ class VoxelNetLoss(nn.Module):
 
     def forward(self, est, gt):
         small_addon_for_BCE = 1e-6
-        pos_equal_one_for_reg = torch.cat([gt["obj"][:, 0:1, :, :].repeat(1, 7, 1, 1), gt["obj"][:, 1:2, :, :].repeat(1, 7, 1, 1)], dim=1)
+        pos_equal_one_for_reg = torch.cat([gt["obj"][:, 0:1, :, :].repeat(1, 8, 1, 1), gt["obj"][:, 1:2, :, :].repeat(1, 8, 1, 1)], dim=1)
         pos_equal_one_sum = torch.clamp(torch.sum(gt['obj']), min=1)
         neg_equal_one_sum = torch.clamp(torch.sum(gt['neg-obj']), min=1)
         cls_pos_loss = (-gt["obj"] * (1 - est["obj"] + small_addon_for_BCE) ** self.gamma * torch.log(    est["obj"] + small_addon_for_BCE)) / pos_equal_one_sum * self.alpha
