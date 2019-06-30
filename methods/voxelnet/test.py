@@ -53,7 +53,7 @@ def main():
         model = torch.nn.DataParallel(model).cuda()
 
     # define loss function and optimizer
-    criterion = VoxelNetLoss(cfg.alpha, cfg.beta, cfg.eta, cfg.gamma)
+    criterion = VoxelNetLoss(cfg.alpha, cfg.beta, cfg.eta, cfg.gamma, cfg.lambda_rot)
 
     # optionally resume from a checkpoint
     if cfg.resume:

@@ -58,7 +58,7 @@ def main():
         model = torch.nn.DataParallel(model).cuda()
 
     # define loss function and optimizer
-    criterion = VoxelNetLoss(cfg.alpha, cfg.beta, cfg.eta, cfg.gamma)
+    criterion = VoxelNetLoss(cfg.alpha, cfg.beta, cfg.eta, cfg.gamma, cfg.lambda_rot)
     # optimizer = torch.optim.SGD(model.parameters(), cfg.lr,
     #                             momentum=cfg.momentum,
     #                             weight_decay=cfg.weight_decay)
@@ -119,6 +119,7 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
     reg_losses = AverageMeter()
     cls_pos_losses = AverageMeter()
     cls_neg_losses = AverageMeter()
+    rot_rgl_losses = AverageMeter()
 
     # switch to train mode
     model.train()
@@ -145,6 +146,7 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
         reg_losses.update(loss_dict["reg_loss"].item(), voxel_feature.size(0))
         cls_pos_losses.update(loss_dict["cls_pos_loss"].item(), voxel_feature.size(0))
         cls_neg_losses.update(loss_dict["cls_neg_loss"].item(), voxel_feature.size(0))
+        rot_rgl_losses.update(loss_dict["rot_rgl_loss"].item(), voxel_feature.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -163,11 +165,13 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
                        'cls loss {cls_loss.val:.4f} ({cls_loss.avg:.4f})\t'
                        'reg loss {reg_loss.val:.4f} ({reg_loss.avg:.4f})\t'
                        'cls pos loss {cls_pos_loss.val:.4f} ({cls_pos_loss.avg:.4f})\t'
-                       'cls neg loss {cls_neg_loss.val:.4f} ({cls_neg_loss.avg:.4f})\t'.format(
+                       'cls neg loss {cls_neg_loss.val:.4f} ({cls_neg_loss.avg:.4f})\t'
+                       'rot rgl loss {rot_rgl_loss.val:.4f} ({rot_rgl_loss.avg:.4f})\t'.format(
                            epoch, i, len(train_loader), batch_time=batch_time,
                            data_time=data_time, loss=losses,
                            cls_loss=cls_losses, reg_loss=reg_losses,
-                           cls_pos_loss=cls_pos_losses, cls_neg_loss=cls_neg_losses))
+                           cls_pos_loss=cls_pos_losses, cls_neg_loss=cls_neg_losses,
+                           rot_rgl_loss=rot_rgl_losses))
     return losses.avg
 
 def validate(val_loader, model, criterion, epoch, cfg):
