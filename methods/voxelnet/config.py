@@ -9,24 +9,13 @@ import numpy as np
 __C = edict()
 cfg = __C
 
-<<<<<<< HEAD
-__C.TAG = 'VoxelNet-000C'
-__C.cls = 'Car'
-__C.DATADIR = '/usr/app/data/KITTI/'
-__C.gpu = 0
-# __C.resume = '/usr/app/det3/methods/voxelnet/saved_weights/VoxelNet-CARLA-000A/best.pth.tar'
-__C.resume = None
-__C.start_epoch = 0
-__C.epochs = 150
-=======
 __C.TAG = 'VoxelNet-000F'
 __C.cls = 'Car'
 __C.DATADIR = '/usr/app/data/KITTI/'
 __C.gpu = 0
-__C.resume = None
+__C.resume = "/usr/app/det3/methods/voxelnet/saved_weights/VoxelNet-000F/18.pth.tar"
 __C.start_epoch = 0
 __C.epochs = 20
->>>>>>> 1a04db7... VoxleNet-000F
 __C.lr = 1e-3
 # __C.momentum = 0.9
 __C.weight_decay = 0

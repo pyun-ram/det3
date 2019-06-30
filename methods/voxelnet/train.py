@@ -98,7 +98,7 @@ def main():
         adjust_learning_rate(optimizer, epoch, cfg.lr)
         train_loss = train(train_loader, model, criterion, optimizer, epoch, cfg)
         tsbd.add_scalar('train/loss', train_loss, epoch)
-        if epoch != 0 and epoch % cfg.val_freq == 0:
+        if (epoch != 0 and epoch % cfg.val_freq == 0 ) or epoch == cfg.epochs-1:
             val_loss = validate(val_loader, model, criterion, epoch, cfg)
             tsbd.add_scalar('val/loss', val_loss, epoch)
             is_best = val_loss < best_loss1

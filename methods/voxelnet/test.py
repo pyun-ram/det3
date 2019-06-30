@@ -42,8 +42,7 @@ def main():
                       'You may see unexpected behavior when restarting '
                       'from checkpoints.')
     model = VoxelNet(in_channels=7,
-                     out_gridsize=(10, cfg.FEATURE_HEIGHT * cfg.FEATURE_RATIO,
-                                   cfg.FEATURE_WIDTH * cfg.FEATURE_RATIO))
+                     out_gridsize=cfg.MIDGRID_SHAPE, bool_sparse=cfg.sparse)
     if cfg.gpu is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
                       'disable data parallelism.')
@@ -89,8 +88,6 @@ def evaluate(data_loader, model, criterion, cfg):
     with torch.no_grad():
         end = time.time()
         for i, (tag, voxel_feature, coordinate, gt_pos_map, gt_neg_map, gt_target, anchors, pc, label, calib) in enumerate(data_loader):
-            if i > 10:
-                break
             if cfg.gpu is not None:
                 voxel_feature = torch.from_numpy(voxel_feature).contiguous().cuda(cfg.gpu, non_blocking=True)
                 coordinate = torch.from_numpy(coordinate).contiguous().cuda(cfg.gpu, non_blocking=True)
@@ -99,7 +96,7 @@ def evaluate(data_loader, model, criterion, cfg):
                 gt_target = torch.from_numpy(gt_target).contiguous().cuda(cfg.gpu, non_blocking=True)
 
             # compute output
-            est_pmap, est_rmap = model(voxel_feature, coordinate)
+            est_pmap, est_rmap = model(voxel_feature, coordinate, batch_size=cfg.batch_size)
             output = {"obj":est_pmap, 'reg':est_rmap}
             target = {"obj":gt_pos_map, 'reg':gt_target, "neg-obj":gt_neg_map}
             loss_dict = criterion(output, target)
