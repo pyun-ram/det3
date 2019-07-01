@@ -162,9 +162,9 @@ class SparseMiddleLayer(nn.Module):
     def __init__(self, sparse_shape):
         super(SparseMiddleLayer, self).__init__()
         self.sparse_shape = sparse_shape
-        # BatchNorm1d = change_default_args(
-        #     eps=1e-3, momentum=0.01)(nn.BatchNorm1d)
-        BatchNorm1d = Empty
+        BatchNorm1d = change_default_args(
+            eps=1e-3, momentum=0.01)(nn.BatchNorm1d)
+        # BatchNorm1d = Empty
         SpConv3d = change_default_args(bias=True)(spconv.SparseConv3d)
         SubMConv3d = change_default_args(bias=True)(spconv.SubMConv3d)
         self.middle_conv = spconv.SparseSequential(
