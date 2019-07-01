@@ -88,17 +88,24 @@ class KittiAugmentor:
         returns:
             label_rot
             pc_rot
+        Note: If the attemp times is over max_attemp, it will return the original copy
         '''
         assert istype(label, "KittiLabel")
         dry_min, dry_max = dry_range
+        max_attemp = 10
+        num_attemp = 0
         while True:
+            num_attemp += 1
             # copy pc & label
             pc_ = pc.copy()
             label_ = KittiLabel()
             label_.data = []
             for obj in label.data:
                 label_.data.append(KittiObj(str(obj)))
-
+            if num_attemp > max_attemp:
+                print("KittiAugmentor.rotate_obj: Warning: the attemp times is over {} times,"
+                      "will return the original copy".format(max_attemp))
+                return label_, pc_
             for obj in label_.data:
                 # generate random number
                 dry = np.random.rand() * (dry_max - dry_min) + dry_min
@@ -132,19 +139,26 @@ class KittiAugmentor:
         returns:
             label_tr
             pc_tr
+        Note: If the attemp times is over max_attemp, it will return the original copy
         '''
         assert istype(label, "KittiLabel")
         dx_min, dx_max = dx_range
         dy_min, dy_max = dy_range
         dz_min, dz_max = dz_range
+        max_attemp = 10
+        num_attemp = 0
         while True:
+            num_attemp += 1
             # copy pc & label
             pc_ = pc.copy()
             label_ = KittiLabel()
             label_.data = []
             for obj in label.data:
                 label_.data.append(KittiObj(str(obj)))
-
+            if num_attemp > max_attemp:
+                print("KittiAugmentor.tr_obj: Warning: the attemp times is over {} times,"
+                      "will return the original copy".format(max_attemp))
+                return label_, pc_
             for obj in label_.data:
                 # gennerate ramdom number
                 dx = np.random.rand() * (dx_max - dx_min) + dx_min
@@ -276,18 +290,25 @@ class CarlaAugmentor:
         returns:
             label_rot
             pc_rot
+        Note: If the attemp times is over max_attemp, it will return the original copy
         '''
         assert istype(label, "CarlaLabel")
         assert istype(calib, "CarlaCalib")
         dry_min, dry_max = dry_range
+        max_attemp = 10
+        num_attemp = 0
         while True:
+            num_attemp += 1
             # copy pc & label
             pc_ = pc.copy()
             label_ = CarlaLabel()
             label_.data = []
             for obj in label.data:
                 label_.data.append(CarlaObj(str(obj)))
-
+            if num_attemp > max_attemp:
+                print("CarlaAugmentor.rotate_obj: Warning: the attemp times is over {} times,"
+                      "will return the original copy".format(max_attemp))
+                return label_, pc_
             for obj in label_.data:
                 dry = np.random.rand() * (dry_max - dry_min) + dry_min
                 # modify pc
@@ -316,20 +337,27 @@ class CarlaAugmentor:
         returns:
             label_tr
             pc_tr
+        Note: If the attemp times is over max_attemp, it will return the original copy
         '''
         assert istype(label, "CarlaLabel")
         assert istype(calib, "CarlaCalib")
         dx_min, dx_max = dx_range
         dy_min, dy_max = dy_range
         dz_min, dz_max = dz_range
+        max_attemp = 10
+        num_attemp = 0
         while True:
+            num_attemp += 1
             # copy pc & label
             pc_ = pc.copy()
             label_ = CarlaLabel()
             label_.data = []
             for obj in label.data:
                 label_.data.append(CarlaObj(str(obj)))
-
+            if num_attemp > max_attemp:
+                print("CarlaAugmentor.tr_obj: Warning: the attemp times is over {} times,"
+                      "will return the original copy".format(max_attemp))
+                return label_, pc_
             for obj in label_.data:
                 dx = np.random.rand() * (dx_max - dx_min) + dx_min
                 dy = np.random.rand() * (dy_max - dy_min) + dy_min
@@ -382,26 +410,32 @@ class CarlaAugmentor:
         return label_, pc_
 
 if __name__ == "__main__":
-    from det3.dataloarder.carladata import CarlaData, CarlaObj
+    from det3.dataloarder.kittidata import KittiData, KittiCalib
     from det3.utils.utils import read_pc_from_bin
     from det3.visualizer.vis import BEVImage
+    from det3.methods.voxelnet.config import cfg
     from PIL import Image
-    tag = "000200"
-    pc, label, calib = CarlaData("/usr/app/data/CARLA/dev/", idx=tag).read_data()
-    pc = calib.lidar2imu(pc["velo_top"], key="Tr_imu_to_velo_top")
+    import os
+    for i in range(2000):
+        print(i)
+        tag = "003377"
+        calib, img, label, pc = KittiData("/usr/app/data/KITTI/train/", idx=tag).read_data()
 
-    obj0 = label.data[0]
-    obj1 = CarlaObj(str(obj0))
-    obj1.y += 0.5
-    obj1.x += 3
-    obj1.ry += 1 / 180.0 * np.pi
+        bevimg = BEVImage(x_range=(0, 70), y_range=(-40, 40), grid_size=(0.05, 0.05))
+        bevimg.from_lidar(pc, scale=1)
+        for obj in label.data:
+            bevimg.draw_box(obj, calib, bool_gt=True)
+        bevimg_img = Image.fromarray(bevimg.data)
+        bevimg_img.save(os.path.join('/usr/app/vis/train/', 'test_KittiAugmentor_rotobj_origin.png'))
 
-    label.data = [obj0, obj1]
-    bevimg = BEVImage(x_range=(-100, 100), y_range=(-50, 50), grid_size=(0.05, 0.05))
-    bevimg.from_lidar(pc)
-    for obj in label.data:
-        bevimg.draw_box(obj, calib, bool_gt=True)
-    bevimg_img = Image.fromarray(bevimg.data)
-    bevimg_img.save("/usr/app/vis/train/{}.png".format(tag))
-    augmentor = CarlaAugmentor()
-    print(augmentor.check_overlap(label))
+        agmtor = KittiAugmentor(p_rot=cfg.aug_dict["p_rot"], p_tr=cfg.aug_dict["p_tr"],
+                                p_flip=cfg.aug_dict["p_flip"],p_keep=cfg.aug_dict["p_keep"],
+                                dx_range=cfg.aug_param["dx_range"], dy_range=cfg.aug_param["dy_range"],
+                                dz_range=cfg.aug_param["dz_range"], dry_range=cfg.aug_param["dry_range"])
+        label, pc = agmtor.apply(label, pc, calib)
+        bevimg = BEVImage(x_range=(0, 70), y_range=(-40, 40), grid_size=(0.05, 0.05))
+        bevimg.from_lidar(pc, scale=1)
+        for obj in label.data:
+            bevimg.draw_box(obj, calib, bool_gt=True)
+        bevimg_img = Image.fromarray(bevimg.data)
+        bevimg_img.save(os.path.join('/usr/app/vis/train/', 'test_KittiAugmentor_rotobj_result.png'))
