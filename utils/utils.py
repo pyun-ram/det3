@@ -5,6 +5,11 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
 import numpy as np
 from PIL import Image
+import pickle
+
+def load_pickle(file_path):
+    data = pickle.load(open(file_path, "rb"))
+    return data
 
 def write_str_to_file(s, file_path):
     with open(file_path, 'w+') as f:

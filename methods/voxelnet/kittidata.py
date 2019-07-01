@@ -12,6 +12,7 @@ from torch.utils.data import Dataset
 from det3.dataloarder.kittidata import KittiData
 from det3.methods.voxelnet.utils import *
 from det3.dataloarder.augmentor import KittiAugmentor
+from det3.utils.utils import load_pickle
 
 class KITTIDataVoxelNet():
     def __init__(self,data_dir, cfg, batch_size=4, num_workers=1,distributed=False):
@@ -60,21 +61,26 @@ class KittiDatasetVoxelNet(Dataset):
         self.cls = cfg.cls
         self.idx_list = [itm.split('.')[0] for itm in os.listdir(self.label2_dir)]
         self.idx_list.sort()
+        self.bool_fast_loader = cfg.bool_fast_loader
+        self.fastload_dir = os.path.join(self.data_dir, 'fast_load') if self.bool_fast_loader else None
         assert os.path.isdir(data_dir)
         assert train_val_flag in ['train', 'val', 'dev']
         assert (len(os.listdir(self.calib_dir)) == len(os.listdir(self.image2_dir))
                 == len(os.listdir(self.label2_dir)) == len(os.listdir(self.velodyne_dir)))
+        assert os.path.isdir(self.fastload_dir) == self.bool_fast_loader, "fastload_dir is not correspondent with bool_fastloader"
 
     def __len__(self):
         return len(os.listdir(self.velodyne_dir))
 
     def __getitem__(self, idx):
+        if self.bool_fast_loader:
+            return load_pickle(os.path.join(self.fastload_dir, "{}.pkl".format(self.idx_list[idx])))
         calib, img, label, pc = KittiData(self.data_dir, self.idx_list[idx]).read_data()
         tag = int(self.idx_list[idx])
         pc = filter_camera_angle(pc)
         if not self.train_val_flag == "val":
             agmtor = KittiAugmentor(p_rot=self.cfg.aug_dict["p_rot"], p_tr=self.cfg.aug_dict["p_tr"],
-                                    p_flip=self.cfg.aug_dict["p_flip"],p_keep=self.cfg.aug_dict["p_keep"],
+                                    p_flip=self.cfg.aug_dict["p_flip"], p_keep=self.cfg.aug_dict["p_keep"],
                                     dx_range=self.cfg.aug_param["dx_range"], dy_range=self.cfg.aug_param["dy_range"],
                                     dz_range=self.cfg.aug_param["dz_range"], dry_range=self.cfg.aug_param["dry_range"])
             label, pc = agmtor.apply(label, pc, calib)
@@ -93,9 +99,9 @@ class KittiDatasetVoxelNet(Dataset):
                                  anchor_z=self.cfg.ANCHOR_Z,
                                  anchor_size=(self.cfg.ANCHOR_L, self.cfg.ANCHOR_W, self.cfg.ANCHOR_H))
         gt_pos_map, gt_neg_map, gt_target = create_rpn_target(label, calib,
-                                                     target_shape=(self.cfg.FEATURE_HEIGHT, self.cfg.FEATURE_WIDTH),
-                                                     anchors=anchors, threshold_pos_iou=self.cfg.RPN_POS_IOU,
-                                                     threshold_neg_iou=self.cfg.RPN_NEG_IOU, anchor_size=(self.cfg.ANCHOR_L, self.cfg.ANCHOR_W, self.cfg.ANCHOR_H))
+                                                              target_shape=(self.cfg.FEATURE_HEIGHT, self.cfg.FEATURE_WIDTH),
+                                                              anchors=anchors, threshold_pos_iou=self.cfg.RPN_POS_IOU,
+                                                              threshold_neg_iou=self.cfg.RPN_NEG_IOU, anchor_size=(self.cfg.ANCHOR_L, self.cfg.ANCHOR_W, self.cfg.ANCHOR_H))
         voxel_feature = voxel_dict["feature_buffer"].astype(np.float32)
         coordinate = voxel_dict["coordinate_buffer"].astype(np.int64)
         gt_pos_map = gt_pos_map.astype(np.float32)
@@ -104,7 +110,7 @@ class KittiDatasetVoxelNet(Dataset):
         gt_neg_map = np.transpose(gt_neg_map, (2, 0, 1))
         gt_target = gt_target.astype(np.float32)
         gt_target = np.transpose(gt_target, (2, 0, 1))
-        # rec_label = parse_grid_to_label(gt_pos_map, gt_target, anchors, 
+        # rec_label = parse_grid_to_label(gt_pos_map, gt_target, anchors,
         #                                 anchor_size=(self.cfg.ANCHOR_L, self.cfg.ANCHOR_W, self.cfg.ANCHOR_H),
         #                                 cls=self.cfg.cls, calib=calib, threshold_score=self.cfg.RPN_SCORE_THRESH,
         #                                 threshold_nms=self.cfg.RPN_NMS_THRESH)
@@ -124,8 +130,15 @@ class KittiDatasetVoxelNet(Dataset):
 
 if __name__ == "__main__":
     from det3.methods.voxelnet.config import cfg
-    dataset = KittiDatasetVoxelNet(data_dir='/usr/app/data/KITTI', train_val_flag='dev', cfg=cfg)
+    dataset = KittiDatasetVoxelNet(data_dir='/usr/app/data/KITTI', train_val_flag='train', cfg=cfg)
     # dataset[2835] # 4448
     # dataset[48]
-    for i in range(0, len(dataset)):
-        dataset[i]
+    for i,  (tag, voxel_feature, coordinate, gt_pos_map, gt_neg_map, gt_target) in enumerate(dataset):
+        print(i)
+        print(tag)
+        print(voxel_feature)
+        print(coordinate)
+        print(gt_pos_map)
+        print(gt_neg_map)
+        print(gt_target)
+

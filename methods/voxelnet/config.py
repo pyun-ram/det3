@@ -27,6 +27,7 @@ __C.eta = 15
 __C.gamma = 0
 __C.lambda_rot = 1 # weight of rot regularization term
 __C.sparse = True
+__C.bool_fast_loader = True
 __C.val_freq = 25
 __C.cls = 'Car'
 __C.KITTI_cls = {
