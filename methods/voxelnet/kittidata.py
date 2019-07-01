@@ -67,6 +67,7 @@ class KittiDatasetVoxelNet(Dataset):
 
     def __len__(self):
         return len(os.listdir(self.velodyne_dir))
+
     def __getitem__(self, idx):
         calib, img, label, pc = KittiData(self.data_dir, self.idx_list[idx]).read_data()
         tag = int(self.idx_list[idx])
