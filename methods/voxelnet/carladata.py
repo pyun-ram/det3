@@ -12,6 +12,7 @@ import torch
 from torch.utils.data import Dataset
 from det3.dataloarder.carladata import CarlaData
 from det3.methods.voxelnet.utils import *
+from det3.utils.utils import load_pickle
 
 class CarlaDataVoxelNet():
     def __init__(self,data_dir, cfg, batch_size=4, num_workers=1,distributed=False):
@@ -62,14 +63,21 @@ class CarlaDatasetVoxelNet(Dataset):
         self.cls = cfg.cls
         self.idx_list = [itm.split('.')[0] for itm in os.listdir(self.label_dir)]
         self.idx_list.sort()
+        self.bool_fast_loader = cfg.bool_fast_loader
+        self.fastload_dir = os.path.join(self.data_dir, 'fast_load') if self.bool_fast_loader else None
         assert os.path.isdir(data_dir)
         assert train_val_flag in ['train', 'val', 'dev']
         assert len(os.listdir(self.calib_dir)) == len(os.listdir(self.label_dir))
+        if self.bool_fast_loader and not os.path.isdir(self.fastload_dir):
+            print("ERROR: Fast Loading mode, but the fast_load dir is not available.")
+            raise RuntimeError
 
     def __len__(self):
         return len(os.listdir(self.label_dir))
 
     def __getitem__(self, idx):
+        if self.bool_fast_loader:
+            return load_pickle(os.path.join(self.fastload_dir, "{}.pkl".format(self.idx_list[idx])))
         pc_dict, label, calib = CarlaData(self.data_dir, self.idx_list[idx]).read_data()
         tag = int(self.idx_list[idx])
         pc = calib.lidar2imu(pc_dict['velo_top'], key='Tr_imu_to_velo_top')

@@ -67,7 +67,10 @@ class KittiDatasetVoxelNet(Dataset):
         assert train_val_flag in ['train', 'val', 'dev']
         assert (len(os.listdir(self.calib_dir)) == len(os.listdir(self.image2_dir))
                 == len(os.listdir(self.label2_dir)) == len(os.listdir(self.velodyne_dir)))
-        assert os.path.isdir(self.fastload_dir) == self.bool_fast_loader, "fastload_dir is not correspondent with bool_fastloader"
+        if self.bool_fast_loader and not os.path.isdir(self.fastload_dir):
+            print("ERROR: Fast Loading mode, but the fast_load dir is not available.")
+            raise RuntimeError
+
 
     def __len__(self):
         return len(os.listdir(self.velodyne_dir))
