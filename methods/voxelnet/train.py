@@ -18,6 +18,7 @@ import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from PIL import Image, ImageDraw
+import numpy as np
 from tensorboardX import SummaryWriter
 from det3.methods.voxelnet.config import cfg
 from det3.methods.voxelnet.model import VoxelNet
@@ -62,7 +63,7 @@ def main():
     # optimizer = torch.optim.SGD(model.parameters(), cfg.lr,
     #                             momentum=cfg.momentum,
     #                             weight_decay=cfg.weight_decay)
-    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr,
+    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr_dict["lr"],
                                  betas=(0.9, 0.999), eps=1e-08,
                                  weight_decay=cfg.weight_decay, amsgrad=False)
 
@@ -76,7 +77,7 @@ def main():
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
             output_log("=> loaded checkpoint '{}' (epoch {})"
-                  .format(cfg.resume, checkpoint['epoch']))
+                       .format(cfg.resume, checkpoint['epoch']))
         else:
             output_log("=> no checkpoint found at '{}'".format(cfg.resume))
 
@@ -95,20 +96,18 @@ def main():
         raise NotImplementedError
 
     for epoch in range(cfg.start_epoch, cfg.epochs):
-        adjust_learning_rate(optimizer, epoch, cfg.lr)
+        adjust_learning_rate(optimizer, epoch, cfg.lr_dict)
         train_loss = train(train_loader, model, criterion, optimizer, epoch, cfg)
         tsbd.add_scalar('train/loss', train_loss, epoch)
-        if (epoch != 0 and epoch % cfg.val_freq == 0 ) or epoch == cfg.epochs-1:
+        if (epoch != 0 and epoch % cfg.val_freq == 0) or epoch == cfg.epochs-1:
             val_loss = validate(val_loader, model, criterion, epoch, cfg)
             tsbd.add_scalar('val/loss', val_loss, epoch)
-            is_best = val_loss < best_loss1
-            best_loss1 = min(val_loss, best_loss1)
-            save_checkpoint({
-                'epoch': epoch + 1,
-                'state_dict': model.state_dict(),
-                'best_loss1': best_loss1,
-                'optimizer' : optimizer.state_dict(),
-            }, is_best, save_dir=save_dir, filename=str(epoch)+'.pth.tar')
+        save_checkpoint({
+            'epoch': epoch + 1,
+            'state_dict': model.state_dict(),
+            'best_loss1': best_loss1,
+            'optimizer' : optimizer.state_dict(),
+        }, False, save_dir=save_dir, filename=str(epoch)+'.pth.tar')
 
 
 def train(train_loader, model, criterion, optimizer, epoch, cfg):
@@ -232,9 +231,21 @@ def output_log(s):
     print(s)
     logging.critical(s)
 
-def adjust_learning_rate(optimizer, epoch, lr_):
+def adjust_learning_rate(optimizer, epoch, lr_dict):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = lr_ * (0.1 ** (epoch // 30))
+    if lr_dict["mode"] == "const":
+        lr = lr_dict["lr"]
+    elif lr_dict["mode"] == "decay":
+        lr = lr_dict["lr"] * (lr_dict["factor"] ** (epoch // lr_dict["cycle"]))
+    elif lr_dict["mode"] == "super-converge":
+        min_lr, max_lr = lr_dict["lr_range"]
+        cycle = lr_dict["cycle"]
+        half1 = np.linspace(max_lr, min_lr, num=np.ceil(cycle/2.0))
+        half2 = np.linspace(min_lr, max_lr, num=np.ceil(cycle/2.0))[1:-1]
+        entire = np.concatenate([half1, half2])
+        lr = entire[epoch % (cycle-1)]
+    else:
+        raise NotImplementedError
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 

@@ -16,7 +16,22 @@ __C.gpu = 0
 __C.resume = None
 __C.start_epoch = 0
 __C.epochs = 100
-__C.lr = 1e-3
+__C.lr_dict = {
+    "mode": "super-converge", # "const", "decay", "super-converge"
+    "lr_range": [1e-4, 1e-3],
+    "lr": 1e-3,
+    "cycle": 7, # epochs for one cycle
+}
+# __C.lr_dict = {
+#     "mode": "const", # "const", "decay", "super-converge"
+#     "lr": 1e-3,
+# }
+# __C.lr_dict = {
+#     "mode": "decay", # "const", "decay", "super-converge"
+#     "lr": 1e-3,
+#     "cycle": 10, #  epochs for one decay
+#     "factor": 0.1,
+# }
 # __C.momentum = 0.9
 __C.weight_decay = 0
 __C.batch_size = 1
@@ -27,7 +42,7 @@ __C.eta = 15
 __C.gamma = 0
 __C.lambda_rot = 1 # weight of rot regularization term
 __C.sparse = True
-__C.bool_fast_loader = True
+__C.bool_fast_loader = False
 __C.val_freq = 25
 __C.val_max_visnum = 100
 __C.cls = 'Car'
