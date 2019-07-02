@@ -15,7 +15,7 @@ __C.DATADIR = '/usr/app/data/KITTI/'
 __C.gpu = 0
 __C.resume = None
 __C.start_epoch = 0
-__C.epochs = 100
+__C.epochs = 500
 __C.lr_dict = {
     "mode": "super-converge", # "const", "decay", "super-converge"
     "lr_range": [1e-4, 1e-3],
@@ -43,7 +43,7 @@ __C.gamma = 0
 __C.lambda_rot = 1 # weight of rot regularization term
 __C.sparse = True
 __C.bool_fast_loader = False
-__C.val_freq = 25
+__C.val_freq = 50
 __C.val_max_visnum = 100
 __C.cls = 'Car'
 __C.KITTI_cls = {

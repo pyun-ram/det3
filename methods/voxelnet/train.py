@@ -200,7 +200,7 @@ def validate(val_loader, model, criterion, epoch, cfg):
             losses.update(loss_dict["loss"].item(), voxel_feature.size(0))
 
             visnum += 1
-            if visnum < cfg.max_visnum:
+            if visnum < cfg.val_max_visnum:
                 bevimg = BEVImage(x_range=cfg.x_range, y_range=cfg.y_range, grid_size=(0.05, 0.05))
                 bevimg.from_lidar(pc[:, :], scale=1)
 

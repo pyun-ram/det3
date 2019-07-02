@@ -165,8 +165,8 @@ class SparseMiddleLayer(nn.Module):
         BatchNorm1d = change_default_args(
             eps=1e-3, momentum=0.01)(nn.BatchNorm1d)
         # BatchNorm1d = Empty
-        SpConv3d = change_default_args(bias=True)(spconv.SparseConv3d)
-        SubMConv3d = change_default_args(bias=True)(spconv.SubMConv3d)
+        SpConv3d = change_default_args(bias=False)(spconv.SparseConv3d)
+        SubMConv3d = change_default_args(bias=False)(spconv.SubMConv3d)
         self.middle_conv = spconv.SparseSequential(
             SubMConv3d(128, 16, 3, indice_key="subm0"),
             BatchNorm1d(16),
@@ -241,47 +241,47 @@ class RPN(nn.Module):
         # block1
         self.bool_sparse = bool_sparse
         if not self.bool_sparse:
-            self.block1_conv1 = Conv2d(128, 128, [3, 3], [2, 2], padding=[1, 1], dilation=1, groups=1, bias=True)
+            self.block1_conv1 = Conv2d(128, 128, [3, 3], [2, 2], padding=[1, 1], dilation=1, groups=1, bias=False)
         else:
-            self.block1_conv1 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+            self.block1_conv1 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block1_norm1 = BatchNorm2d(128)
-        self.block1_conv2 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block1_conv2 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block1_norm2 = BatchNorm2d(128)
-        self.block1_conv3 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block1_conv3 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block1_norm3 = BatchNorm2d(128)
-        self.block1_conv4 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block1_conv4 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block1_norm4 = BatchNorm2d(128)
-        self.block1_trconv5 = ConvTranspose2d(128, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block1_trconv5 = ConvTranspose2d(128, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block1_norm5 = BatchNorm2d(256)
         # block2
-        self.block2_conv1 = Conv2d(128, 128, [3, 3], [2, 2], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block2_conv1 = Conv2d(128, 128, [3, 3], [2, 2], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block2_norm1 = BatchNorm2d(128)
-        self.block2_conv2 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block2_conv2 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block2_norm2 = BatchNorm2d(128)
-        self.block2_conv3 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block2_conv3 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block2_norm3 = BatchNorm2d(128)
-        self.block2_conv4 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block2_conv4 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block2_norm4 = BatchNorm2d(128)
-        self.block2_conv5 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block2_conv5 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block2_norm5 = BatchNorm2d(128)
-        self.block2_conv6 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block2_conv6 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block2_norm6 = BatchNorm2d(128)
-        self.block2_trconv7 = ConvTranspose2d(128, 256, [2, 2], [2, 2], padding=[0,0], dilation=1, groups=1, bias=True)
+        self.block2_trconv7 = ConvTranspose2d(128, 256, [2, 2], [2, 2], padding=[0,0], dilation=1, groups=1, bias=False)
         self.block2_norm7 = BatchNorm2d(256)
         # block3
-        self.block3_conv1 = Conv2d(128, 256, [3, 3], [2, 2], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block3_conv1 = Conv2d(128, 256, [3, 3], [2, 2], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block3_norm1 = BatchNorm2d(256)
-        self.block3_conv2 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block3_conv2 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block3_norm2 = BatchNorm2d(256)
-        self.block3_conv3 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block3_conv3 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block3_norm3 = BatchNorm2d(256)
-        self.block3_conv4 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block3_conv4 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block3_norm4 = BatchNorm2d(256)
-        self.block3_conv5 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block3_conv5 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block3_norm5 = BatchNorm2d(256)
-        self.block3_conv6 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=True)
+        self.block3_conv6 = Conv2d(256, 256, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block3_norm6 = BatchNorm2d(256)
-        self.block3_trconv7 = ConvTranspose2d(256, 256, [4, 4], [4, 4], padding=[0,0], dilation=1, groups=1, bias=True)
+        self.block3_trconv7 = ConvTranspose2d(256, 256, [4, 4], [4, 4], padding=[0,0], dilation=1, groups=1, bias=False)
         self.block3_norm7 = BatchNorm2d(256)
 
         # head
@@ -290,10 +290,10 @@ class RPN(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='relu')
-                nn.init.constant_(m.bias, 0)
+                # nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.ConvTranspose2d):
                 nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='relu')
-                nn.init.constant_(m.bias, 0)
+                # nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)                
