@@ -183,6 +183,7 @@ def validate(val_loader, model, criterion, epoch, cfg):
     os.makedirs(os.path.join(log_dir, 'val_imgs', str(epoch)), exist_ok=True)
     with torch.no_grad():
         end = time.time()
+        visnum = 0
         for i, (tag, voxel_feature, coordinate, gt_pos_map, gt_neg_map, gt_target, anchors, pc, label, calib) in enumerate(val_loader):
             if cfg.gpu is not None:
                 voxel_feature = torch.from_numpy(voxel_feature).contiguous().cuda(cfg.gpu, non_blocking=True)
@@ -199,22 +200,24 @@ def validate(val_loader, model, criterion, epoch, cfg):
             # measure accuracy and record loss
             losses.update(loss_dict["loss"].item(), voxel_feature.size(0))
 
-            bevimg = BEVImage(x_range=cfg.x_range, y_range=cfg.y_range, grid_size=(0.05, 0.05))
-            bevimg.from_lidar(pc[:, :], scale=1)
+            visnum += 1
+            if visnum < cfg.max_visnum:
+                bevimg = BEVImage(x_range=cfg.x_range, y_range=cfg.y_range, grid_size=(0.05, 0.05))
+                bevimg.from_lidar(pc[:, :], scale=1)
 
-            for obj in label.data:
-                bevimg.draw_box(obj, calib, bool_gt=True, width=3)
-            est_pmap_np = est_pmap.cpu().numpy()
-            est_rmap_np = est_rmap.cpu().numpy()
-            rec_label = parse_grid_to_label(est_pmap_np[0], est_rmap_np[0], anchors,
-                                            anchor_size=(cfg.ANCHOR_L, cfg.ANCHOR_W, cfg.ANCHOR_H),
-                                            cls=cfg.cls, calib=calib, threshold_score=cfg.RPN_SCORE_THRESH,
-                                            threshold_nms=cfg.RPN_NMS_THRESH)
-            for obj in rec_label.data:
-                bevimg.draw_box(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
+                for obj in label.data:
+                    bevimg.draw_box(obj, calib, bool_gt=True, width=3)
+                est_pmap_np = est_pmap.cpu().numpy()
+                est_rmap_np = est_rmap.cpu().numpy()
+                rec_label = parse_grid_to_label(est_pmap_np[0], est_rmap_np[0], anchors,
+                                                anchor_size=(cfg.ANCHOR_L, cfg.ANCHOR_W, cfg.ANCHOR_H),
+                                                cls=cfg.cls, calib=calib, threshold_score=cfg.RPN_SCORE_THRESH,
+                                                threshold_nms=cfg.RPN_NMS_THRESH)
+                for obj in rec_label.data:
+                    bevimg.draw_box(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
 
-            bevimg_img = Image.fromarray(bevimg.data)
-            bevimg_img.save(os.path.join(log_dir, 'val_imgs', str(epoch), '{:06d}.png'.format(tag)))
+                bevimg_img = Image.fromarray(bevimg.data)
+                bevimg_img.save(os.path.join(log_dir, 'val_imgs', str(epoch), '{:06d}.png'.format(tag)))
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()

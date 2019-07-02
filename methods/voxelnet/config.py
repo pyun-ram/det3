@@ -29,6 +29,7 @@ __C.lambda_rot = 1 # weight of rot regularization term
 __C.sparse = True
 __C.bool_fast_loader = True
 __C.val_freq = 25
+__C.val_max_visnum = 100
 __C.cls = 'Car'
 __C.KITTI_cls = {
     'Car': ['Car', 'Van'],
