@@ -13,6 +13,7 @@ from det3.dataloarder.kittidata import KittiData
 from det3.methods.voxelnet.utils import *
 from det3.dataloarder.augmentor import KittiAugmentor
 from det3.utils.utils import load_pickle
+import glob
 
 class KITTIDataVoxelNet():
     def __init__(self,data_dir, cfg, batch_size=4, num_workers=1,distributed=False):
@@ -61,22 +62,29 @@ class KittiDatasetVoxelNet(Dataset):
         self.cls = cfg.cls
         self.idx_list = [itm.split('.')[0] for itm in os.listdir(self.label2_dir)]
         self.idx_list.sort()
-        self.bool_fast_loader = cfg.bool_fast_loader
-        self.fastload_dir = os.path.join(self.data_dir, 'fast_load') if self.bool_fast_loader else None
         assert os.path.isdir(data_dir)
         assert train_val_flag in ['train', 'val', 'dev']
         assert (len(os.listdir(self.calib_dir)) == len(os.listdir(self.image2_dir))
                 == len(os.listdir(self.label2_dir)) == len(os.listdir(self.velodyne_dir)))
-        if self.bool_fast_loader and not os.path.isdir(self.fastload_dir):
-            print("ERROR: Fast Loading mode, but the fast_load dir is not available.")
-            raise RuntimeError
-
+        if self.train_val_flag in ['val', 'dev']:
+            self.bool_fast_loader = cfg.bool_fast_loader
+            self.fastload_dir = os.path.join(self.data_dir, 'fast_load') if self.bool_fast_loader else None
+            if self.bool_fast_loader and not os.path.isdir(self.fastload_dir):
+                print("ERROR: Fast Loading mode, but the fast_load dir is not available.")
+                raise RuntimeError
+        else:
+            self.bool_fast_loader = cfg.bool_fast_loader
+            self.num_train_fast_load = len(glob.glob(os.path.join(self.data_dir, "fast_load_*")))
+            self.fastload_dir = None # wait for update
 
     def __len__(self):
         return len(os.listdir(self.velodyne_dir))
 
     def __getitem__(self, idx):
-        if self.bool_fast_loader:
+        if self.bool_fast_loader and self.train_val_flag in ['dev', 'val']:
+            return load_pickle(os.path.join(self.fastload_dir, "{}.pkl".format(self.idx_list[idx])))
+        elif self.bool_fast_loader and self.train_val_flag == 'train':
+            self.fastload_dir = os.path.join(self.data_dir, "fast_load_{}".format(np.random.randint(self.num_train_fast_load)))
             return load_pickle(os.path.join(self.fastload_dir, "{}.pkl".format(self.idx_list[idx])))
         calib, img, label, pc = KittiData(self.data_dir, self.idx_list[idx]).read_data()
         tag = int(self.idx_list[idx])

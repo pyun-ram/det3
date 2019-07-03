@@ -6,7 +6,7 @@ This script creates a post-processed dataset for KITTI and CARLA.
 python3 methods/voxelnet/create_dataset.py \
     --data-dir /usr/app/data/KITTI \
     --dataset KITTI \
-    --num-of-train 12
+    --num-of-train 6
 '''
 import argparse
 import sys
