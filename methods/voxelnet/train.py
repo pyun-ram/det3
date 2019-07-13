@@ -116,7 +116,7 @@ def main():
             tsbd.add_scalar('val/ap_3d_mod_0.7_0.7_0.7', val_ap_dict["3d_AP_0"][1], epoch)
             tsbd.add_scalar('val/ap_bev_mod_0.7_0.5_0.5', val_ap_dict["bev_AP_1"][1], epoch)
             tsbd.add_scalar('val/ap_3d_mod_0.7_0.5_0.5', val_ap_dict["3d_AP_1"][1], epoch)
-        save_checkpoint({
+            save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
             'best_loss1': best_loss1,
