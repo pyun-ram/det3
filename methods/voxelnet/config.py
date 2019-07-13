@@ -9,7 +9,7 @@ import numpy as np
 __C = edict()
 cfg = __C
 
-__C.TAG = 'VoxelNet-dev-XXX'
+__C.TAG = 'VoxelNet-dev-newpipeline'
 __C.cls = 'Car'
 __C.DATADIR = '/usr/app/data/KITTI/'
 __C.gpu = 0
@@ -42,8 +42,8 @@ __C.eta = 15
 __C.gamma = 0
 __C.lambda_rot = 1 # weight of rot regularization term
 __C.sparse = True
-__C.bool_fast_loader = True
-__C.val_freq = 50
+__C.bool_fast_loader = False
+__C.val_freq = 25
 __C.val_max_visnum = 100
 __C.cls = 'Car'
 __C.KITTI_cls = {

@@ -16,7 +16,7 @@ from det3.utils.utils import load_pickle
 import glob
 
 class KITTIDataVoxelNet():
-    def __init__(self,data_dir, cfg, batch_size=4, num_workers=1,distributed=False):
+    def __init__(self, data_dir, cfg, batch_size=4, num_workers=1, distributed=False):
         """
         Dataset Loader for VoxelNet (train and dev)
         """
@@ -44,7 +44,7 @@ class KITTIDataVoxelNet():
                 batch_size=1,
                 num_workers=num_workers,
                 pin_memory=True,
-                shuffle=True
+                shuffle=False
             )}
 
 class KittiDatasetVoxelNet(Dataset):
@@ -84,16 +84,21 @@ class KittiDatasetVoxelNet(Dataset):
         if self.bool_fast_loader and self.train_val_flag in ['dev', 'val']:
             return load_pickle(os.path.join(self.fastload_dir, "{}.pkl".format(self.idx_list[idx])))
         elif self.bool_fast_loader and self.train_val_flag == 'train':
-            self.fastload_dir = os.path.join(self.data_dir, "fast_load_{}".format(np.random.randint(self.num_train_fast_load)))
+            self.fastload_dir = os.path.join(self.data_dir, "fast_load_{}"
+                                             .format(np.random.randint(self.num_train_fast_load)))
             return load_pickle(os.path.join(self.fastload_dir, "{}.pkl".format(self.idx_list[idx])))
         calib, img, label, pc = KittiData(self.data_dir, self.idx_list[idx]).read_data()
         tag = int(self.idx_list[idx])
         pc = filter_camera_angle(pc)
-        if not self.train_val_flag == "val":
-            agmtor = KittiAugmentor(p_rot=self.cfg.aug_dict["p_rot"], p_tr=self.cfg.aug_dict["p_tr"],
-                                    p_flip=self.cfg.aug_dict["p_flip"], p_keep=self.cfg.aug_dict["p_keep"],
-                                    dx_range=self.cfg.aug_param["dx_range"], dy_range=self.cfg.aug_param["dy_range"],
-                                    dz_range=self.cfg.aug_param["dz_range"], dry_range=self.cfg.aug_param["dry_range"])
+        if not self.train_val_flag in ["dev", "val"]:
+            agmtor = KittiAugmentor(p_rot=self.cfg.aug_dict["p_rot"],
+                                    p_tr=self.cfg.aug_dict["p_tr"],
+                                    p_flip=self.cfg.aug_dict["p_flip"],
+                                    p_keep=self.cfg.aug_dict["p_keep"],
+                                    dx_range=self.cfg.aug_param["dx_range"],
+                                    dy_range=self.cfg.aug_param["dy_range"],
+                                    dz_range=self.cfg.aug_param["dz_range"],
+                                    dry_range=self.cfg.aug_param["dry_range"])
             label, pc = agmtor.apply(label, pc, calib)
         voxel_dict = voxelize_pc(pc, res=self.cfg.resolution,
                                  x_range=self.cfg.x_range,
@@ -127,9 +132,9 @@ class KittiDatasetVoxelNet(Dataset):
         #                                 threshold_nms=self.cfg.RPN_NMS_THRESH)
         # rec_bool = label.equal(rec_label, acc_cls=self.cfg.KITTI_cls[self.cfg.cls], rtol=1e-5)
         # print(tag, rec_bool, len(label.data), rec_label)
-        if self.train_val_flag in ['train', 'dev']:
+        if self.train_val_flag in ['train']:
             return tag, voxel_feature, coordinate, gt_pos_map, gt_neg_map, gt_target
-        elif self.train_val_flag in ['val']:
+        elif self.train_val_flag in ['val', 'dev']:
             voxel_feature = np.expand_dims(voxel_feature, 0)
             coordinate = np.expand_dims(coordinate, 0)
             gt_pos_map = np.expand_dims(gt_pos_map, 0)

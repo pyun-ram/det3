@@ -25,6 +25,9 @@ from det3.methods.voxelnet.model import VoxelNet
 from det3.methods.voxelnet.criteria import VoxelNetLoss
 from det3.visualizer.vis import BEVImage
 from det3.methods.voxelnet.utils import parse_grid_to_label
+from det3.utils.utils import write_str_to_file
+import kitti_common as kitti
+from eval import get_official_eval_result, get_coco_eval_result
 
 root_dir = __file__.split('/')
 root_dir = os.path.join(root_dir[0], root_dir[1])
@@ -87,6 +90,7 @@ def main():
         kitti_data = KITTIDataVoxelNet(data_dir=cfg.DATADIR, cfg=cfg, batch_size=cfg.batch_size).kitti_loaders
         train_loader = kitti_data['train']
         val_loader = KittiDatasetVoxelNet(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
+        val_loader_dev = KittiDatasetVoxelNet(data_dir=cfg.DATADIR, train_val_flag='dev', cfg=cfg)
     elif "CARLA" in cfg.DATADIR.split("/"):
         from det3.methods.voxelnet.carladata import CarlaDatasetVoxelNet, CarlaDataVoxelNet
         carla_data = CarlaDataVoxelNet(data_dir=cfg.DATADIR, cfg=cfg, batch_size=cfg.batch_size).carla_loaders
@@ -100,8 +104,18 @@ def main():
         train_loss = train(train_loader, model, criterion, optimizer, epoch, cfg)
         tsbd.add_scalar('train/loss', train_loss, epoch)
         if (epoch != 0 and epoch % cfg.val_freq == 0) or epoch == cfg.epochs-1:
-            val_loss = validate(val_loader, model, criterion, epoch, cfg)
+            val_loss_dev, val_ap_dict_dev = validate(val_loader_dev, model, criterion, epoch, cfg)
+            tsbd.add_scalar('dev/loss', val_loss_dev, epoch)
+            tsbd.add_scalar('dev/ap_bev_mod_0.7_0.7_0.7', val_ap_dict_dev["bev_AP_0"][1], epoch)
+            tsbd.add_scalar('dev/ap_3d_mod_0.7_0.7_0.7', val_ap_dict_dev["3d_AP_0"][1], epoch)
+            tsbd.add_scalar('dev/ap_bev_mod_0.7_0.5_0.5', val_ap_dict_dev["bev_AP_1"][1], epoch)
+            tsbd.add_scalar('dev/ap_3d_mod_0.7_0.5_0.5', val_ap_dict_dev["3d_AP_1"][1], epoch)
+            val_loss, val_ap_dict = validate(val_loader, model, criterion, epoch, cfg)
             tsbd.add_scalar('val/loss', val_loss, epoch)
+            tsbd.add_scalar('val/ap_bev_mod_0.7_0.7_0.7', val_ap_dict["bev_AP_0"][1], epoch)
+            tsbd.add_scalar('val/ap_3d_mod_0.7_0.7_0.7', val_ap_dict["3d_AP_0"][1], epoch)
+            tsbd.add_scalar('val/ap_bev_mod_0.7_0.5_0.5', val_ap_dict["bev_AP_1"][1], epoch)
+            tsbd.add_scalar('val/ap_3d_mod_0.7_0.5_0.5', val_ap_dict["3d_AP_1"][1], epoch)
         save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
@@ -179,7 +193,13 @@ def validate(val_loader, model, criterion, epoch, cfg):
 
     # switch to evaluate mode
     model.eval()
-    os.makedirs(os.path.join(log_dir, 'val_imgs', str(epoch)), exist_ok=True)
+    os.makedirs(os.path.join(log_dir, 'vals'), exist_ok=True)
+    if os.path.isdir(os.path.join(log_dir, 'vals', str(epoch))):
+        shutil.rmtree(os.path.join(log_dir, 'vals', str(epoch)))
+    os.makedirs(os.path.join(log_dir, 'vals', str(epoch)), exist_ok=False)
+    os.makedirs(os.path.join(log_dir, 'vals', str(epoch), "data"), exist_ok=False)
+    os.makedirs(os.path.join(log_dir, 'vals', str(epoch), "imgs"), exist_ok=False)
+
     with torch.no_grad():
         end = time.time()
         visnum = 0
@@ -199,24 +219,25 @@ def validate(val_loader, model, criterion, epoch, cfg):
             # measure accuracy and record loss
             losses.update(loss_dict["loss"].item(), voxel_feature.size(0))
 
+            est_pmap_np = est_pmap.cpu().numpy()
+            est_rmap_np = est_rmap.cpu().numpy()
+            rec_label = parse_grid_to_label(est_pmap_np[0], est_rmap_np[0], anchors,
+                                            anchor_size=(cfg.ANCHOR_L, cfg.ANCHOR_W, cfg.ANCHOR_H),
+                                            cls=cfg.cls, calib=calib,
+                                            threshold_score=cfg.RPN_SCORE_THRESH,
+                                            threshold_nms=cfg.RPN_NMS_THRESH)
+            res_path = os.path.join(log_dir, 'vals', str(epoch), 'data', '{:06d}.txt'.format(tag))
+            write_str_to_file(str(rec_label), res_path)
             visnum += 1
             if visnum < cfg.val_max_visnum:
                 bevimg = BEVImage(x_range=cfg.x_range, y_range=cfg.y_range, grid_size=(0.05, 0.05))
                 bevimg.from_lidar(pc[:, :], scale=1)
-
                 for obj in label.data:
                     bevimg.draw_box(obj, calib, bool_gt=True, width=3)
-                est_pmap_np = est_pmap.cpu().numpy()
-                est_rmap_np = est_rmap.cpu().numpy()
-                rec_label = parse_grid_to_label(est_pmap_np[0], est_rmap_np[0], anchors,
-                                                anchor_size=(cfg.ANCHOR_L, cfg.ANCHOR_W, cfg.ANCHOR_H),
-                                                cls=cfg.cls, calib=calib, threshold_score=cfg.RPN_SCORE_THRESH,
-                                                threshold_nms=cfg.RPN_NMS_THRESH)
                 for obj in rec_label.data:
                     bevimg.draw_box(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
-
                 bevimg_img = Image.fromarray(bevimg.data)
-                bevimg_img.save(os.path.join(log_dir, 'val_imgs', str(epoch), '{:06d}.png'.format(tag)))
+                bevimg_img.save(os.path.join(log_dir, 'vals', str(epoch), 'imgs', '{:06d}.png'.format(tag)))
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
@@ -225,7 +246,20 @@ def validate(val_loader, model, criterion, epoch, cfg):
                            'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                            'Loss {loss.val:.4f} ({loss.avg:.4f})'.format(
                                i, len(val_loader), batch_time=batch_time, loss=losses))
-    return losses.avg
+        assert len(val_loader) > 50
+        det_path = os.path.join(log_dir, 'vals', str(epoch), 'data')
+        dt_annos = kitti.get_label_annos(det_path)
+        gt_path = os.path.join(val_loader.label2_dir)
+        val_image_ids = os.listdir(det_path)
+        val_image_ids = [int(itm.split(".")[0]) for itm in val_image_ids]
+        gt_annos = kitti.get_label_annos(gt_path, val_image_ids)
+        val_ap_str = get_official_eval_result(gt_annos, dt_annos, 0)
+        val_ap_dict = parse_eval_ap(val_ap_str)
+        print(val_ap_str)
+        print(val_ap_dict)
+        input()
+
+    return losses.avg, val_ap_dict
 
 def output_log(s):
     print(s)
@@ -240,8 +274,8 @@ def adjust_learning_rate(optimizer, epoch, lr_dict):
     elif lr_dict["mode"] == "super-converge":
         min_lr, max_lr = lr_dict["lr_range"]
         cycle = lr_dict["cycle"]
-        half1 = np.linspace(max_lr, min_lr, num=np.ceil(cycle/2.0))
-        half2 = np.linspace(min_lr, max_lr, num=np.ceil(cycle/2.0))[1:-1]
+        half1 = np.linspace(max_lr, min_lr, num=np.ceil(cycle/2.0).astype(int))
+        half2 = np.linspace(min_lr, max_lr, num=np.ceil(cycle/2.0).astype(int))[1:-1]
         entire = np.concatenate([half1, half2])
         lr = entire[epoch % (cycle-1)]
     else:
@@ -270,6 +304,31 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
+def parse_eval_ap(s):
+    res_dict = dict()
+    lines = s.split('\n')
+    for line in lines[:4]:
+        if line.startswith("bbox AP:"):
+            line = line.split(":")[-1]
+            res_dict["bbox_AP_0"] = [float(res) for res in line.split(',')[-3:]]
+        if line.startswith("bev  AP:"):
+            line = line.split(":")[-1]
+            res_dict["bev_AP_0"] = [float(res) for res in line.split(',')[-3:]]
+        if line.startswith("3d   AP:"):
+            line = line.split(":")[-1]
+            res_dict["3d_AP_0"] = [float(res) for res in line.split(',')[-3:]]
+    for line in lines[-4:]:
+        if line.startswith("bbox AP:"):
+            line = line.split(":")[-1]
+            res_dict["bbox_AP_1"] = [float(res) for res in line.split(',')[-3:]]
+        if line.startswith("bev  AP:"):
+            line = line.split(":")[-1]
+            res_dict["bev_AP_1"] = [float(res) for res in line.split(',')[-3:]]
+        if line.startswith("3d   AP:"):
+            line = line.split(":")[-1]
+            res_dict["3d_AP_1"] = [float(res) for res in line.split(',')[-3:]]
+    return res_dict
 
 if __name__ == "__main__":
     main()

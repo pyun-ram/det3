@@ -209,13 +209,13 @@ class KittiObj():
 
     def __str__(self):
         if self.score is None:
-            return "{} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f}".format(
-                self.type, self.truncated, self.occluded, self.alpha,\
+            return "{} {:.2f} {} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f}".format(
+                self.type, self.truncated, int(self.occluded), self.alpha,\
                 self.bbox_l, self.bbox_t, self.bbox_r, self.bbox_b, \
                 self.h, self.w, self.l, self.x, self.y, self.z, self.ry)
         else:
-            return "{} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f}".format(
-                self.type, self.truncated, self.occluded, self.alpha,\
+            return "{} {:.2f} {} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f}".format(
+                self.type, self.truncated, int(self.occluded), self.alpha,\
                 self.bbox_l, self.bbox_t, self.bbox_r, self.bbox_b, \
                 self.h, self.w, self.l, self.x, self.y, self.z, self.ry, self.score)
 
