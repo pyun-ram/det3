@@ -104,18 +104,21 @@ def main():
         train_loss = train(train_loader, model, criterion, optimizer, epoch, cfg)
         tsbd.add_scalar('train/loss', train_loss, epoch)
         if (epoch != 0 and epoch % cfg.val_freq == 0) or epoch == cfg.epochs-1:
-            val_loss_dev, val_ap_dict_dev = validate(val_loader_dev, model, criterion, epoch, cfg)
-            tsbd.add_scalar('dev/loss', val_loss_dev, epoch)
-            tsbd.add_scalar('dev/ap_bev_mod_0.7_0.7_0.7', val_ap_dict_dev["bev_AP_0"][1], epoch)
-            tsbd.add_scalar('dev/ap_3d_mod_0.7_0.7_0.7', val_ap_dict_dev["3d_AP_0"][1], epoch)
-            tsbd.add_scalar('dev/ap_bev_mod_0.7_0.5_0.5', val_ap_dict_dev["bev_AP_1"][1], epoch)
-            tsbd.add_scalar('dev/ap_3d_mod_0.7_0.5_0.5', val_ap_dict_dev["3d_AP_1"][1], epoch)
-            val_loss, val_ap_dict = validate(val_loader, model, criterion, epoch, cfg)
-            tsbd.add_scalar('val/loss', val_loss, epoch)
-            tsbd.add_scalar('val/ap_bev_mod_0.7_0.7_0.7', val_ap_dict["bev_AP_0"][1], epoch)
-            tsbd.add_scalar('val/ap_3d_mod_0.7_0.7_0.7', val_ap_dict["3d_AP_0"][1], epoch)
-            tsbd.add_scalar('val/ap_bev_mod_0.7_0.5_0.5', val_ap_dict["bev_AP_1"][1], epoch)
-            tsbd.add_scalar('val/ap_3d_mod_0.7_0.5_0.5', val_ap_dict["3d_AP_1"][1], epoch)
+            try:
+                val_loss_dev, val_ap_dict_dev = validate(val_loader_dev, model, criterion, epoch, cfg)
+                tsbd.add_scalar('dev/loss', val_loss_dev, epoch)
+                tsbd.add_scalar('dev/ap_bev_mod_0.7_0.7_0.7', val_ap_dict_dev["bev_AP_0"][1], epoch)
+                tsbd.add_scalar('dev/ap_3d_mod_0.7_0.7_0.7', val_ap_dict_dev["3d_AP_0"][1], epoch)
+                tsbd.add_scalar('dev/ap_bev_mod_0.7_0.5_0.5', val_ap_dict_dev["bev_AP_1"][1], epoch)
+                tsbd.add_scalar('dev/ap_3d_mod_0.7_0.5_0.5', val_ap_dict_dev["3d_AP_1"][1], epoch)
+                val_loss, val_ap_dict = validate(val_loader, model, criterion, epoch, cfg)
+                tsbd.add_scalar('val/loss', val_loss, epoch)
+                tsbd.add_scalar('val/ap_bev_mod_0.7_0.7_0.7', val_ap_dict["bev_AP_0"][1], epoch)
+                tsbd.add_scalar('val/ap_3d_mod_0.7_0.7_0.7', val_ap_dict["3d_AP_0"][1], epoch)
+                tsbd.add_scalar('val/ap_bev_mod_0.7_0.5_0.5', val_ap_dict["bev_AP_1"][1], epoch)
+                tsbd.add_scalar('val/ap_3d_mod_0.7_0.5_0.5', val_ap_dict["3d_AP_1"][1], epoch)
+            except:
+                output_log("get Error: pass the validation")
             save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
