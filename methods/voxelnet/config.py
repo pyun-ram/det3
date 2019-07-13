@@ -33,6 +33,7 @@ __C.lr_dict = {
 #     "factor": 0.1,
 # }
 # __C.momentum = 0.9
+
 __C.weight_decay = 0
 __C.batch_size = 1
 __C.seed = None

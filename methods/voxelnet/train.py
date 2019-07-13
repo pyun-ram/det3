@@ -257,6 +257,7 @@ def validate(val_loader, model, criterion, epoch, cfg):
         gt_path = os.path.join(val_loader.label2_dir)
         val_image_ids = os.listdir(det_path)
         val_image_ids = [int(itm.split(".")[0]) for itm in val_image_ids]
+        val_image_ids.sort()
         gt_annos = kitti.get_label_annos(gt_path, val_image_ids)
         val_ap_str = get_official_eval_result(gt_annos, dt_annos, 0)
         val_ap_dict = parse_eval_ap(val_ap_str)
