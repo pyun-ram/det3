@@ -190,15 +190,17 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
 def validate(val_loader, model, criterion, epoch, cfg):
     batch_time = AverageMeter()
     losses = AverageMeter()
-
+    val_dir_data = os.path.join(log_dir, 'vals', str(epoch), "data_{}".format(val_loader.train_val_flag))
+    val_dir_img = os.path.join(log_dir, 'vals', str(epoch), "img_{}".format(val_loader.train_val_flag))
+    if os.path.isdir(val_dir_data) or os.path.isdir(val_dir_img):
+        shutil.rmtree(val_dir_data, ignore_errors=True)
+        shutil.rmtree(val_dir_img, ignore_errors=True)
     # switch to evaluate mode
     model.eval()
     os.makedirs(os.path.join(log_dir, 'vals'), exist_ok=True)
-    if os.path.isdir(os.path.join(log_dir, 'vals', str(epoch))):
-        shutil.rmtree(os.path.join(log_dir, 'vals', str(epoch)))
-    os.makedirs(os.path.join(log_dir, 'vals', str(epoch)), exist_ok=False)
-    os.makedirs(os.path.join(log_dir, 'vals', str(epoch), "data"), exist_ok=False)
-    os.makedirs(os.path.join(log_dir, 'vals', str(epoch), "imgs"), exist_ok=False)
+    os.makedirs(os.path.join(log_dir, 'vals', str(epoch)), exist_ok=True)
+    os.makedirs(val_dir_data, exist_ok=False)
+    os.makedirs(val_dir_img, exist_ok=False)
 
     with torch.no_grad():
         end = time.time()
@@ -226,7 +228,7 @@ def validate(val_loader, model, criterion, epoch, cfg):
                                             cls=cfg.cls, calib=calib,
                                             threshold_score=cfg.RPN_SCORE_THRESH,
                                             threshold_nms=cfg.RPN_NMS_THRESH)
-            res_path = os.path.join(log_dir, 'vals', str(epoch), 'data', '{:06d}.txt'.format(tag))
+            res_path = os.path.join(val_dir_data, '{:06d}.txt'.format(tag))
             write_str_to_file(str(rec_label), res_path)
             visnum += 1
             if visnum < cfg.val_max_visnum:
@@ -237,7 +239,7 @@ def validate(val_loader, model, criterion, epoch, cfg):
                 for obj in rec_label.data:
                     bevimg.draw_box(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
                 bevimg_img = Image.fromarray(bevimg.data)
-                bevimg_img.save(os.path.join(log_dir, 'vals', str(epoch), 'imgs', '{:06d}.png'.format(tag)))
+                bevimg_img.save(os.path.join(val_dir_img, '{:06d}.png'.format(tag)))
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
@@ -247,7 +249,7 @@ def validate(val_loader, model, criterion, epoch, cfg):
                            'Loss {loss.val:.4f} ({loss.avg:.4f})'.format(
                                i, len(val_loader), batch_time=batch_time, loss=losses))
         assert len(val_loader) > 50
-        det_path = os.path.join(log_dir, 'vals', str(epoch), 'data')
+        det_path = val_dir_data
         dt_annos = kitti.get_label_annos(det_path)
         gt_path = os.path.join(val_loader.label2_dir)
         val_image_ids = os.listdir(det_path)
@@ -255,9 +257,6 @@ def validate(val_loader, model, criterion, epoch, cfg):
         gt_annos = kitti.get_label_annos(gt_path, val_image_ids)
         val_ap_str = get_official_eval_result(gt_annos, dt_annos, 0)
         val_ap_dict = parse_eval_ap(val_ap_str)
-        print(val_ap_str)
-        print(val_ap_dict)
-        input()
 
     return losses.avg, val_ap_dict
 

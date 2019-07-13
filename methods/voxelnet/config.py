@@ -9,13 +9,13 @@ import numpy as np
 __C = edict()
 cfg = __C
 
-__C.TAG = 'VoxelNet-dev-newpipeline'
+__C.TAG = 'VoxelNet-dev-newpipeline-noaugment'
 __C.cls = 'Car'
 __C.DATADIR = '/usr/app/data/KITTI/'
 __C.gpu = 0
 __C.resume = None
 __C.start_epoch = 0
-__C.epochs = 500
+__C.epochs = 1000
 __C.lr_dict = {
     "mode": "super-converge", # "const", "decay", "super-converge"
     "lr_range": [1e-4, 1e-3],
@@ -52,10 +52,10 @@ __C.KITTI_cls = {
     'Cyclist': ['Cyclist']
     }
 __C.aug_dict = {
-    "p_rot":0.1,
-    "p_tr": 0.1,
-    "p_flip": 0.1,
-    "p_keep": 0.7
+    "p_rot":0,
+    "p_tr": 0,
+    "p_flip": 0,
+    "p_keep": 1
 }
 __C.aug_param = {
     "dx_range": [-0.5, 0.5],
