@@ -9,7 +9,7 @@ import numpy as np
 __C = edict()
 cfg = __C
 
-__C.TAG = 'VoxelNet-dev-newpipeline-noaugment'
+__C.TAG = 'VoxelNet-dev-newpipeline-augment'
 __C.cls = 'Car'
 __C.DATADIR = '/usr/app/data/KITTI/'
 __C.gpu = 0
@@ -52,10 +52,10 @@ __C.KITTI_cls = {
     'Cyclist': ['Cyclist']
     }
 __C.aug_dict = {
-    "p_rot":0,
-    "p_tr": 0,
-    "p_flip": 0,
-    "p_keep": 1
+    "p_rot":0.1,
+    "p_tr": 0.1,
+    "p_flip": 0.1,
+    "p_keep": 0.7
 }
 __C.aug_param = {
     "dx_range": [-0.5, 0.5],
