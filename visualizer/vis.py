@@ -207,7 +207,57 @@ class FVImage:
         p3 = np.array([maxx, maxy])
         p4 = np.array([maxx, miny])
         color = 'purple' if bool_gt else 'yellow'
-        draw.line([p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], p1[0], p1[1]], fill=color, width=width)
+        draw.line([p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], p1[0], p1[1]],
+                  fill=color, width=width)
+        self.data = np.array(fv_img)
+        return self
+
+    def draw_3dbox(self, obj, calib, bool_gt=False, width=3):
+        '''
+        draw bounding box on Front View Image
+        inputs:
+            obj (KittiObj/CalibObj)
+            calib (KittiCalib/CalibObj)
+            Note: It is able to hundle the out-of-coordinate bounding boxes.
+                gt: purple
+                est: yellow
+            Note: The 2D bounding box is computed from 3D bounding box
+        '''
+        if self.data is None:
+            print("from_lidar should be run first")
+            raise RuntimeError
+        if istype(obj, "KittiObj") and istype(calib, "KittiCalib"):
+            cns_Fcam = obj.get_bbox3dcorners()
+            cns_Fcam2d = calib.leftcam2imgplane(cns_Fcam)
+        elif istype(obj, "CarlaObj") and istype(calib, "CarlaCalib"):
+            cns_Fimu = obj.get_bbox3dcorners()
+            cns_Fcam = calib.imu2cam(cns_Fimu)
+            cns_Fcam2d = calib.cam2imgplane(cns_Fcam)
+        else:
+            raise NotImplementedError
+        color = 'purple' if bool_gt else 'yellow'
+        fv_img = Image.fromarray(self.data)
+        draw = ImageDraw.Draw(fv_img)
+        draw.line([cns_Fcam2d[0, 0], cns_Fcam2d[0, 1],
+                   cns_Fcam2d[1, 0], cns_Fcam2d[1, 1],
+                   cns_Fcam2d[2, 0], cns_Fcam2d[2, 1],
+                   cns_Fcam2d[3, 0], cns_Fcam2d[3, 1],
+                   cns_Fcam2d[0, 0], cns_Fcam2d[0, 1]], fill=color, width=width)
+        draw.line([cns_Fcam2d[4, 0], cns_Fcam2d[4, 1],
+                   cns_Fcam2d[5, 0], cns_Fcam2d[5, 1],
+                   cns_Fcam2d[6, 0], cns_Fcam2d[6, 1],
+                   cns_Fcam2d[7, 0], cns_Fcam2d[7, 1],
+                   cns_Fcam2d[4, 0], cns_Fcam2d[4, 1]], fill=color, width=width)
+        draw.line([cns_Fcam2d[0, 0], cns_Fcam2d[0, 1],
+                   cns_Fcam2d[1, 0], cns_Fcam2d[1, 1],
+                   cns_Fcam2d[5, 0], cns_Fcam2d[5, 1],
+                   cns_Fcam2d[4, 0], cns_Fcam2d[4, 1],
+                   cns_Fcam2d[0, 0], cns_Fcam2d[0, 1]], fill=color, width=width)
+        draw.line([cns_Fcam2d[2, 0], cns_Fcam2d[2, 1],
+                   cns_Fcam2d[3, 0], cns_Fcam2d[3, 1],
+                   cns_Fcam2d[7, 0], cns_Fcam2d[7, 1],
+                   cns_Fcam2d[6, 0], cns_Fcam2d[6, 1],
+                   cns_Fcam2d[2, 0], cns_Fcam2d[2, 1]], fill=color, width=width)
         self.data = np.array(fv_img)
         return self
 
