@@ -76,7 +76,7 @@ class FeatureNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)                
+                nn.init.constant_(m.bias, 0)
             # TODO: Note InstanceNorm2d is not initialized
 
     def forward(self, x, coordinate):
@@ -114,7 +114,8 @@ class FeatureNet(nn.Module):
         x, _ = torch.max(x, dim=3, keepdim=False)
         # x [#batch, 128, #vox]
         if not self.bool_sparse:
-            grid = torch.zeros(num_batch, 128, self.out_gridsize[0], self.out_gridsize[1], self.out_gridsize[2]).cuda()
+            grid = torch.zeros(num_batch, 128, self.out_gridsize[0],
+                               self.out_gridsize[1], self.out_gridsize[2]).cuda()
             for i in range(num_batch):
                 grid[i, :, coordinate[i, :, 0], coordinate[i, :, 1], coordinate[i, :, 2]] += x[i, ::]
             return grid
@@ -127,11 +128,14 @@ class MiddleLayer(nn.Module):
     '''
     def __init__(self):
         super(MiddleLayer, self).__init__()
-        self.layer1 = Conv3d(128, 64, [3, 3, 3], [2, 1, 1], padding=[1, 1, 1], dilation=1, groups=1, bias=True)
+        self.layer1 = Conv3d(128, 64, [3, 3, 3], [2, 1, 1], padding=[1, 1, 1],
+                             dilation=1, groups=1, bias=True)
         self.layer1_norm = BatchNorm3d(64)
-        self.layer2 = Conv3d(64, 64, [3, 3, 3], [1, 1, 1], padding=[0, 1, 1], dilation=1, groups=1, bias=True)
+        self.layer2 = Conv3d(64, 64, [3, 3, 3], [1, 1, 1], padding=[0, 1, 1],
+                             dilation=1, groups=1, bias=True)
         self.layer2_norm = BatchNorm3d(64)
-        self.layer3 = Conv3d(64, 64, [3, 3, 3], [2, 1, 1], padding=[1, 1, 1], dilation=1, groups=1, bias=True)
+        self.layer3 = Conv3d(64, 64, [3, 3, 3], [2, 1, 1], padding=[1, 1, 1],
+                             dilation=1, groups=1, bias=True)
         self.layer3_norm = BatchNorm3d(64)
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
@@ -139,7 +143,7 @@ class MiddleLayer(nn.Module):
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm3d):
                 nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)                
+                nn.init.constant_(m.bias, 0)
             # TODO: Note InstanceNorm3d is not initialized
 
     def forward(self, x):
@@ -241,9 +245,11 @@ class RPN(nn.Module):
         # block1
         self.bool_sparse = bool_sparse
         if not self.bool_sparse:
-            self.block1_conv1 = Conv2d(128, 128, [3, 3], [2, 2], padding=[1, 1], dilation=1, groups=1, bias=False)
+            self.block1_conv1 = Conv2d(128, 128, [3, 3], [2, 2],
+                                       padding=[1, 1], dilation=1, groups=1, bias=False)
         else:
-            self.block1_conv1 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
+            self.block1_conv1 = Conv2d(128, 128, [3, 3], [1, 1],
+                                       padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block1_norm1 = BatchNorm2d(128)
         self.block1_conv2 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
         self.block1_norm2 = BatchNorm2d(128)
@@ -298,7 +304,7 @@ class RPN(nn.Module):
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)                
+                nn.init.constant_(m.bias, 0)
             # TODO: Note InstanceNorm2d is not initialized
 
     def forward(self, x):
