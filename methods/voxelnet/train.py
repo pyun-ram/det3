@@ -26,6 +26,7 @@ from det3.methods.voxelnet.criteria import VoxelNetLoss
 from det3.visualizer.vis import BEVImage
 from det3.methods.voxelnet.utils import parse_grid_to_label
 from det3.utils.utils import write_str_to_file
+from det3.utils.torch_utils import GradientLogger
 import kitti_common as kitti
 from eval import get_official_eval_result, get_coco_eval_result
 
@@ -35,10 +36,11 @@ save_dir = os.path.join(root_dir, 'saved_weights', cfg.TAG)
 log_dir = os.path.join(root_dir, 'logs', cfg.TAG)
 os.makedirs(save_dir, exist_ok=True)
 os.makedirs(log_dir, exist_ok=True)
+os.makedirs(os.path.join(log_dir, "train_grad"), exist_ok=True)
 shutil.copy(os.path.join(root_dir, 'config.py'), os.path.join(log_dir, 'config.py'))
 logging.basicConfig(filename=os.path.join(log_dir, 'log.txt'), level=logging.INFO)
 tsbd = SummaryWriter(log_dir)
-
+grad_logger = GradientLogger()
 def main():
     if cfg.seed is not None:
         random.seed(cfg.seed)
@@ -52,6 +54,7 @@ def main():
     best_loss1 = math.inf
     model = VoxelNet(in_channels=7,
                      out_gridsize=cfg.MIDGRID_SHAPE, bool_sparse=cfg.sparse)
+    grad_logger.set_model(model)
     if cfg.gpu is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
                       'disable data parallelism.')
@@ -101,8 +104,10 @@ def main():
 
     for epoch in range(cfg.start_epoch, cfg.epochs):
         adjust_learning_rate(optimizer, epoch, cfg.lr_dict)
-        train_loss = train(train_loader, model, criterion, optimizer, epoch, cfg)
+        train_loss, train_grad_dict = train(train_loader, model, criterion, optimizer, epoch, cfg)
         tsbd.add_scalar('train/loss', train_loss, epoch)
+        grad_logger.save_pkl(train_grad_dict, os.path.join(log_dir, "train_grad", "{}.pkl".format(epoch)))
+        grad_logger.plot(train_grad_dict, os.path.join(log_dir, "train_grad", "{}.png".format(epoch)))
         if (epoch != 0 and epoch % cfg.val_freq == 0) or epoch == cfg.epochs-1:
             try:
                 val_loss_dev, val_ap_dict_dev = validate(val_loader_dev, model, criterion, epoch, cfg)
@@ -188,7 +193,7 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
                            cls_loss=cls_losses, reg_loss=reg_losses,
                            cls_pos_loss=cls_pos_losses, cls_neg_loss=cls_neg_losses,
                            rot_rgl_loss=rot_rgl_losses))
-    return losses.avg
+    return losses.avg, grad_logger.log(epoch)
 
 def validate(val_loader, model, criterion, epoch, cfg):
     batch_time = AverageMeter()
