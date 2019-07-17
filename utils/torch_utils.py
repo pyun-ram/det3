@@ -42,6 +42,8 @@ class GradientLogger:
         return hook
 
     def log(self, epoch):
+        if self.model is None:
+            return dict()
         output = dict()
         for k, v in self.data.items():
             output[k] = [itm.cpu().numpy() for itm in v[:-1]]
@@ -50,6 +52,8 @@ class GradientLogger:
         return output
 
     def plot(self, grad_dict, path, ylim=None):
+        if grad_dict == dict():
+            return
         name_list = []
         mean_list = []
         std_list = []
@@ -79,6 +83,8 @@ class GradientLogger:
         plt.close()
 
     def save_pkl(self, grad_dict, path):
+        if grad_dict == dict():
+            return
         with open(path, 'wb') as f:
             pickle.dump(grad_dict, f, pickle.HIGHEST_PROTOCOL)
 
@@ -125,6 +131,8 @@ class ActivationLogger:
         return hook
 
     def log(self, epoch):
+        if self.model is None:
+            return dict()
         output = dict()
         for k, v in self.data.items():
             output[k] = [itm.cpu().numpy() for itm in v[:-1]]
@@ -133,6 +141,8 @@ class ActivationLogger:
         return output
 
     def plot(self, grad_dict, path, ylim=None):
+        if grad_dict == dict():
+            return
         name_list = []
         mean_list = []
         std_list = []
@@ -162,6 +172,8 @@ class ActivationLogger:
         plt.close()
 
     def save_pkl(self, grad_dict, path):
+        if grad_dict == dict():
+            return
         with open(path, 'wb') as f:
             pickle.dump(grad_dict, f, pickle.HIGHEST_PROTOCOL)
 

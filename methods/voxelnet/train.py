@@ -56,8 +56,10 @@ def main():
     best_loss1 = math.inf
     model = VoxelNet(in_channels=7,
                      out_gridsize=cfg.MIDGRID_SHAPE, bool_sparse=cfg.sparse)
-    grad_logger.set_model(model)
-    actv_logger.set_model(model)
+    if cfg.log_grad:
+        grad_logger.set_model(model)
+    if cfg.log_actv:
+        actv_logger.set_model(model)
     if cfg.gpu is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
                       'disable data parallelism.')

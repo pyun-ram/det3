@@ -98,3 +98,5 @@ __C.RPN_NMS_THRESH = 0.01
 __C.MIDGRID_SHAPE = [int(itm) for itm in [math.ceil((__C.z_range[1] - __C.z_range[0])/__C.resolution[-1]),
                                           __C.INPUT_HEIGHT,
                                           __C.INPUT_WIDTH]]
+__C.log_grad = True
+__C.log_actv = True
