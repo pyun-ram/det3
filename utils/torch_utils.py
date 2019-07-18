@@ -67,9 +67,10 @@ class GradientLogger:
             std_list1.insert(0, vs[0] - vs[1]/0.5)
             std_list2.insert(0, vs[0] + vs[1]/0.5)
         plt.figure(figsize=(20, 10))
-        plt.plot(name_list, mean_list)
+        plt.bar(name_list, mean_list)
         plt.fill_between(name_list, std_list1, std_list2, alpha=0.2)
         plt.xticks(rotation=90)
+        plt.grid("on")
         if ylim is not None:
             self.plot_ylim = ylim
         elif self.plot_ylim is None:
@@ -156,9 +157,10 @@ class ActivationLogger:
             std_list1.append(vs[0] - vs[1]/0.5)
             std_list2.append(vs[0] + vs[1]/0.5)
         plt.figure(figsize=(20, 10))
-        plt.plot(name_list, mean_list)
+        plt.bar(name_list, mean_list)
         plt.fill_between(name_list, std_list1, std_list2, alpha=0.2)
         plt.xticks(rotation=90)
+        plt.grid("on")
         if ylim is not None:
             self.plot_ylim = ylim
         elif self.plot_ylim is None:
