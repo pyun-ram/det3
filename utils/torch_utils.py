@@ -22,7 +22,7 @@ class GradientLogger:
         self.model = model
         l = [module for module in self.model.modules() if list(module.children()) == []]
         for i, layer in enumerate(l):
-            if type(layer).__name__ in ['ReLU']:
+            if type(layer).__name__ in ['ReLU', 'LeakyReLU', 'Tanh']:
                 continue
             layer_name = layer._get_name()+"_"+str(i)
             layer.weight.register_hook(self._get_grad(layer_name))
