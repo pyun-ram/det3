@@ -25,7 +25,7 @@ class VFELayer(nn.Module):
 
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='relu')
+                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='leaky_relu')
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
@@ -44,7 +44,7 @@ class VFELayer(nn.Module):
         x = self.dense(x)
         x = x.permute(0, 3, 2, 1)
         x = self.bn(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = x.permute(0, 3, 2, 1)
         # global_feature in shape [#batch, #vox, 1, units]
         global_feature, _ = torch.max(x, dim=2, keepdim=True)

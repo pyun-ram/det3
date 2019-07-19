@@ -72,7 +72,7 @@ class FeatureNet(nn.Module):
         self.bool_sparse = bool_sparse
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='relu')
+                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='leaky_relu')
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
@@ -109,7 +109,7 @@ class FeatureNet(nn.Module):
         # x [#batch, 128, #vox, #pts]
         x = self.norm(x)
         # x [#batch, 128, #vox, #pts]
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         # x [#batch, 128, #vox, #pts]
         x, _ = torch.max(x, dim=3, keepdim=False)
         # x [#batch, 128, #vox]
@@ -139,7 +139,7 @@ class MiddleLayer(nn.Module):
         self.layer3_norm = BatchNorm3d(64)
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
-                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='relu')
+                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='leaky_relu')
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm3d):
                 nn.init.constant_(m.weight, 1)
@@ -149,13 +149,13 @@ class MiddleLayer(nn.Module):
     def forward(self, x):
         x = self.layer1(x)
         x = self.layer1_norm(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.layer2(x)
         x = self.layer2_norm(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.layer3(x)
         x = self.layer3_norm(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = torch.cat([x[:, :, 0, :, :], x[:, :, 1, :, :]], dim=1)
         return x
 
@@ -174,50 +174,50 @@ class SparseMiddleLayer(nn.Module):
         self.middle_conv = spconv.SparseSequential(
             SubMConv3d(128, 16, 3, indice_key="subm0"),
             BatchNorm1d(16),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
             SubMConv3d(16, 16, 3, indice_key="subm0"),
             BatchNorm1d(16),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
             SpConv3d(16, 32, 3, 2,
                      padding=1),  # [1600, 1200, 41] -> [800, 600, 21]
             BatchNorm1d(32),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
             SubMConv3d(32, 32, 3, indice_key="subm1"),
             BatchNorm1d(32),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
             SubMConv3d(32, 32, 3, indice_key="subm1"),
             BatchNorm1d(32),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
             SpConv3d(32, 64, 3, 2,
                      padding=1),  # [800, 600, 21] -> [400, 300, 11]
             BatchNorm1d(64),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
             SubMConv3d(64, 64, 3, indice_key="subm2"),
             BatchNorm1d(64),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
             SubMConv3d(64, 64, 3, indice_key="subm2"),
             BatchNorm1d(64),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
             SubMConv3d(64, 64, 3, indice_key="subm2"),
             BatchNorm1d(64),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
             SpConv3d(64, 64, 3, 2,
                      padding=[0, 1, 1]),  # [400, 300, 11] -> [200, 150, 5]
             BatchNorm1d(64),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
             SubMConv3d(64, 64, 3, indice_key="subm3"),
             BatchNorm1d(64),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
             SubMConv3d(64, 64, 3, indice_key="subm3"),
             BatchNorm1d(64),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
             SubMConv3d(64, 64, 3, indice_key="subm3"),
             BatchNorm1d(64),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
             SpConv3d(64, 64, (3, 1, 1),
                      (2, 1, 1)),  # [200, 150, 5] -> [200, 150, 2]
             BatchNorm1d(64),
-            nn.ReLU(),
+            nn.Leaky_ReLU(negative_slope=0.1),
         )
 
     def forward(self, voxel_features, coors, batch_size):
@@ -295,11 +295,11 @@ class RPN(nn.Module):
         self.head_conv_reg = Conv2d(768, 16, [1, 1], [1, 1], padding=[0, 0], dilation=1, groups=1, bias=True)
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='relu')
+                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='leaky_relu')
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.ConvTranspose2d):
-                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='relu')
+                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='leaky_relu')
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
@@ -311,65 +311,65 @@ class RPN(nn.Module):
         # block1
         x = self.block1_conv1(x)
         x = self.block1_norm1(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.block1_conv2(x)
         x = self.block1_norm2(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.block1_conv3(x)
         x = self.block1_norm3(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.block1_conv4(x)
         x = self.block1_norm4(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x_1 = self.block1_trconv5(x)
         x_1 = self.block1_norm5(x_1)
-        x_1 = F.relu(x_1)
+        x_1 = F.leaky_relu(x_1, negative_slope=0.1)
 
         # block2
         x = self.block2_conv1(x)
         x = self.block2_norm1(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.block2_conv2(x)
         x = self.block2_norm2(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.block2_conv3(x)
         x = self.block2_norm3(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.block2_conv4(x)
         x = self.block2_norm4(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.block2_conv5(x)
         x = self.block2_norm5(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.block2_conv6(x)
         x = self.block2_norm6(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x_2 = self.block2_trconv7(x)
         x_2 = self.block2_norm7(x_2)
-        x_2 = F.relu(x_2)
+        x_2 = F.leaky_relu(x_2, negative_slope=0.1)
 
         # block3
         x = self.block3_conv1(x)
         x = self.block3_norm1(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.block3_conv2(x)
         x = self.block3_norm2(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.block3_conv3(x)
         x = self.block3_norm3(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.block3_conv4(x)
         x = self.block3_norm4(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.block3_conv5(x)
         x = self.block3_norm5(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x = self.block3_conv6(x)
         x = self.block3_norm6(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
         x_3 = self.block3_trconv7(x)
         x_3 = self.block3_norm7(x_3)
-        x_3 = F.relu(x_3)
+        x_3 = F.leaky_relu(x_3, negative_slope=0.1)
 
         x_ = torch.cat([x_1, x_2, x_3], 1)
         pmap = self.head_conv_cls(x_)
