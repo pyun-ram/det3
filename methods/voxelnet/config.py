@@ -9,18 +9,18 @@ import numpy as np
 __C = edict()
 cfg = __C
 
-__C.TAG = 'VoxelNet-dev-newpipeline-noaugment'
+__C.TAG = 'VoxelNet-000S'
 __C.cls = 'Car'
 __C.DATADIR = '/usr/app/data/KITTI/'
 __C.gpu = 0
 __C.resume = None
 __C.start_epoch = 0
-__C.epochs = 1000
+__C.epochs = 200
 __C.lr_dict = {
     "mode": "super-converge", # "const", "decay", "super-converge"
     "lr_range": [1e-4, 1e-3],
     "lr": 1e-3,
-    "cycle": 7, # epochs for one cycle
+    "cycle": 9, # epochs for one cycle
 }
 # __C.lr_dict = {
 #     "mode": "const", # "const", "decay", "super-converge"
@@ -29,7 +29,7 @@ __C.lr_dict = {
 # __C.lr_dict = {
 #     "mode": "decay", # "const", "decay", "super-converge"
 #     "lr": 1e-3,
-#     "cycle": 10, #  epochs for one decay
+#     "cycle": 30, #  epochs for one decay
 #     "factor": 0.1,
 # }
 # __C.momentum = 0.9
@@ -44,7 +44,7 @@ __C.gamma = 0
 __C.lambda_rot = 0.1 # weight of rot regularization term
 __C.sparse = True
 __C.bool_fast_loader = False
-__C.val_freq = 25
+__C.val_freq = 3
 __C.val_max_visnum = 100
 __C.cls = 'Car'
 __C.KITTI_cls = {
@@ -53,15 +53,15 @@ __C.KITTI_cls = {
     'Cyclist': ['Cyclist']
     }
 __C.aug_dict = {
-    "p_rot":0,
-    "p_tr": 0,
-    "p_flip": 0,
-    "p_keep": 1
+    "p_rot":0.1,
+    "p_tr": 0.1,
+    "p_flip": 0.1,
+    "p_keep": 0.7
 }
 __C.aug_param = {
     "dx_range": [-0.5, 0.5],
     "dy_range": [-0.5, 0.5],
-    "dz_range": [-0.3, 0.3],
+    "dz_range": [-0.2, 0.2],
     "dry_range": [-5 / 180.0 * np.pi, 5 / 180.0 * np.pi]
 }
 if __C.sparse:

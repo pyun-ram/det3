@@ -115,6 +115,7 @@ def main():
         grad_logger.plot(train_grad_dict, os.path.join(log_dir, "train_grad", "{}.png".format(epoch)))
         actv_logger.save_pkl(train_actv_dict, os.path.join(log_dir, "train_actv", "{}.pkl".format(epoch)))
         actv_logger.plot(train_actv_dict, os.path.join(log_dir, "train_actv", "{}.png".format(epoch)))
+        tsbd.add_scalar('train/lr', optimizer.param_groups[0]['lr'], epoch)
         if (epoch != 0 and epoch % cfg.val_freq == 0) or epoch == cfg.epochs-1:
             try:
                 val_loss_dev, val_ap_dict_dev = validate(val_loader_dev, model, criterion, epoch, cfg)
