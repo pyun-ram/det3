@@ -398,26 +398,33 @@ class VoxelNet(nn.Module):
             return x
         else:
             assert not batch_size is None
-            feat, coord = self.featurenet(x, coordinate, batch_size=batch_size)
+            feat, coord = self.featurenet(x, coordinate, batch_size)
             feat = feat.permute(0, 2, 1).squeeze()
-            coordinate = coordinate.int()
-            x = self.middlelayer(feat.cuda(), coordinate.cuda(), batch_size)
+            x = self.middlelayer(feat.cuda(), coord.cuda(), batch_size)
+            print(x.shape)
             x = self.rpn(x)
             return x
 
 if __name__ == "__main__":
     import time
-
-    data = torch.randn(3000, 35, 7) # [#batch, #vox, #pts, #feature]
-    coordinate = torch.zeros(3000, 1+3).long() # [#batch, #vox, 3(z, y, x)]
+    import numpy as np
+    num_batch = [3000, 2999]
+    data = torch.randn(np.sum(num_batch), 35, 7) # [#batch, #vox, #pts, #feature]
+    coordinate = torch.zeros(np.sum(num_batch), 1+3).long() # [#batch, #vox, 3(z, y, x)]
     out_gridsize = (41, 1600, 352*4) #[H(z), W(y), L(x)]
-    for j in range(data.shape[1]):
-        coordinate[j, :] = torch.LongTensor([0, torch.randint(out_gridsize[0], size=(1,)),
-                                                torch.randint(out_gridsize[1], size=(1,)),
-                                                torch.randint(out_gridsize[2], size=(1,))])
+    for j in range(data.shape[0]):
+        if j < np.cumsum(num_batch)[0]:
+            coordinate[j, :] = torch.LongTensor([0, torch.randint(out_gridsize[0], size=(1,)),
+                                                    torch.randint(out_gridsize[1], size=(1,)),
+                                                    torch.randint(out_gridsize[2], size=(1,))])
+        elif j < np.cumsum(num_batch)[1]:
+            coordinate[j, :] = torch.LongTensor([1, torch.randint(out_gridsize[0], size=(1,)),
+                                                    torch.randint(out_gridsize[1], size=(1,)),
+                                                    torch.randint(out_gridsize[2], size=(1,))])
+    print(coordinate[num_batch[0]-1:num_batch[0]+1, :])
     sp_voxlenet = VoxelNet(in_channels=7, out_gridsize=out_gridsize, bool_sparse=True).cuda()
     t1 = time.time()
-    pmap, rmap = sp_voxlenet(data.cuda(), coordinate.cuda(), batch_size=1)
+    pmap, rmap = sp_voxlenet(data.cuda(), coordinate.cuda(), batch_size=2)
     print(time.time()-t1)
     print(pmap.shape)
     print(rmap.shape)
