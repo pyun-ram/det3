@@ -79,12 +79,12 @@ class FeatureNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
             # TODO: Note InstanceNorm2d is not initialized
 
-    def forward(self, x, coordinate):
+    def forward(self, x, coordinate, batch_size):
         '''
         inputs:
-            x (Tensor) [#batch, #vox, #pts, in_channels]
+            x (Tensor) [#vox, #pts, in_channels]
                 input voxelized point clouds
-            coordinate (Tensor) [#batch, $vox, 3]:
+            coordinate (Tensor) [$vox, 1+3]:
                 coordinate has to be compatible with the self.out_gridsize
         outputs:
             grid (Tensor) [#batch, out_channels, H(z), W(y), L(x)] (z, y, x is in LiDAR frame)
@@ -94,7 +94,10 @@ class FeatureNet(nn.Module):
             It can only be trained with one batch for now.
         '''
         # x [#batch, #vox, #pts, in_channels]
-        num_batch = x.shape[0]
+        num_batch = torch.max(coordinate[:, 0]) + 1
+        assert num_batch == batch_size
+        print("num_batch: {}".format(num_batch))
+        x = x.unsqueeze(0)
         mask = torch.sum(x, dim=-1)
         mask = torch.eq(mask, 0.0).unsqueeze(-1).type(torch.float32)
         assert mask.sum() != x.shape[0] * x.shape[1] * x.shape[2], "ERROR!, Mask should not be all zeros!"
@@ -114,11 +117,13 @@ class FeatureNet(nn.Module):
         x, _ = torch.max(x, dim=3, keepdim=False)
         # x [#batch, 128, #vox]
         if not self.bool_sparse:
-            grid = torch.zeros(num_batch, 128, self.out_gridsize[0],
-                               self.out_gridsize[1], self.out_gridsize[2]).cuda()
-            for i in range(num_batch):
-                grid[i, :, coordinate[i, :, 0], coordinate[i, :, 1], coordinate[i, :, 2]] += x[i, ::]
-            return grid
+            # grid = torch.zeros(num_batch, 128, self.out_gridsize[0],
+            #                    self.out_gridsize[1], self.out_gridsize[2]).cuda()
+            # for i in range(num_batch):
+            #     grid[i, :, coordinate[i, :, 0], coordinate[i, :, 1], coordinate[i, :, 2]] += x[i, ::]
+            # return grid
+            print("Error: The dense version of VoxelNet is discarded.")
+            raise NotImplementedError
         else:
             return x, coordinate
 
@@ -393,25 +398,23 @@ class VoxelNet(nn.Module):
             return x
         else:
             assert not batch_size is None
-            feat, coord = self.featurenet(x, coordinate)
+            feat, coord = self.featurenet(x, coordinate, batch_size=batch_size)
             feat = feat.permute(0, 2, 1).squeeze()
-            coordinate = coordinate.squeeze()
             coordinate = coordinate.int()
-            coordinate = torch.cat([torch.zeros(coordinate.shape[0], 1).int().cuda(), coordinate.cuda()], dim=1)
             x = self.middlelayer(feat.cuda(), coordinate.cuda(), batch_size)
             x = self.rpn(x)
             return x
 
 if __name__ == "__main__":
     import time
-    data = torch.randn(1, 3000, 35, 7) # [#batch, #vox, #pts, #feature]
-    coordinate = torch.zeros(1, 3000, 3).long() # [#batch, #vox, 3(z, y, x)]
+
+    data = torch.randn(3000, 35, 7) # [#batch, #vox, #pts, #feature]
+    coordinate = torch.zeros(3000, 1+3).long() # [#batch, #vox, 3(z, y, x)]
     out_gridsize = (41, 1600, 352*4) #[H(z), W(y), L(x)]
-    for i in range(data.shape[0]):
-        for j in range(data.shape[1]):
-            coordinate[i, j, :] = torch.LongTensor([torch.randint(out_gridsize[0], size=(1,)),
-                                                    torch.randint(out_gridsize[1], size=(1,)),
-                                                    torch.randint(out_gridsize[2], size=(1,))])
+    for j in range(data.shape[1]):
+        coordinate[j, :] = torch.LongTensor([0, torch.randint(out_gridsize[0], size=(1,)),
+                                                torch.randint(out_gridsize[1], size=(1,)),
+                                                torch.randint(out_gridsize[2], size=(1,))])
     sp_voxlenet = VoxelNet(in_channels=7, out_gridsize=out_gridsize, bool_sparse=True).cuda()
     t1 = time.time()
     pmap, rmap = sp_voxlenet(data.cuda(), coordinate.cuda(), batch_size=1)
