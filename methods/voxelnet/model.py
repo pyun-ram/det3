@@ -99,8 +99,9 @@ class FeatureNet(nn.Module):
         print("num_batch: {}".format(num_batch))
         x = x.unsqueeze(0)
         mask = torch.sum(x, dim=-1)
-        mask = torch.eq(mask, 0.0).unsqueeze(-1).type(torch.float32)
-        assert mask.sum() != x.shape[0] * x.shape[1] * x.shape[2], "ERROR!, Mask should not be all zeros!"
+        mask = torch.eq(mask, 0.0).unsqueeze(-1).type(torch.float32) # empty point position is one, occupied position is zero
+        mask = 1 - mask # empty point position is zero, occupied position is one
+        assert mask.sum() > 0, "ERROR!, Mask should not be all zeros!"
         # x [#batch, #vox, #pts, in_channels]
         x = self.vfe1(x, mask)
         # x [#batch, #vox, #pts, 32]
