@@ -15,6 +15,29 @@ from det3.dataloarder.augmentor import KittiAugmentor
 from det3.utils.utils import load_pickle
 import glob
 
+def collate_fn(batch):
+    num_batch = len(batch)
+    tag, voxel_feature, coordinate, gt_pos_map, gt_neg_map, gt_target_map = [], [], [], [], [], []
+    for i in range(num_batch):
+        tag.append(batch[i][0])
+        voxel_feature.append(batch[i][1])
+        tmp_coordinate = np.hstack([np.ones((batch[i][2].shape[0], 1))*i,
+                                    batch[i][2]])
+        coordinate.append(tmp_coordinate)
+        tmp_gt_pos_map = np.expand_dims(batch[i][3], axis=0)
+        gt_pos_map.append(tmp_gt_pos_map)
+        tmp_gt_neg_map = np.expand_dims(batch[i][4], axis=0)
+        gt_neg_map.append(tmp_gt_neg_map)
+        tmp_gt_target_map = np.expand_dims(batch[i][5], axis=0)
+        gt_target_map.append(tmp_gt_target_map)
+    tag = tag
+    voxel_feature = torch.from_numpy(np.vstack(voxel_feature)).contiguous()
+    coordinate = torch.from_numpy(np.vstack(coordinate)).contiguous()
+    gt_pos_map = torch.from_numpy(np.vstack(gt_pos_map)).contiguous()
+    gt_neg_map = torch.from_numpy(np.vstack(gt_neg_map)).contiguous()
+    gt_target_map = torch.from_numpy(np.vstack(gt_target_map)).contiguous()
+    return tag, voxel_feature, coordinate, gt_pos_map, gt_neg_map, gt_target_map
+
 class KITTIDataVoxelNet():
     def __init__(self, data_dir, cfg, batch_size=4, num_workers=1, distributed=False):
         """
@@ -37,7 +60,8 @@ class KITTIDataVoxelNet():
                 num_workers=num_workers,
                 pin_memory=True,
                 sampler=train_sampler,
-                shuffle=True
+                shuffle=True,
+                collate_fn=collate_fn
             ),
             "dev": torch.utils.data.DataLoader(
                 self.kitti_datasets["dev"],
@@ -135,8 +159,10 @@ class KittiDatasetVoxelNet(Dataset):
         if self.train_val_flag in ['train']:
             return tag, voxel_feature, coordinate, gt_pos_map, gt_neg_map, gt_target
         elif self.train_val_flag in ['val', 'dev']:
-            voxel_feature = np.expand_dims(voxel_feature, 0)
-            coordinate = np.expand_dims(coordinate, 0)
+            # voxel_feature = np.expand_dims(voxel_feature, 0)
+            # coordinate = np.expand_dims(coordinate, 0)
+            coordinate = np.hstack([np.zeros((coordinate.shape[0], 1)),
+                                    coordinate])
             gt_pos_map = np.expand_dims(gt_pos_map, 0)
             gt_neg_map = np.expand_dims(gt_neg_map, 0)
             gt_target = np.expand_dims(gt_target, 0)
@@ -147,14 +173,16 @@ class KittiDatasetVoxelNet(Dataset):
 if __name__ == "__main__":
     from det3.methods.voxelnet.config import cfg
     dataset = KittiDatasetVoxelNet(data_dir='/usr/app/data/KITTI', train_val_flag='train', cfg=cfg)
+    kitti_data = KITTIDataVoxelNet(data_dir=cfg.DATADIR, cfg=cfg, batch_size=5).kitti_loaders
+    train_loader = kitti_data["train"]
     # dataset[2835] # 4448
     # dataset[48]
-    for i,  (tag, voxel_feature, coordinate, gt_pos_map, gt_neg_map, gt_target) in enumerate(dataset):
-        print(i)
+    for i,  (tag, voxel_feature, coordinate, gt_pos_map, gt_neg_map, gt_target) in enumerate(train_loader):
         print(tag)
-        print(voxel_feature)
-        print(coordinate)
-        print(gt_pos_map)
-        print(gt_neg_map)
-        print(gt_target)
+        print(voxel_feature.shape)
+        print(coordinate.shape)
+        print(gt_pos_map.shape)
+        print(gt_neg_map.shape)
+        print(gt_target.shape)
+        input()
 

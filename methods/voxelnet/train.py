@@ -162,9 +162,9 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
             gt_pos_map = gt_pos_map.cuda(cfg.gpu, non_blocking=True)
             gt_neg_map = gt_neg_map.cuda(cfg.gpu, non_blocking=True)
             gt_target = gt_target.cuda(cfg.gpu, non_blocking=True)
-
+        current_batch_size = gt_pos_map.shape[0]
         # compute output
-        est_pmap, est_rmap = model(voxel_feature, coordinate, batch_size=cfg.batch_size)
+        est_pmap, est_rmap = model(voxel_feature, coordinate, batch_size=current_batch_size)
         output = {"obj":est_pmap, 'reg':est_rmap}
         target = {"obj":gt_pos_map, 'reg':gt_target, "neg-obj":gt_neg_map}
         loss_dict = criterion(output, target)
@@ -229,7 +229,7 @@ def validate(val_loader, model, criterion, epoch, cfg):
                 gt_neg_map = torch.from_numpy(gt_neg_map).contiguous().cuda(cfg.gpu, non_blocking=True)
                 gt_target = torch.from_numpy(gt_target).contiguous().cuda(cfg.gpu, non_blocking=True)
             # compute output
-            est_pmap, est_rmap = model(voxel_feature, coordinate, batch_size=cfg.batch_size)
+            est_pmap, est_rmap = model(voxel_feature, coordinate, batch_size=1)
             output = {"obj":est_pmap, 'reg':est_rmap}
             target = {"obj":gt_pos_map, 'reg':gt_target, "neg-obj":gt_neg_map}
             loss_dict = criterion(output, target)

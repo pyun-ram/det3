@@ -96,7 +96,6 @@ class FeatureNet(nn.Module):
         # x [#batch, #vox, #pts, in_channels]
         num_batch = torch.max(coordinate[:, 0]) + 1
         assert num_batch == batch_size
-        print("num_batch: {}".format(num_batch))
         x = x.unsqueeze(0)
         mask = torch.sum(x, dim=-1)
         mask = torch.eq(mask, 0.0).unsqueeze(-1).type(torch.float32) # empty point position is one, occupied position is zero
@@ -402,7 +401,6 @@ class VoxelNet(nn.Module):
             feat, coord = self.featurenet(x, coordinate, batch_size)
             feat = feat.permute(0, 2, 1).squeeze()
             x = self.middlelayer(feat.cuda(), coord.cuda(), batch_size)
-            print(x.shape)
             x = self.rpn(x)
             return x
 
