@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from torch.nn import Linear, Conv3d, Conv2d, ConvTranspose2d, BatchNorm2d, BatchNorm3d
 import spconv
 from det3.methods.voxelnet.layer import VFELayer
+from dropblock import DropBlock2D
 
 # It is from https://github.com/traveller59/torchplus
 import inspect
@@ -296,6 +297,7 @@ class RPN(nn.Module):
         self.block3_norm7 = BatchNorm2d(256)
 
         # head
+        self.drop_block = DropBlock2D(block_size=3, drop_prob=0.1)
         self.head_conv_cls = Conv2d(768, 2, [1, 1], [1, 1], padding=[0, 0], dilation=1, groups=1, bias=True)
         self.head_conv_reg = Conv2d(768, 16, [1, 1], [1, 1], padding=[0, 0], dilation=1, groups=1, bias=True)
         for m in self.modules():
@@ -377,6 +379,7 @@ class RPN(nn.Module):
         x_3 = F.leaky_relu(x_3, negative_slope=0.1)
 
         x_ = torch.cat([x_1, x_2, x_3], 1)
+        x_ = self.drop_block(x_)
         pmap = self.head_conv_cls(x_)
         pmap = torch.sigmoid(pmap)
         rmap = self.head_conv_reg(x_)
