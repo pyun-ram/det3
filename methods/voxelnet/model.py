@@ -406,8 +406,79 @@ class RPN(nn.Module):
         rmap = self.head_conv_reg(x_)
         return pmap, rmap
 
+class RPNV2(nn.Module):
+    '''
+    RPN of VoxelNet
+    '''
+    def __init__(self, bool_sparse=False):
+        super(RPNV2, self).__init__()
+        # block1
+        self.zero_pad1 = Empty()
+        self.block1_conv1 = Conv2d(128, 128, [3, 3], [1, 1], dilation=1, groups=1, bias=False)
+        self.block1_norm1 = BatchNorm2d(128, eps=0.001, momentum=0.01, affine=True, track_running_stats=True)
+        self.block1_conv2 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
+        self.block1_norm2 = BatchNorm2d(128, eps=0.001, momentum=0.01, affine=True, track_running_stats=True)
+        self.block1_conv3 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
+        self.block1_norm3 = BatchNorm2d(128, eps=0.001, momentum=0.01, affine=True, track_running_stats=True)
+        self.block1_conv4 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
+        self.block1_norm4 = BatchNorm2d(128, eps=0.001, momentum=0.01, affine=True, track_running_stats=True)
+        self.block1_conv5 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
+        self.block1_norm5 = BatchNorm2d(128, eps=0.001, momentum=0.01, affine=True, track_running_stats=True)
+        self.block1_conv6 = Conv2d(128, 128, [3, 3], [1, 1], padding=[1, 1], dilation=1, groups=1, bias=False)
+        self.block1_norm6 = BatchNorm2d(128, eps=0.001, momentum=0.01, affine=True, track_running_stats=True)
+
+        self.block2_deconv1 = ConvTranspose2d(128, 128, [3, 3], [1, 1], dilation=1, groups=1, bias=False)
+        self.block2_norm1 = BatchNorm2d(128, eps=0.001, momentum=0.01, affine=True, track_running_stats=True)
+
+        self.head_conv_cls = Conv2d(128, 2, [1, 1], [1, 1], padding=[0, 0], dilation=1, groups=1, bias=True)
+        self.head_conv_reg = Conv2d(128, 16, [1, 1], [1, 1], padding=[0, 0], dilation=1, groups=1, bias=True)
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='leaky_relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.ConvTranspose2d):
+                nn.init.kaiming_uniform_(m.weight, mode="fan_in", nonlinearity='leaky_relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            # TODO: Note InstanceNorm2d is not initialized
+
+    def forward(self, x):
+        # block1
+        x = self.zero_pad1(x)
+        x = self.block1_conv1(x)
+        x = self.block1_norm1(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
+        x = self.block1_conv2(x)
+        x = self.block1_norm2(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
+        x = self.block1_conv3(x)
+        x = self.block1_norm3(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
+        x = self.block1_conv4(x)
+        x = self.block1_norm4(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
+        x = self.block1_conv5(x)
+        x = self.block1_norm5(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
+        x = self.block1_conv6(x)
+        x = self.block1_norm6(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
+        # block2
+        x = self.block2_deconv1(x)
+        x = self.block2_norm1(x)
+        x = F.leaky_relu(x, negative_slope=0.1)
+
+        pmap = self.head_conv_cls(x)
+        pmap = torch.sigmoid(pmap)
+        rmap = self.head_conv_reg(x)
+        return pmap, rmap
+
 class VoxelNet(nn.Module):
-    def __init__(self, in_channels, out_gridsize, bool_sparse=False, name_featurenet='FeatureNet'):
+    def __init__(self, in_channels, out_gridsize, bool_sparse=False, name_featurenet='FeatureNet', name_RPN='RPN'):
         super(VoxelNet, self).__init__()
         self.bool_sparse = bool_sparse
         if name_featurenet == 'FeatureNet':
@@ -416,7 +487,10 @@ class VoxelNet(nn.Module):
         elif name_featurenet == 'SimpleVoxel':
             self.featurenet = SimpleVoxel(num_input_features=7, name='VoxelFeatureExtractor')
             self.middlelayer = SparseMiddleLayer(out_gridsize, num_input_feature=7) if self.bool_sparse else MiddleLayer()
-        self.rpn = RPN(bool_sparse=self.bool_sparse)
+        if name_RPN == "RPN":
+            self.rpn = RPN(bool_sparse=self.bool_sparse)
+        elif name_RPN == "RPNV2":
+            self.rpn = RPNV2(bool_sparse=self.bool_sparse)
 
     def forward(self, x, coordinate, batch_size=None):
         if not self.bool_sparse:
@@ -448,7 +522,7 @@ if __name__ == "__main__":
                                                     torch.randint(out_gridsize[1], size=(1,)),
                                                     torch.randint(out_gridsize[2], size=(1,))])
     print(coordinate[num_batch[0]-1:num_batch[0]+1, :])
-    sp_voxlenet = VoxelNet(in_channels=7, out_gridsize=out_gridsize, bool_sparse=True, name_featurenet='SimpleVoxel').cuda()
+    sp_voxlenet = VoxelNet(in_channels=7, out_gridsize=out_gridsize, bool_sparse=True, name_featurenet='SimpleVoxel', name_RPN='RPNV2').cuda()
     t1 = time.time()
     pmap, rmap = sp_voxlenet(data.cuda(), coordinate.cuda(), batch_size=2)
     print(time.time()-t1)
