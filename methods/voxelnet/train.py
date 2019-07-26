@@ -55,7 +55,7 @@ def main():
                       'from checkpoints.')
     best_loss1 = math.inf
     model = VoxelNet(in_channels=7,
-                     out_gridsize=cfg.MIDGRID_SHAPE, bool_sparse=cfg.sparse)
+                     out_gridsize=cfg.MIDGRID_SHAPE, bool_sparse=cfg.sparse, name_featurenet=cfg.name_featurenet)
     if cfg.log_grad:
         grad_logger.set_model(model)
     if cfg.log_actv:

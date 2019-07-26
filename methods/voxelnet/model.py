@@ -52,6 +52,26 @@ class Empty(torch.nn.Module):
             return None
         return args
 
+class SimpleVoxel(nn.Module):
+    def __init__(self,
+                 num_input_features=4,
+                 name='VoxelFeatureExtractor'):
+        super(SimpleVoxel, self).__init__()
+        self.name = name
+        self.num_input_features = num_input_features
+
+    def forward(self, features, coors, batch_size):
+        # features: [concated_num_points, num_voxel_size, 3(4)]
+        # num_voxels: [concated_num_points]
+        mask = torch.sum(features, dim=-1)
+        mask = torch.eq(mask, 0.0).unsqueeze(-1).type(torch.float32) # empty point position is one, occupied position is zero
+        mask = 1 - mask # empty point position is zero, occupied position is one
+        assert mask.sum() > 0, "ERROR!, Mask should not be all zeros!"
+        num_voxels = torch.sum(mask, dim=[1,2])
+        points_mean = features[:, :, :self.num_input_features].sum(
+            dim=1, keepdim=False) / (num_voxels.type_as(features).view(-1, 1) + 1e-6)
+        return points_mean.contiguous(), coors
+
 class FeatureNet(nn.Module):
     '''
     FeatureNet of VoxelNet
@@ -126,6 +146,7 @@ class FeatureNet(nn.Module):
             print("Error: The dense version of VoxelNet is discarded.")
             raise NotImplementedError
         else:
+            x = x.permute(0, 2, 1).squeeze()
             return x, coordinate
 
 class MiddleLayer(nn.Module):
@@ -169,7 +190,7 @@ class SparseMiddleLayer(nn.Module):
     '''
     MiddleLayer of VoxelNet (SPConv imporvement)
     '''
-    def __init__(self, sparse_shape):
+    def __init__(self, sparse_shape, num_input_feature=128):
         super(SparseMiddleLayer, self).__init__()
         self.sparse_shape = sparse_shape
         BatchNorm1d = change_default_args(
@@ -178,7 +199,7 @@ class SparseMiddleLayer(nn.Module):
         SpConv3d = change_default_args(bias=False)(spconv.SparseConv3d)
         SubMConv3d = change_default_args(bias=False)(spconv.SubMConv3d)
         self.middle_conv = spconv.SparseSequential(
-            SubMConv3d(128, 16, 3, indice_key="subm0"),
+            SubMConv3d(num_input_feature, 16, 3, indice_key="subm0"),
             BatchNorm1d(16),
             nn.LeakyReLU(negative_slope=0.1),
             SubMConv3d(16, 16, 3, indice_key="subm0"),
@@ -386,11 +407,15 @@ class RPN(nn.Module):
         return pmap, rmap
 
 class VoxelNet(nn.Module):
-    def __init__(self, in_channels, out_gridsize, bool_sparse=False):
+    def __init__(self, in_channels, out_gridsize, bool_sparse=False, name_featurenet='FeatureNet'):
         super(VoxelNet, self).__init__()
         self.bool_sparse = bool_sparse
-        self.featurenet = FeatureNet(in_channels=in_channels, out_gridsize=out_gridsize, bool_sparse=self.bool_sparse)
-        self.middlelayer = SparseMiddleLayer(out_gridsize) if self.bool_sparse else MiddleLayer()
+        if name_featurenet == 'FeatureNet':
+            self.featurenet = FeatureNet(in_channels=7, out_gridsize=out_gridsize, bool_sparse=True)
+            self.middlelayer = SparseMiddleLayer(out_gridsize, num_input_feature=128) if self.bool_sparse else MiddleLayer()
+        elif name_featurenet == 'SimpleVoxel':
+            self.featurenet = SimpleVoxel(num_input_features=7, name='VoxelFeatureExtractor')
+            self.middlelayer = SparseMiddleLayer(out_gridsize, num_input_feature=7) if self.bool_sparse else MiddleLayer()
         self.rpn = RPN(bool_sparse=self.bool_sparse)
 
     def forward(self, x, coordinate, batch_size=None):
@@ -402,7 +427,6 @@ class VoxelNet(nn.Module):
         else:
             assert not batch_size is None
             feat, coord = self.featurenet(x, coordinate, batch_size)
-            feat = feat.permute(0, 2, 1).squeeze()
             x = self.middlelayer(feat.cuda(), coord.cuda(), batch_size)
             x = self.rpn(x)
             return x
@@ -424,7 +448,7 @@ if __name__ == "__main__":
                                                     torch.randint(out_gridsize[1], size=(1,)),
                                                     torch.randint(out_gridsize[2], size=(1,))])
     print(coordinate[num_batch[0]-1:num_batch[0]+1, :])
-    sp_voxlenet = VoxelNet(in_channels=7, out_gridsize=out_gridsize, bool_sparse=True).cuda()
+    sp_voxlenet = VoxelNet(in_channels=7, out_gridsize=out_gridsize, bool_sparse=True, name_featurenet='SimpleVoxel').cuda()
     t1 = time.time()
     pmap, rmap = sp_voxlenet(data.cuda(), coordinate.cuda(), batch_size=2)
     print(time.time()-t1)

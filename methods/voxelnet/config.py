@@ -9,7 +9,7 @@ import numpy as np
 __C = edict()
 cfg = __C
 
-__C.TAG = 'VoxelNet-dev-000A'
+__C.TAG = 'VoxelNet-dev-000B'
 __C.cls = 'Car'
 __C.DATADIR = '/usr/app/data/KITTI/'
 __C.gpu = 0
@@ -35,7 +35,7 @@ __C.lr_dict = {
 # __C.momentum = 0.9
 
 __C.weight_decay = 0
-__C.batch_size = 3
+__C.batch_size = 4
 __C.seed = None
 __C.alpha = 1
 __C.beta = 20
@@ -47,6 +47,7 @@ __C.bool_fast_loader = False
 __C.val_freq = 25
 __C.val_max_visnum = 100
 __C.cls = 'Car'
+__C.name_featurenet = "SimpleVoxel" #FeatureNet" or "SimpleVoxel"
 __C.KITTI_cls = {
     'Car': ['Car', 'Van'],
     'Pedestrian': ['Pedestrian'],
