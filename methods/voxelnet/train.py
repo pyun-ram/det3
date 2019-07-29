@@ -96,7 +96,7 @@ def main():
     cudnn.benchmark = True
     if "KITTI" in cfg.DATADIR.split("/"):
         from det3.methods.voxelnet.kittidata import KittiDatasetVoxelNet, KITTIDataVoxelNet
-        kitti_data = KITTIDataVoxelNet(data_dir=cfg.DATADIR, cfg=cfg, batch_size=cfg.batch_size).kitti_loaders
+        kitti_data = KITTIDataVoxelNet(data_dir=cfg.DATADIR, cfg=cfg, batch_size=cfg.batch_size, num_workers=cfg.num_trainloader_wkers).kitti_loaders
         train_loader = kitti_data['train']
         val_loader = KittiDatasetVoxelNet(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
         val_loader_dev = KittiDatasetVoxelNet(data_dir=cfg.DATADIR, train_val_flag='dev', cfg=cfg)

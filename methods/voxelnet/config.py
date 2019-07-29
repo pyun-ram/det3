@@ -36,6 +36,7 @@ __C.lr_dict = {
 
 __C.weight_decay = 0
 __C.batch_size = 8
+__C.num_trainloader_wkers = 4
 __C.seed = None
 __C.alpha = 1
 __C.beta = 20
