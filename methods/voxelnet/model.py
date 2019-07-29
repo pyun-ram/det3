@@ -63,13 +63,16 @@ class SimpleVoxel(nn.Module):
     def forward(self, features, coors, batch_size):
         # features: [concated_num_points, num_voxel_size, 3(4)]
         # num_voxels: [concated_num_points]
-        mask = torch.sum(features, dim=-1)
-        mask = torch.eq(mask, 0.0).unsqueeze(-1).type(torch.float32) # empty point position is one, occupied position is zero
+        mask = torch.sum(torch.abs(features), dim=-1)
+        # empty point position is one, occupied position is zero
+        mask = torch.eq(mask, 0.0).unsqueeze(-1).type(torch.float32)
         mask = 1 - mask # empty point position is zero, occupied position is one
         assert mask.sum() > 0, "ERROR!, Mask should not be all zeros!"
-        num_voxels = torch.sum(mask, dim=[1,2])
+        num_voxels = torch.sum(mask, dim=[1, 2])
+        num_nonzeros = torch.nonzero(num_voxels)
+        assert num_nonzeros.shape[0] == num_voxels.shape[0], "ERROR!, There should not be empty voxels. It will cause 0-divide prblem and nan loss."
         points_mean = features[:, :, :self.num_input_features].sum(
-            dim=1, keepdim=False) / (num_voxels.type_as(features).view(-1, 1) + 1e-6)
+            dim=1, keepdim=False) / (num_voxels.type_as(features).view(-1, 1))
         return points_mean.contiguous(), coors
 
 class FeatureNet(nn.Module):
@@ -118,7 +121,7 @@ class FeatureNet(nn.Module):
         num_batch = torch.max(coordinate[:, 0]) + 1
         assert num_batch == batch_size
         x = x.unsqueeze(0)
-        mask = torch.sum(x, dim=-1)
+        mask = torch.sum(torch.abs(x), dim=-1)
         mask = torch.eq(mask, 0.0).unsqueeze(-1).type(torch.float32) # empty point position is one, occupied position is zero
         mask = 1 - mask # empty point position is zero, occupied position is one
         assert mask.sum() > 0, "ERROR!, Mask should not be all zeros!"
