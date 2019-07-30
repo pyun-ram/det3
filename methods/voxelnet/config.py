@@ -9,7 +9,7 @@ import numpy as np
 __C = edict()
 cfg = __C
 
-__C.TAG = 'VoxelNet-dev-000C'
+__C.TAG = 'VoxelNet-small-000P'
 __C.cls = 'Car'
 __C.DATADIR = '/usr/app/data/KITTI/'
 __C.gpu = 0
@@ -36,7 +36,7 @@ __C.lr_dict = {
 
 __C.weight_decay = 0
 __C.batch_size = 8
-__C.num_trainloader_wkers = 4
+__C.num_trainloader_wkers = 8
 __C.seed = None
 __C.alpha = 1
 __C.beta = 1
@@ -45,7 +45,7 @@ __C.gamma = 2.0
 __C.lambda_rot = 0 # weight of rot regularization term
 __C.sparse = True
 __C.bool_fast_loader = False
-__C.val_freq = 25
+__C.val_freq = 50
 __C.val_max_visnum = 100
 __C.cls = 'Car'
 __C.name_featurenet = "SimpleVoxel" #FeatureNet" or "SimpleVoxel"
@@ -101,5 +101,5 @@ __C.RPN_NMS_THRESH = 0.01
 __C.MIDGRID_SHAPE = [int(itm) for itm in [math.ceil((__C.z_range[1] - __C.z_range[0])/__C.resolution[-1]),
                                           __C.INPUT_HEIGHT,
                                           __C.INPUT_WIDTH]]
-__C.log_grad = True
-__C.log_actv = True
+__C.log_grad = False
+__C.log_actv = False
