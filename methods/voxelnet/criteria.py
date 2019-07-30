@@ -30,30 +30,31 @@ class VoxelNetLoss(nn.Module):
             raise NotImplementedError
 
     def forward(self, est, gt):
+        batch_size = gt["obj"].shape[0]
         small_addon_for_BCE = 1e-6
         pos_equal_one_for_reg = torch.cat([gt["obj"][:, 0:1, :, :].repeat(1, 8, 1, 1), gt["obj"][:, 1:2, :, :].repeat(1, 8, 1, 1)], dim=1)
         pos_equal_one_for_rot_rgl = torch.cat([gt["obj"][:, 0:1, :, :].repeat(1, 1, 1, 1), gt["obj"][:, 1:2, :, :].repeat(1, 1, 1, 1)], dim=1)
         pos_equal_one_sum = torch.clamp(torch.sum(gt['obj']), min=1)
         neg_equal_one_sum = torch.clamp(torch.sum(gt['neg-obj']), min=1)
-        cls_pos_loss = (-gt["obj"] * (1 - est["obj"] + small_addon_for_BCE) ** self.gamma * torch.log(    est["obj"] + small_addon_for_BCE)) / pos_equal_one_sum * self.alpha
-        cls_neg_loss = (-gt["neg-obj"] * (est["obj"] + small_addon_for_BCE) ** self.gamma * torch.log(1 - est["obj"] + small_addon_for_BCE)) / neg_equal_one_sum * self.beta
+        cls_pos_loss = (-gt["obj"] * (1 - est["obj"] + small_addon_for_BCE) ** self.gamma * torch.log(    est["obj"] + small_addon_for_BCE))  * self.alpha
+        cls_neg_loss = (-gt["neg-obj"] * (est["obj"] + small_addon_for_BCE) ** self.gamma * torch.log(1 - est["obj"] + small_addon_for_BCE))  * self.beta
         cls_loss = torch.sum(cls_pos_loss + cls_neg_loss) * self.eta
         cls_pos_loss = torch.sum(cls_pos_loss)
         cls_neg_loss = torch.sum(cls_neg_loss)
-        reg_loss = smooth_l1(est["reg"] * pos_equal_one_for_reg, gt["reg"] * pos_equal_one_for_reg, sigma=3) / pos_equal_one_sum
+        reg_loss = smooth_l1(est["reg"] * pos_equal_one_for_reg, gt["reg"] * pos_equal_one_for_reg, sigma=3)
         reg_loss = torch.sum(reg_loss)
         rot_cos = torch.cat([est["reg"][:, 6:7, :, :], est["reg"][:, -2:-1, :]], dim=1)
         rot_sin = torch.cat([est["reg"][:, 7:8, :, :], est["reg"][:, -1:, :]], dim=1)
-        rot_rgl = smooth_l1((rot_cos**2 + rot_sin**2)*pos_equal_one_for_rot_rgl, pos_equal_one_for_rot_rgl, sigma=3.0)/ pos_equal_one_sum
+        rot_rgl = smooth_l1((rot_cos**2 + rot_sin**2)*pos_equal_one_for_rot_rgl, pos_equal_one_for_rot_rgl, sigma=3.0)
         rot_rgl = torch.sum(rot_rgl) * self.lambda_rot
         loss = torch.sum(cls_loss + reg_loss + rot_rgl)
         losses = dict()
-        losses["loss"] = loss
-        losses["cls_loss"] = cls_loss
-        losses["reg_loss"] = reg_loss
-        losses["cls_pos_loss"] = cls_pos_loss
-        losses["cls_neg_loss"] = cls_neg_loss
-        losses["rot_rgl_loss"] = rot_rgl
+        losses["loss"] = loss / batch_size
+        losses["cls_loss"] = cls_loss / batch_size
+        losses["reg_loss"] = reg_loss / batch_size
+        losses["cls_pos_loss"] = cls_pos_loss / batch_size
+        losses["cls_neg_loss"] = cls_neg_loss / batch_size
+        losses["rot_rgl_loss"] = rot_rgl / batch_size
         return losses
 
 def smooth_l1(est, gt, sigma=3.0):

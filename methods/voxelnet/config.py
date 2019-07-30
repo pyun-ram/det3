@@ -15,7 +15,7 @@ __C.DATADIR = '/usr/app/data/KITTI/'
 __C.gpu = 0
 __C.resume = None
 __C.start_epoch = 0
-__C.epochs = 1000
+__C.epochs = 1500
 __C.lr_dict = {
     "mode": "super-converge", # "const", "decay", "super-converge"
     "lr_range": [1e-4, 1e-3],
@@ -39,10 +39,10 @@ __C.batch_size = 8
 __C.num_trainloader_wkers = 4
 __C.seed = None
 __C.alpha = 1
-__C.beta = 20
-__C.eta = 15
-__C.gamma = 0
-__C.lambda_rot = 0.1 # weight of rot regularization term
+__C.beta = 1
+__C.eta = 0.5
+__C.gamma = 2.0
+__C.lambda_rot = 0 # weight of rot regularization term
 __C.sparse = True
 __C.bool_fast_loader = False
 __C.val_freq = 25
