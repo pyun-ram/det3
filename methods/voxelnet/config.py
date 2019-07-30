@@ -9,13 +9,13 @@ import numpy as np
 __C = edict()
 cfg = __C
 
-__C.TAG = 'VoxelNet-small-000P'
+__C.TAG = 'VoxelNet-000Z'
 __C.cls = 'Car'
 __C.DATADIR = '/usr/app/data/KITTI/'
 __C.gpu = 0
 __C.resume = None
 __C.start_epoch = 0
-__C.epochs = 1500
+__C.epochs = 200
 __C.lr_dict = {
     "mode": "super-converge", # "const", "decay", "super-converge"
     "lr_range": [1e-4, 1e-3],
@@ -45,7 +45,7 @@ __C.gamma = 2.0
 __C.lambda_rot = 0 # weight of rot regularization term
 __C.sparse = True
 __C.bool_fast_loader = False
-__C.val_freq = 50
+__C.val_freq = 5
 __C.val_max_visnum = 100
 __C.cls = 'Car'
 __C.name_featurenet = "SimpleVoxel" #FeatureNet" or "SimpleVoxel"
