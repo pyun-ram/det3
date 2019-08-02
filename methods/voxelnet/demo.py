@@ -3,8 +3,8 @@ File Created: Monday, 22nd July 2019 10:18:24 am
 Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 python3 methods/voxelnet/demo.py \
-    --data-dir /usr/app/data/KITTI-RAW/2011_09_26/2011_09_26_drive_0023_sync \
-    --vis-dir /usr/app/vis/demo/2011_09_26_drive_0023_sync
+    --data-dir /usr/app/data/KITTI-RAW/2011_09_26/2011_09_26_drive_0015_sync \
+    --vis-dir /usr/app/vis/demo/2011_09_26_drive_0015_sync
 '''
 import argparse
 import os
@@ -91,7 +91,8 @@ def main():
                       'from checkpoints.')
     # load model
     model = VoxelNet(in_channels=7,
-                     out_gridsize=cfg.MIDGRID_SHAPE, bool_sparse=cfg.sparse)
+                        out_gridsize=cfg.MIDGRID_SHAPE, bool_sparse=cfg.sparse,
+                        name_featurenet=cfg.name_featurenet, name_RPN=cfg.name_RPN)
     if cfg.gpu is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
                       'disable data parallelism.')
@@ -139,8 +140,10 @@ def main():
                                     num_pts_in_vox=cfg.voxel_point_count)
             voxel_feature = voxel_dict["feature_buffer"].astype(np.float32)
             coordinate = voxel_dict["coordinate_buffer"].astype(np.int64)
-            voxel_feature = np.expand_dims(voxel_feature, 0)
-            coordinate = np.expand_dims(coordinate, 0)
+            # voxel_feature = np.expand_dims(voxel_feature, 0)
+            # coordinate = np.expand_dims(coordinate, 0)
+            coordinate = np.hstack([np.zeros((coordinate.shape[0], 1)),
+                                    coordinate])
             voxel_feature = torch.from_numpy(voxel_feature).contiguous().cuda(cfg.gpu, non_blocking=True)
             coordinate = torch.from_numpy(coordinate).contiguous().cuda(cfg.gpu, non_blocking=True)
             est_pmap, est_rmap = model(voxel_feature, coordinate, batch_size=cfg.batch_size)
