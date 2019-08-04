@@ -372,7 +372,7 @@ class KittiData:
     '''
     class storing a frame of KITTI data
     '''
-    def __init__(self, root_dir, idx):
+    def __init__(self, root_dir, idx, output_dict=None):
         '''
         inputs:
             root_dir(str): kitti dataset dir
@@ -382,6 +382,14 @@ class KittiData:
         self.image2_path = os.path.join(root_dir, "image_2", idx+'.png')
         self.label2_path = os.path.join(root_dir, "label_2", idx+'.txt')
         self.velodyne_path = os.path.join(root_dir, "velodyne", idx+'.bin')
+        self.output_dict = output_dict
+        if self.output_dict is None:
+            self.output_dict = {
+                "calib": True,
+                "image": True,
+                "label": True,
+                "velodyne": True
+            }
 
     def read_data(self):
         '''
@@ -397,10 +405,10 @@ class KittiData:
                       |
                 y<----.z
         '''
-        calib = KittiCalib(self.calib_path).read_calib_file()
-        image = utils.read_image(self.image2_path)
-        label = KittiLabel(self.label2_path).read_label_file()
-        pc = utils.read_pc_from_bin(self.velodyne_path)
+        calib = KittiCalib(self.calib_path).read_calib_file() if self.output_dict["calib"] else None
+        image = utils.read_image(self.image2_path) if self.output_dict["image"] else None
+        label = KittiLabel(self.label2_path).read_label_file() if self.output_dict["label"] else None
+        pc = utils.read_pc_from_bin(self.velodyne_path) if self.output_dict["velodyne"] else None
         return calib, image, label, pc
 
 if __name__ == "__main__":

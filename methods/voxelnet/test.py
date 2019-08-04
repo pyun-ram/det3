@@ -42,7 +42,8 @@ def main():
                       'You may see unexpected behavior when restarting '
                       'from checkpoints.')
     model = VoxelNet(in_channels=7,
-                     out_gridsize=cfg.MIDGRID_SHAPE, bool_sparse=cfg.sparse)
+                     out_gridsize=cfg.MIDGRID_SHAPE, bool_sparse=cfg.sparse,
+                     name_featurenet=cfg.name_featurenet, name_RPN=cfg.name_RPN)
     if cfg.gpu is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
                       'disable data parallelism.')
@@ -74,7 +75,7 @@ def main():
         val_loader = CarlaDatasetVoxelNet(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
     elif "KITTI" in cfg.DATADIR.split("/"):
         from det3.methods.voxelnet.kittidata import KittiDatasetVoxelNet
-        val_loader = KittiDatasetVoxelNet(data_dir=cfg.DATADIR, train_val_flag='val', cfg=cfg)
+        val_loader = KittiDatasetVoxelNet(data_dir=cfg.DATADIR, train_val_flag='test', cfg=cfg)
     else:
         raise NotImplementedError
     val_loss = evaluate(val_loader, model, criterion, cfg)
@@ -87,22 +88,17 @@ def evaluate(data_loader, model, criterion, cfg):
     model.eval()
     with torch.no_grad():
         end = time.time()
-        for i, (tag, voxel_feature, coordinate, gt_pos_map, gt_neg_map, gt_target, anchors, pc, label, calib) in enumerate(data_loader):
+        for i, (tag, voxel_feature, coordinate, img, anchors, pc, label, calib) in enumerate(data_loader):
             if cfg.gpu is not None:
                 voxel_feature = torch.from_numpy(voxel_feature).contiguous().cuda(cfg.gpu, non_blocking=True)
                 coordinate = torch.from_numpy(coordinate).contiguous().cuda(cfg.gpu, non_blocking=True)
-                gt_pos_map = torch.from_numpy(gt_pos_map).contiguous().cuda(cfg.gpu, non_blocking=True)
-                gt_neg_map = torch.from_numpy(gt_neg_map).contiguous().cuda(cfg.gpu, non_blocking=True)
-                gt_target = torch.from_numpy(gt_target).contiguous().cuda(cfg.gpu, non_blocking=True)
+                # gt_pos_map = torch.from_numpy(gt_pos_map).contiguous().cuda(cfg.gpu, non_blocking=True)
+                # gt_neg_map = torch.from_numpy(gt_neg_map).contiguous().cuda(cfg.gpu, non_blocking=True)
+                # gt_target = torch.from_numpy(gt_target).contiguous().cuda(cfg.gpu, non_blocking=True)
 
             # compute output
             est_pmap, est_rmap = model(voxel_feature, coordinate, batch_size=cfg.batch_size)
             output = {"obj":est_pmap, 'reg':est_rmap}
-            target = {"obj":gt_pos_map, 'reg':gt_target, "neg-obj":gt_neg_map}
-            loss_dict = criterion(output, target)
-
-            # measure accuracy and record loss
-            losses.update(loss_dict["loss"].item(), voxel_feature.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)
@@ -111,16 +107,10 @@ def evaluate(data_loader, model, criterion, cfg):
             bevimg = BEVImage(x_range=cfg.x_range, y_range=cfg.y_range, grid_size=(0.05, 0.05))
             bevimg.from_lidar(pc, scale=1)
             fvimg = FVImage()
-            img = None
             if img is not None:
                 fvimg.from_image(img)
             else:
                 fvimg.from_lidar(calib, pc[:, :3])
-
-            for obj in label.data:
-                if obj.type in cfg.KITTI_cls[cfg.cls]:
-                    bevimg.draw_box(obj, calib, bool_gt=True, width=3)
-                    fvimg.draw_box(obj, calib, bool_gt=True, width=3)
 
             est_pmap_np = est_pmap.cpu().numpy()
             est_rmap_np = est_rmap.cpu().numpy()
@@ -131,7 +121,7 @@ def evaluate(data_loader, model, criterion, cfg):
             for obj in rec_label.data:
                 if obj.type in cfg.KITTI_cls[cfg.cls]:
                     bevimg.draw_box(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
-                    fvimg.draw_box(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
+                    fvimg.draw_3dbox(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
             bevimg_img = Image.fromarray(bevimg.data)
             bevimg_img.save(os.path.join(log_dir, 'eval_results', 'imgs', '{:06d}_bv.png'.format(tag)))
             fvimg_img = Image.fromarray(fvimg.data)
