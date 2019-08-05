@@ -10,8 +10,6 @@ try:
     from ..utils.utils import read_pc_from_bin
 except:
     # Run script
-    import sys
-    sys.path.append("../")
     from det3.dataloarder.kittidata import KittiCalib, KittiObj, KittiLabel
     from det3.utils.utils import read_pc_from_bin
 

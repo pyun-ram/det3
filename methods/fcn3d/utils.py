@@ -4,8 +4,6 @@ Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
 import numpy as np
-import sys
-sys.path.append('../')
 from det3.dataloarder.kittidata import KittiObj, KittiLabel
 from det3.dataloarder.carladata import CarlaObj, CarlaLabel
 from det3.utils.utils import istype, apply_R, apply_tr, rotz

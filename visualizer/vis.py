@@ -11,8 +11,6 @@ try:
     from ..utils.utils import istype
 except:
     # Run script
-    import sys
-    sys.path.append("../")
     from det3.dataloarder.kittidata import KittiObj
     from det3.dataloarder.carladata import CarlaObj, CarlaCalib
     from det3.utils.utils import istype
@@ -311,8 +309,6 @@ class FVImage:
         return self
 
 if __name__ == "__main__":
-    import sys
-    sys.path.append("../")
     from det3.dataloarder.kittidata import KittiData
     from det3.dataloarder.carladata import CarlaData
     from PIL import Image

@@ -16,8 +16,6 @@ import torch.backends.cudnn as cudnn
 import numpy as np
 from PIL import Image
 import time
-import sys
-sys.path.append("../")
 from det3.utils.utils import read_pc_from_bin
 from det3.utils.utils import read_image
 from det3.methods.voxelnet.model import VoxelNet

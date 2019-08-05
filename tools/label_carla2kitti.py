@@ -10,9 +10,7 @@ python3 tools/label_carla2kitti.py \
 '''
 import argparse
 import os
-import sys
 import numpy as np
-sys.path.append("../")
 from det3.dataloarder.carladata import CarlaLabel, CarlaCalib, CarlaObj
 from det3.dataloarder.kittidata import KittiLabel
 from det3.utils.utils import write_str_to_file

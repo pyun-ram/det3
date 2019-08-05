@@ -10,8 +10,6 @@ Usage: python3 tools/data_vis.py \
 '''
 import argparse
 import os
-import sys
-sys.path.append("../")
 from PIL import Image
 from det3.utils.utils import get_idx_list
 from det3.visualizer.vis import BEVImage

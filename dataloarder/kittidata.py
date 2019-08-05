@@ -11,8 +11,6 @@ try:
     from ..utils import utils
 except:
     # Run script python3 dataloader/kittidata.py
-    import sys
-    sys.path.append("../")
     import det3.utils.utils as utils
 
 # KITTI

@@ -3,8 +3,6 @@ File Created: Thursday, 18th July 2019 10:34:34 am
 Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
-import sys
-sys.path.append("../")
 from det3.utils.torch_utils import GradientLogger, ActivationLogger
 import os
 from multiprocessing import Pool

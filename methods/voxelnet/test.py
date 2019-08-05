@@ -5,8 +5,6 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
 import random
 import time
-import sys
-sys.path.append('../')
 import warnings
 import os
 import shutil

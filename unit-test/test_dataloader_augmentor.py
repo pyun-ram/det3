@@ -14,8 +14,6 @@ try:
     from ..visualizer.vis import *
 except:
     # Run script
-    import sys
-    sys.path.append('../')
     from det3.dataloarder.augmentor import KittiAugmentor, CarlaAugmentor
     from det3.dataloarder.kittidata import *
     from det3.dataloarder.carladata import *

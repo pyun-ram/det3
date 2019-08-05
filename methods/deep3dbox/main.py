@@ -10,8 +10,6 @@ Note: python3 methods/deep3dbox/main.py \
 '''
 import argparse
 import os
-import sys
-sys.path.append("../")
 import logging
 import numpy as np
 from det3.dataloarder.kittidata import KittiData, KittiLabel, KittiObj

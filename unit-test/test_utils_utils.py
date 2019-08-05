@@ -9,8 +9,6 @@ try:
     from ..utils.utils import apply_R, apply_tr, roty
 except:
     # Run script python3 dataloader/data.py
-    import sys
-    sys.path.append("../")
     from det3.utils.utils import apply_R, apply_tr, roty
 
 class TestUtils(unittest.TestCase):

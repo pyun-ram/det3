@@ -7,8 +7,6 @@ Note: The code skeleton is based on https://github.com/pytorch/examples/blob/mas
 
 import random
 import time
-import sys
-sys.path.append('../')
 import warnings
 import os
 import shutil

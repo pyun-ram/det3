@@ -9,8 +9,6 @@ try:
     from ..dataloarder.carladata import CarlaCalib, CarlaObj, CarlaLabel
 except:
     # Run script
-    import sys
-    sys.path.append('../')
     from det3.dataloarder.carladata import CarlaCalib, CarlaObj, CarlaLabel
 
 class TestCarlarCalib(unittest.TestCase):

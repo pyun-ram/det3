@@ -9,8 +9,6 @@ python3 methods/voxelnet/create_dataset.py \
     --num-of-train 5
 '''
 import argparse
-import sys
-sys.path.append("../")
 import os
 import pickle
 from det3.methods.voxelnet.config import cfg

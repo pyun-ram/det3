@@ -3,8 +3,6 @@ File Created: Wednesday, 26th June 2019 10:25:13 am
 Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
-import sys
-sys.path.append("../")
 from det3.dataloarder.kittidata import KittiLabel, KittiCalib, KittiObj
 from det3.dataloarder.carladata import CarlaLabel, CarlaCalib, CarlaObj
 from det3.utils.utils import istype, apply_R, apply_tr, rotz, compute_intersec

@@ -9,8 +9,6 @@ Usage: python3 tools/carladata_spliter.py \
 '''
 import argparse
 import os
-import sys
-sys.path.append("../")
 from det3.utils.utils import get_idx_list
 
 def check_datadir_valid(data_dir):

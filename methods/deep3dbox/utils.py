@@ -4,8 +4,6 @@ Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
 import numpy as np
-import sys
-sys.path.append("../")
 from scipy.optimize import lsq_linear
 from det3.utils.utils import roty, istype
 from det3.dataloarder.kittidata import KittiObj

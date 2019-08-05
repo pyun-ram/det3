@@ -5,8 +5,6 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
 
 import os
-import sys
-sys.path.append('../')
 import numpy as np
 import torch
 from torch.utils.data import Dataset
