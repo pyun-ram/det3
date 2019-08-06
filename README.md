@@ -13,4 +13,8 @@ docker pull pyun/python_pytorch:cuda10_3.5_1.1
 # Trouble: ModuleNotFoundError: No module named 'det3'
 # Solution: add <det3_rootdir>/../ to PYTHONPATH
 # export PYTHONPATH=/root/second.pytorch/:/root/kitti-object-eval-python:<det3_rootdir>/../
+
+# Trouble: ModuleNotFoundError: No module named 'dropblock'
+# Solution:
+# pip install dropblock
 ```

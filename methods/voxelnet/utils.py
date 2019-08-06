@@ -51,7 +51,6 @@ def voxelize_pc(pts, res, x_range, y_range, z_range, num_pts_in_vox):
     pts_Fgrid = np.floor((pts_Flidar[:, :3] - np.array([x_min, y_min, z_min], dtype=np.float32))
                          / np.array([dx, dy, dz], dtype=np.float32))
     pts_Fgrid = pts_Fgrid[:, ::-1] # x y z -> z y x in LiDAR frame
-
     coordinate_buffer = np.unique(pts_Fgrid, axis=0)
     K = len(coordinate_buffer)
     T = num_pts_in_vox
