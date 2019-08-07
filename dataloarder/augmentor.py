@@ -256,6 +256,8 @@ class CarlaAugmentor:
             bool: True if no overlap exists.
         '''
         assert istype(label, "CarlaLabel")
+        if len(label.data) == 0:
+            return True
         boxes = []
         for obj in label.data:
             boxes.append([-obj.y, obj.x, obj.z, obj.w, obj.l, obj.h, obj.ry]) # FIMU to Flidar

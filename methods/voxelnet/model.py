@@ -482,11 +482,11 @@ class VoxelNet(nn.Module):
         super(VoxelNet, self).__init__()
         self.bool_sparse = bool_sparse
         if name_featurenet == 'FeatureNet':
-            self.featurenet = FeatureNet(in_channels=7, out_gridsize=out_gridsize, bool_sparse=True)
+            self.featurenet = FeatureNet(in_channels=in_channels, out_gridsize=out_gridsize, bool_sparse=True)
             self.middlelayer = SparseMiddleLayer(out_gridsize, num_input_feature=128) if self.bool_sparse else MiddleLayer()
         elif name_featurenet == 'SimpleVoxel':
-            self.featurenet = SimpleVoxel(num_input_features=7, name='VoxelFeatureExtractor')
-            self.middlelayer = SparseMiddleLayer(out_gridsize, num_input_feature=7) if self.bool_sparse else MiddleLayer()
+            self.featurenet = SimpleVoxel(num_input_features=in_channels, name='VoxelFeatureExtractor')
+            self.middlelayer = SparseMiddleLayer(out_gridsize, num_input_feature=in_channels) if self.bool_sparse else MiddleLayer()
         if name_RPN == "RPN":
             self.rpn = RPN(bool_sparse=self.bool_sparse)
         elif name_RPN == "RPNV2":
