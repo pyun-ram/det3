@@ -9,7 +9,7 @@ import numpy as np
 __C = edict()
 cfg = __C
 
-__C.TAG = 'VoxelNet-000Z'
+__C.TAG = 'VoxelNet-dev-000A'
 __C.cls = 'Car'
 __C.DATADIR = '/usr/app/data/KITTI/'
 __C.gpu = 0
@@ -43,13 +43,14 @@ __C.beta = 1
 __C.eta = 0.5
 __C.gamma = 2.0
 __C.lambda_rot = 0 # weight of rot regularization term
+__C.weight_var = 1
 __C.sparse = True
 __C.bool_fast_loader = False
 __C.val_freq = 5
 __C.val_max_visnum = 100
 __C.cls = 'Car'
 __C.name_featurenet = "SimpleVoxel" #FeatureNet" or "SimpleVoxel"
-__C.name_RPN = "RPNV2" #"RPN" or "RPNV2"
+__C.name_RPN = "RPNV3" #"RPN" or "RPNV2"
 __C.KITTI_cls = {
     'Car': ['Car', 'Van'],
     'Pedestrian': ['Pedestrian'],
