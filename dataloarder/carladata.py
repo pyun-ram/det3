@@ -175,13 +175,13 @@ class CarlaObj():
 
     def __str__(self):
         if self.score is None:
-            return "{} {} {} {} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}".format(
-                self.type, self.truncated, self.occluded, self.alpha,\
+            return "{} {:.2f} {} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f}".format(
+                self.type, self.truncated, int(self.occluded), self.alpha,\
                 self.bbox_l, self.bbox_t, self.bbox_r, self.bbox_b, \
                 self.h, self.w, self.l, self.x, self.y, self.z, self.ry)
         else:
-            return "{} {} {} {} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}".format(
-                self.type, self.truncated, self.occluded, self.alpha,\
+            return "{} {:.2f} {} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f}".format(
+                self.type, self.truncated, int(self.occluded), self.alpha,\
                 self.bbox_l, self.bbox_t, self.bbox_r, self.bbox_b, \
                 self.h, self.w, self.l, self.x, self.y, self.z, self.ry, self.score)
 
@@ -408,7 +408,7 @@ class CarlaData:
         velo_xx/
         velo_xx/
     '''
-    def __init__(self, root_dir, idx):
+    def __init__(self, root_dir, idx, output_dict=None):
         '''
         inputs:
             root_dir(str): carla dataset dir
@@ -421,7 +421,13 @@ class CarlaData:
         velodyne_list = [itm if 'velo' in itm.split('_') else None for itm in velodyne_list]
         self.velodyne_list = list(filter(lambda itm: itm is not None, velodyne_list))
         self.velodyne_paths = [os.path.join(root_dir, itm, idx+'.npy') for itm in self.velodyne_list]
-
+        self.output_dict = output_dict
+        if self.output_dict is None:
+            self.output_dict = {
+                "calib": True,
+                "label": True,
+                "velodyne": True
+            }
     def read_data(self):
         '''
         read data
@@ -432,13 +438,15 @@ class CarlaData:
                 point cloud in Lidar <tag> frame.
                 pc[tag] = np.array [#pts, 3], tag is the name of the dir saving velodynes
         '''
-        calib = CarlaCalib(self.calib_path).read_calib_file()
-        label = CarlaLabel(self.label_path).read_label_file()
-        pc = dict()
-        
-        for k, v in zip(self.velodyne_list, self.velodyne_paths):
-            assert k == v.split('/')[-2]
-            pc[k] = utils.read_pc_from_npy(v)
+        calib = CarlaCalib(self.calib_path).read_calib_file() if self.output_dict["calib"] else None
+        label = CarlaLabel(self.label_path).read_label_file() if self.output_dict["label"] else None
+        if self.output_dict["velodyne"]:
+            pc = dict()
+            for k, v in zip(self.velodyne_list, self.velodyne_paths):
+                assert k == v.split('/')[-2]
+                pc[k] = utils.read_pc_from_npy(v)
+        else:
+            pc = None
         return pc, label, calib
 
 if __name__ == "__main__":
