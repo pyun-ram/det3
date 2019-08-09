@@ -48,10 +48,13 @@ class VoxelNetLoss(nn.Module):
         rot_sin = torch.cat([est["reg"][:, 7:8, :, :], est["reg"][:, -1:, :]], dim=1)
         rot_rgl = smooth_l1((rot_cos**2 + rot_sin**2)*pos_equal_one_for_rot_rgl, pos_equal_one_for_rot_rgl, sigma=3.0)
         rot_rgl = torch.sum(rot_rgl) * self.lambda_rot
-        var_reg = smooth_l1(est["reg"] , gt["reg"], sigma=3)
-        var_D = var_reg.shape[-2] * var_reg.shape[-1]
-        var_loss = 0.5 * torch.exp(-est["var"]) * var_reg + 0.5 * est["var"]
-        var_loss = 1.0 / var_D * torch.sum(var_loss) * self.weight_var
+        if est["var"] is not None:
+            var_reg = smooth_l1(est["reg"] , gt["reg"], sigma=3)
+            var_D = var_reg.shape[-2] * var_reg.shape[-1]
+            var_loss = 0.5 * torch.exp(-est["var"]) * var_reg + 0.5 * est["var"]
+            var_loss = 1.0 / var_D * torch.sum(var_loss) * self.weight_var
+        else:
+            var_loss = 0
         loss = torch.sum(cls_loss + reg_loss + rot_rgl + var_loss)
         losses = dict()
         losses["loss"] = loss / batch_size
