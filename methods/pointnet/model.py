@@ -164,6 +164,9 @@ class PointNetCls(nn.Module):
         return F.log_softmax(x, dim=1), trans, trans_feat
 
 def feature_transform_regularizer(trans):
+    '''
+    reference: https://github.com/fxia22/pointnet.pytorch
+    '''
     d = trans.size()[1]
     batchsize = trans.size()[0]
     I = torch.eye(d)[None, :, :]
@@ -172,8 +175,38 @@ def feature_transform_regularizer(trans):
     loss = torch.mean(torch.norm(torch.bmm(trans, trans.transpose(2,1)) - I, dim=(1,2)))
     return loss
 
+class PointNetDenseCls(nn.Module):
+    '''
+    reference: https://github.com/fxia22/pointnet.pytorch
+    '''
+    def __init__(self, k = 2, feature_transform=False):
+        super(PointNetDenseCls, self).__init__()
+        self.k = k
+        self.feature_transform=feature_transform
+        self.feat = PointNetfeat(global_feat=False, feature_transform=feature_transform)
+        self.conv1 = torch.nn.Conv1d(1088, 512, 1)
+        self.conv2 = torch.nn.Conv1d(512, 256, 1)
+        self.conv3 = torch.nn.Conv1d(256, 128, 1)
+        self.conv4 = torch.nn.Conv1d(128, self.k, 1)
+        self.bn1 = nn.BatchNorm1d(512)
+        self.bn2 = nn.BatchNorm1d(256)
+        self.bn3 = nn.BatchNorm1d(128)
+
+    def forward(self, x):
+        batchsize = x.size()[0]
+        n_pts = x.size()[2]
+        x, trans, trans_feat = self.feat(x)
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
+        x = self.conv4(x)
+        x = x.transpose(2,1).contiguous()
+        x = F.log_softmax(x.view(-1,self.k), dim=-1)
+        x = x.view(batchsize, n_pts, self.k)
+        return x, trans, trans_feat
+
 if __name__ == "__main__":
     input_data = torch.randn(5, 3, 3000).cuda()
-    model = PointNetCls(k=5, feature_transform=True).cuda()
+    model = PointNetDenseCls(k=5, feature_transform=True).cuda()
     output, _, _ = model(input_data)
     print(output.shape)

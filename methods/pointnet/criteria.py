@@ -20,3 +20,14 @@ class PointNetClsLoss(nn.Module):
         print(est.shape, gt.shape)
         return loss
 
+class PointNetSegLoss(nn.Module):
+    def __init__(self):
+        super(PointNetSegLoss, self).__init__()
+    def forward(self, est, gt):
+        '''
+        inputs:
+            est: [#batch, lenth of one hot vector]
+            gt: [#batch, ]
+        '''
+        loss = F.nll_loss(est, gt)
+        return loss

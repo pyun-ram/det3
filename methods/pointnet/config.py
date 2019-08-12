@@ -10,7 +10,7 @@ __C = edict()
 cfg = __C
 
 cfg.task_dict = {
-    "TAG": "PointNet-000A",
+    "TAG": "PointNet-Seg-000A",
     "GPU": 0,
 
 }
@@ -18,6 +18,7 @@ cfg.task_dict = {
 cfg.data_dict = {
     "DATA_DIR": "/usr/app/data/ShapeNet/",
     "NUM_POINTS": 2500,
+    "CLASS_CHOICE": "Chair",
 }
 cfg.model_dict = {
     "K": 16,
