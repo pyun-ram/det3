@@ -21,7 +21,7 @@ from det3.utils.torch_utils import GradientLogger, ActivationLogger
 from det3.methods.pointnet.model import PointNetCls, feature_transform_regularizer
 from det3.methods.pointnet.config import cfg
 from det3.methods.pointnet.dataset import ShapeNetDataset
-import torch.nn.functional as F
+from det3.methods.pointnet.criteria import PointNetClsLoss
 
 root_dir = __file__.split('/')
 root_dir = os.path.join(root_dir[0], root_dir[1])
@@ -54,7 +54,7 @@ def main():
         model = model.cuda(cfg.task_dict["GPU"])
     else:
         model = torch.nn.DataParallel(model).cuda()
-    criterion = None
+    criterion = PointNetClsLoss()
     if cfg.train_dict["RESUME"]:
         if os.path.isfile(cfg.train_dict["RESUME"]):
             output_log("=> loading checkpoint '{}'".format(cfg.train_dict["RESUME"]))
@@ -105,7 +105,7 @@ def evaluate(val_loader, model, criterion, cfg):
             current_batch_size = points.shape[0]
             pred, _, _ = model(points)
             batch_time.update(time.time() - end)
-            loss = F.nll_loss(pred, target)
+            loss = criterion(pred, target)
             losses.update(loss, current_batch_size)
             pred_choice = pred.data.max(1)[1]
             correct = pred_choice.eq(target.data).cpu().sum()
