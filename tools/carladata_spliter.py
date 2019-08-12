@@ -22,20 +22,16 @@ def check_datadir_valid(data_dir):
     '''
     assert os.path.exists(data_dir)
     assert os.path.exists(os.path.join(data_dir, "calib"))
-    assert os.path.exists(os.path.join(data_dir, "image_2"))
+    # assert os.path.exists(os.path.join(data_dir, "image_2"))
     assert os.path.exists(os.path.join(data_dir, "label_imu"))
     assert os.path.exists(os.path.join(data_dir, "velo_top"))
     assert os.path.exists(os.path.join(data_dir, "velo_left"))
     assert os.path.exists(os.path.join(data_dir, "velo_right"))
-    # assert os.path.exists(os.path.join(data_dir, "velo_fused"))
     assert len(os.listdir(os.path.join(data_dir, "calib"))) == \
         len(os.listdir(os.path.join(data_dir, "label_imu"))) == \
-        len(os.listdir(os.path.join(data_dir, "image_2"))) == \
         len(os.listdir(os.path.join(data_dir, "velo_top"))) == \
         len(os.listdir(os.path.join(data_dir, "velo_left"))) == \
         len(os.listdir(os.path.join(data_dir, "velo_right")))
-        # == \
-        # len(os.listdir(os.path.join(data_dir, "velo_fused")))
 
 def check_idxfile_valid(idx_path):
     '''
@@ -61,12 +57,11 @@ def split_data(data_dir, idx_path, output_dir):
     idx_list = get_idx_list(idx_path)
     os.mkdir(output_dir)
     os.mkdir(os.path.join(output_dir, 'calib'))
-    os.mkdir(os.path.join(output_dir, 'image_2'))
+    # os.mkdir(os.path.join(output_dir, 'image_2'))
     os.mkdir(os.path.join(output_dir, 'label_imu'))
     os.mkdir(os.path.join(output_dir, 'velo_top'))
     os.mkdir(os.path.join(output_dir, 'velo_left'))
     os.mkdir(os.path.join(output_dir, 'velo_right'))
-    # os.mkdir(os.path.join(output_dir, 'velo_fused'))
 
     # symlink data
     idx_count = 0
@@ -76,12 +71,11 @@ def split_data(data_dir, idx_path, output_dir):
 
         idx_count = idx_count + 1
         os.symlink(os.path.join(data_dir, 'calib', idx+'.txt'), os.path.join(output_dir, 'calib', idx+'.txt'))
-        os.symlink(os.path.join(data_dir, 'image_2', idx+'.png'), os.path.join(output_dir, 'image_2', idx+'.png'))
+        # os.symlink(os.path.join(data_dir, 'image_2', idx+'.png'), os.path.join(output_dir, 'image_2', idx+'.png'))
         os.symlink(os.path.join(data_dir, 'label_imu', idx+'.txt'), os.path.join(output_dir, 'label_imu', idx+'.txt'))
         os.symlink(os.path.join(data_dir, 'velo_top', idx+'.npy'), os.path.join(output_dir, 'velo_top', idx+'.npy'))
         os.symlink(os.path.join(data_dir, 'velo_left', idx + '.npy'), os.path.join(output_dir, 'velo_left', idx + '.npy'))
         os.symlink(os.path.join(data_dir, 'velo_right', idx + '.npy'), os.path.join(output_dir, 'velo_right', idx + '.npy'))
-        # os.symlink(os.path.join(data_dir, 'velo_fused', idx + '.npy'), os.path.join(output_dir, 'velo_fused', idx + '.npy'))
     return len(idx_list)
 
 def validate(output_dir, num_data):
@@ -92,12 +86,11 @@ def validate(output_dir, num_data):
         num_data(int): the # of samples should be in the output_dir
     '''
     assert num_data == len(os.listdir(os.path.join(output_dir, "calib")))
-    assert num_data == len(os.listdir(os.path.join(output_dir, "image_2")))
+    # assert num_data == len(os.listdir(os.path.join(output_dir, "image_2")))
     assert num_data == len(os.listdir(os.path.join(output_dir, "label_imu")))
     assert num_data == len(os.listdir(os.path.join(output_dir, "velo_top")))
     assert num_data == len(os.listdir(os.path.join(output_dir, "velo_left")))
     assert num_data == len(os.listdir(os.path.join(output_dir, "velo_right")))
-    # assert num_data == len(os.listdir(os.path.join(output_dir, "velo_fused")))
     print("# of data: {}".format(num_data))
     print("{}: DONE".format(__file__))
 
