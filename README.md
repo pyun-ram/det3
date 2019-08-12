@@ -17,4 +17,9 @@ docker pull pyun/python_pytorch:cuda10_3.5_1.1
 # Trouble: ModuleNotFoundError: No module named 'dropblock'
 # Solution:
 # pip install dropblock
+
+# Trouble: ModuleNotFoundError: No module named 'det3.methods.voxelnet.box_overlaps.box_overlaps'
+# Solution:
+# cd det3/
+# ./methods/voxelnet/setup.sh
 ```

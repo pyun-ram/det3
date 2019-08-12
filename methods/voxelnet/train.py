@@ -69,7 +69,7 @@ def main():
         model = torch.nn.DataParallel(model).cuda()
 
     # define loss function and optimizer
-    criterion = VoxelNetLoss(cfg.alpha, cfg.beta, cfg.eta, cfg.gamma, cfg.lambda_rot)
+    criterion = VoxelNetLoss(cfg.alpha, cfg.beta, cfg.eta, cfg.gamma, cfg.lambda_rot, cfg.weight_var)
     # optimizer = torch.optim.SGD(model.parameters(), cfg.lr,
     #                             momentum=cfg.momentum,
     #                             weight_decay=cfg.weight_decay)
@@ -145,6 +145,7 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
     losses = AverageMeter()
     cls_losses = AverageMeter()
     reg_losses = AverageMeter()
+    var_losses = AverageMeter()
     cls_pos_losses = AverageMeter()
     cls_neg_losses = AverageMeter()
     rot_rgl_losses = AverageMeter()
@@ -163,18 +164,18 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
             gt_target = gt_target.cuda(cfg.gpu, non_blocking=True)
         current_batch_size = gt_pos_map.shape[0]
         # compute output
-        est_pmap, est_rmap = model(voxel_feature, coordinate, batch_size=current_batch_size)
-        output = {"obj":est_pmap, 'reg':est_rmap}
+        output = model(voxel_feature, coordinate, batch_size=1)
         target = {"obj":gt_pos_map, 'reg':gt_target, "neg-obj":gt_neg_map}
         loss_dict = criterion(output, target)
 
         # measure accuracy and record loss
-        losses.update(loss_dict["loss"].item(), voxel_feature.size(0))
-        cls_losses.update(loss_dict["cls_loss"].item(), voxel_feature.size(0))
-        reg_losses.update(loss_dict["reg_loss"].item(), voxel_feature.size(0))
-        cls_pos_losses.update(loss_dict["cls_pos_loss"].item(), voxel_feature.size(0))
-        cls_neg_losses.update(loss_dict["cls_neg_loss"].item(), voxel_feature.size(0))
-        rot_rgl_losses.update(loss_dict["rot_rgl_loss"].item(), voxel_feature.size(0))
+        losses.update(loss_dict["loss"].item(), current_batch_size)
+        cls_losses.update(loss_dict["cls_loss"].item(), current_batch_size)
+        reg_losses.update(loss_dict["reg_loss"].item(), current_batch_size)
+        var_losses.update(loss_dict["var_loss"].item(), current_batch_size)
+        cls_pos_losses.update(loss_dict["cls_pos_loss"].item(), current_batch_size)
+        cls_neg_losses.update(loss_dict["cls_neg_loss"].item(), current_batch_size)
+        rot_rgl_losses.update(loss_dict["rot_rgl_loss"].item(), current_batch_size)
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -192,12 +193,13 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
                        'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                        'cls loss {cls_loss.val:.4f} ({cls_loss.avg:.4f})\t'
                        'reg loss {reg_loss.val:.4f} ({reg_loss.avg:.4f})\t'
+                       'var loss {var_loss.val:.4f} ({var_loss.avg:.4f})\t'
                        'cls pos loss {cls_pos_loss.val:.4f} ({cls_pos_loss.avg:.4f})\t'
                        'cls neg loss {cls_neg_loss.val:.4f} ({cls_neg_loss.avg:.4f})\t'
                        'rot rgl loss {rot_rgl_loss.val:.4f} ({rot_rgl_loss.avg:.4f})\t'.format(
                            epoch, i, len(train_loader), batch_time=batch_time,
                            data_time=data_time, loss=losses,
-                           cls_loss=cls_losses, reg_loss=reg_losses,
+                           cls_loss=cls_losses, reg_loss=reg_losses, var_loss=var_losses,
                            cls_pos_loss=cls_pos_losses, cls_neg_loss=cls_neg_losses,
                            rot_rgl_loss=rot_rgl_losses))
     return losses.avg, grad_logger.log(epoch), actv_logger.log(epoch)
@@ -228,16 +230,16 @@ def validate(val_loader, model, criterion, epoch, cfg):
                 gt_neg_map = torch.from_numpy(gt_neg_map).contiguous().cuda(cfg.gpu, non_blocking=True)
                 gt_target = torch.from_numpy(gt_target).contiguous().cuda(cfg.gpu, non_blocking=True)
             # compute output
-            est_pmap, est_rmap = model(voxel_feature, coordinate, batch_size=1)
-            output = {"obj":est_pmap, 'reg':est_rmap}
+            output = model(voxel_feature, coordinate, batch_size=1)
             target = {"obj":gt_pos_map, 'reg':gt_target, "neg-obj":gt_neg_map}
+
             loss_dict = criterion(output, target)
 
             # measure accuracy and record loss
             losses.update(loss_dict["loss"].item(), voxel_feature.size(0))
 
-            est_pmap_np = est_pmap.cpu().numpy()
-            est_rmap_np = est_rmap.cpu().numpy()
+            est_pmap_np = output["obj"].cpu().numpy()
+            est_rmap_np = output["reg"].cpu().numpy()
             rec_label = parse_grid_to_label(est_pmap_np[0], est_rmap_np[0], anchors,
                                             anchor_size=(cfg.ANCHOR_L, cfg.ANCHOR_W, cfg.ANCHOR_H),
                                             cls=cfg.cls, calib=calib,
