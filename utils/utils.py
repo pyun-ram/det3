@@ -335,3 +335,20 @@ def boxes3d2polygon(boxes):
     for cns in all_cns:
         all_plg2d.append(Polygon(cns.tolist()).buffer(0)) # buffer is to clean bowties
     return all_plg2d
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
