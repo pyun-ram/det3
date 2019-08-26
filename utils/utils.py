@@ -7,6 +7,10 @@ import numpy as np
 from PIL import Image
 import pickle
 
+def save_pickle(obj, file_path):
+    with open(file_path, 'wb') as f:
+        pickle.dump(obj, f)
+
 def load_pickle(file_path):
     data = pickle.load(open(file_path, "rb"))
     return data
