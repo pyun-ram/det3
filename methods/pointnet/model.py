@@ -99,10 +99,10 @@ class PointNetfeat(nn.Module):
     '''
     reference: https://github.com/fxia22/pointnet.pytorch
     '''    
-    def __init__(self, global_feat = True, feature_transform = False):
+    def __init__(self, input_channel=3, global_feat = True, feature_transform = False):
         super(PointNetfeat, self).__init__()
-        self.stn = STN3d()
-        self.conv1 = torch.nn.Conv1d(3, 64, 1)
+        self.stn = STNkd(k=input_channel)
+        self.conv1 = torch.nn.Conv1d(input_channel, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
         self.conv3 = torch.nn.Conv1d(128, 1024, 1)
         self.bn1 = nn.BatchNorm1d(64)
