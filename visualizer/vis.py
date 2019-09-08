@@ -90,7 +90,7 @@ class BEVImage:
         pts_BEV = np.hstack([x, y])
         return pts_BEV
 
-    def draw_box(self, obj, calib, bool_gt=False, width=3):
+    def draw_box(self, obj, calib, bool_gt=False, width=3, c=None):
         '''
         draw bounding box on BEV Image
         inputs:
@@ -117,6 +117,7 @@ class BEVImage:
         draw = ImageDraw.Draw(bev_img)
         p1, p2, p3, p4 = cns_FBEV
         color = 'purple' if bool_gt else 'yellow'
+        color = c if c is not None else color
         draw.line([p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], p1[0], p1[1]], fill=color, width=width)
         self.data = np.array(bev_img)
         return self
@@ -171,7 +172,7 @@ class FVImage:
         self.data = np.tile(self.data.reshape(height, width, 1), 3).astype(np.uint8)
         return self
 
-    def draw_box(self, obj, calib, bool_gt=False, width=3):
+    def draw_box(self, obj, calib, bool_gt=False, width=3, c=None):
         '''
         draw bounding box on Front View Image
         inputs:
@@ -205,12 +206,13 @@ class FVImage:
         p3 = np.array([maxx, maxy])
         p4 = np.array([maxx, miny])
         color = 'purple' if bool_gt else 'yellow'
+        color = c if c is not None else color
         draw.line([p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], p1[0], p1[1]],
                   fill=color, width=width)
         self.data = np.array(fv_img)
         return self
 
-    def draw_3dbox(self, obj, calib, bool_gt=False, width=3):
+    def draw_3dbox(self, obj, calib, bool_gt=False, width=3, c=None):
         '''
         draw bounding box on Front View Image
         inputs:
@@ -234,6 +236,7 @@ class FVImage:
         else:
             raise NotImplementedError
         color = 'purple' if bool_gt else 'yellow'
+        color = c if c is not None else color
         fv_img = Image.fromarray(self.data)
         draw = ImageDraw.Draw(fv_img)
         draw.line([cns_Fcam2d[0, 0], cns_Fcam2d[0, 1],
