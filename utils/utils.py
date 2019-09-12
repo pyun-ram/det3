@@ -58,6 +58,7 @@ def read_image(path):
 def read_pc_from_npy(npy_path):
     """Load PointCloud data from npy file."""
     p = np.load(npy_path)
+    assert not np.isnan(np.min(p))
     return p
 
 def read_pc_from_bin(bin_path):

@@ -110,7 +110,12 @@ class BEVImage:
         elif istype(obj, 'CarlaObj') and istype(calib, 'CarlaCalib'):
             cns_Fimu = obj.get_bbox3dcorners()[:4, :]
             cns_FBEV = self.lidar2BEV(cns_Fimu)
+        elif istype(obj, 'WaymoObj') and istype(calib, 'WaymoCalib'):
+            cns_Fimu = obj.get_bbox3dcorners()[:4, :]
+            cns_FBEV = self.lidar2BEV(cns_Fimu)
         else:
+            print(obj.__class__)
+            print(calib.__class__)
             raise NotImplementedError
 
         bev_img = Image.fromarray(self.data)
@@ -157,6 +162,11 @@ class FVImage:
             pts_Fimg = calib.leftcam2imgplane(pts_Fcam)
             width = np.ceil(calib.P2[0, 2] * 2).astype(np.int)
             height = np.ceil(calib.P2[1, 2] * 2).astype(np.int)
+        elif istype(calib, "WaymoCalib"):
+            pts_Fcam = calib.imu2cam(pts)
+            pts_Fimg = calib.cam2imgplane(pts_Fcam)
+            width = np.ceil(calib.P0[0, 2] * 2).astype(np.int)
+            height = np.ceil(calib.P0[1, 2] * 2).astype(np.int)
         else:
             raise NotImplementedError
 
@@ -190,6 +200,10 @@ class FVImage:
             cns_Fcam = obj.get_bbox3dcorners()
             cns_Fcam2d = calib.leftcam2imgplane(cns_Fcam)
         elif istype(obj, "CarlaObj") and istype(calib, "CarlaCalib"):
+            cns_Fimu = obj.get_bbox3dcorners()
+            cns_Fcam = calib.imu2cam(cns_Fimu)
+            cns_Fcam2d = calib.cam2imgplane(cns_Fcam)
+        elif istype(obj, "WaymoObj") and istype(calib, "WaymoCalib"):
             cns_Fimu = obj.get_bbox3dcorners()
             cns_Fcam = calib.imu2cam(cns_Fimu)
             cns_Fcam2d = calib.cam2imgplane(cns_Fcam)
@@ -230,6 +244,10 @@ class FVImage:
             cns_Fcam = obj.get_bbox3dcorners()
             cns_Fcam2d = calib.leftcam2imgplane(cns_Fcam)
         elif istype(obj, "CarlaObj") and istype(calib, "CarlaCalib"):
+            cns_Fimu = obj.get_bbox3dcorners()
+            cns_Fcam = calib.imu2cam(cns_Fimu)
+            cns_Fcam2d = calib.cam2imgplane(cns_Fcam)
+        elif istype(obj, "WaymoObj") and istype(calib, "WaymoCalib"):
             cns_Fimu = obj.get_bbox3dcorners()
             cns_Fcam = calib.imu2cam(cns_Fimu)
             cns_Fcam2d = calib.cam2imgplane(cns_Fcam)
@@ -280,6 +298,10 @@ class FVImage:
             cns_Fcam = obj.get_bbox3dcorners()
             cns_Fcam2d = calib.leftcam2imgplane(cns_Fcam)
         elif istype(obj, "CarlaObj") and istype(calib, "CarlaCalib"):
+            cns_Fimu = obj.get_bbox3dcorners()
+            cns_Fcam = calib.imu2cam(cns_Fimu)
+            cns_Fcam2d = calib.cam2imgplane(cns_Fcam)
+        elif istype(obj, "WaymoObj") and istype(calib, "WaymoCalib"):
             cns_Fimu = obj.get_bbox3dcorners()
             cns_Fcam = calib.imu2cam(cns_Fimu)
             cns_Fcam2d = calib.cam2imgplane(cns_Fcam)

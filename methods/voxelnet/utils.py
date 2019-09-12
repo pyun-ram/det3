@@ -8,6 +8,7 @@ from det3.methods.voxelnet.box_overlaps import bbox_overlaps
 from det3.utils.utils import istype, rotz, apply_R, apply_tr, nms_general
 from det3.dataloarder.kittidata import KittiLabel, KittiObj
 from det3.dataloarder.carladata import CarlaLabel, CarlaObj
+from det3.dataloarder.waymodata import WaymoLabel, WaymoObj
 
 def filter_camera_angle(pts):
     """
@@ -108,6 +109,8 @@ def filter_label_range(label, calib, x_range, y_range, z_range):
             cam_pt = np.array([[obj.x, obj.y-obj.h/2.0, obj.z]])
             lidar_pt = calib.leftcam2lidar(cam_pt)
         elif istype(label, "CarlaLabel") and istype(calib, "CarlaCalib"):
+            lidar_pt = np.array([[obj.x, obj.y+obj.h/2.0, obj.z]]) # IMU Frame
+        elif istype(label, "WaymoLabel") and istype(calib, "WaymoCalib"):
             lidar_pt = np.array([[obj.x, obj.y+obj.h/2.0, obj.z]]) # IMU Frame
         else:
             raise NotImplementedError
@@ -224,6 +227,12 @@ def create_rpn_target(label, calib, target_shape, anchors, threshold_pos_iou, th
         cns_FIMU = cns_FIMU.reshape(-1, 8, 3)
         cns_FIMU_2d = cns_FIMU[:, :4, :2]
         gt_standup_2d = corner_to_standup_box2d(cns_FIMU_2d)
+    elif istype(label, "WaymoLabel") and istype(calib, "WaymoCalib"):
+        cns_FIMU = [obj.get_bbox3dcorners() for obj in label.data]
+        cns_FIMU = np.vstack(cns_FIMU)
+        cns_FIMU = cns_FIMU.reshape(-1, 8, 3)
+        cns_FIMU_2d = cns_FIMU[:, :4, :2]
+        gt_standup_2d = corner_to_standup_box2d(cns_FIMU_2d)
     else:
         raise NotImplementedError
     iou = bbox_overlaps(
@@ -331,6 +340,10 @@ def parse_grid_to_label(obj_map, reg_map, anchors, anchor_size, cls, calib, thre
         label = CarlaLabel()
         label.data = []
         return label
+    elif ind.shape[0] == 0 and istype(calib, "WaymoCalib"):
+        label = WaymoLabel()
+        label.data = []
+        return label
     tmp_boxes3d = boxes3d[ind, ...]
     tmp_scores = probs[ind]
     ind = nms_general(tmp_boxes3d, tmp_scores, threshold_nms, mode='2d-rot')
@@ -354,6 +367,18 @@ def parse_grid_to_label(obj_map, reg_map, anchors, anchor_size, cls, calib, thre
         label.data = []
         for box3d, score in zip(tmp_boxes3d, tmp_scores):
             obj = CarlaObj()
+            x, y, z, h, w, l, ry = box3d
+            obj.x, obj.y, obj.z = x, y, z
+            obj.h, obj.w, obj.l, obj.ry = h, w, l, ry
+            cns_FIMU = obj.get_bbox3dcorners()
+            cns_Fcam = calib.imu2cam(cns_FIMU)
+            obj.from_corners(calib, cns_Fcam, cls, score)
+            label.data.append(obj)
+    elif istype(calib, "WaymoCalib"):
+        label = WaymoLabel()
+        label.data = []
+        for box3d, score in zip(tmp_boxes3d, tmp_scores):
+            obj = WaymoObj()
             x, y, z, h, w, l, ry = box3d
             obj.x, obj.y, obj.z = x, y, z
             obj.h, obj.w, obj.l, obj.ry = h, w, l, ry
@@ -387,6 +412,9 @@ def label_to_gt_box3d(label, calib):
             x, y, z = btmcenter_Flidar.reshape(-1)
             box3d = [x, y, z, h, w, l, ry]
         elif istype(label, "CarlaLabel") and istype(calib, "CarlaCalib"):
+            x, y, z = obj.x, obj.y, obj.z
+            box3d = [x, y, z, h, w, l, ry]
+        elif istype(label, "WaymoLabel") and istype(calib, "WaymoCalib"):
             x, y, z = obj.x, obj.y, obj.z
             box3d = [x, y, z, h, w, l, ry]
         else:

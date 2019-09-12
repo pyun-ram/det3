@@ -32,7 +32,7 @@ class WaymoObj(CarlaObj):
             cls (str): 'Car', 'Pedestrian', 'Cyclist', 'Sign'
             score (float): 0-1
         '''
-        assert cls in ['Car', 'Pedestrian', 'Sign']
+        assert cls in ['Car', 'Pedestrian', 'Cyclist'], cls
         assert score <= 1.0
         assert score >= 0.0
         x_Fcam = np.sum(corners[:, 0], axis=0)/ 8.0
