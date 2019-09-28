@@ -21,7 +21,7 @@ from det3.utils.utils import read_image
 from det3.methods.voxelnet.model import VoxelNet
 from det3.methods.voxelnet.config import cfg
 from det3.methods.voxelnet.utils import *
-from det3.dataloarder.kittidata import KittiCalib
+from det3.dataloader.kittidata import KittiCalib
 from det3.visualizer.vis import BEVImage, FVImage
 import tqdm
 

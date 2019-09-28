@@ -11,8 +11,8 @@ python3 tools/label_carla2kitti.py \
 import argparse
 import os
 import numpy as np
-from det3.dataloarder.carladata import CarlaLabel, CarlaCalib, CarlaObj
-from det3.dataloarder.kittidata import KittiLabel
+from det3.dataloader.carladata import CarlaLabel, CarlaCalib, CarlaObj
+from det3.dataloader.kittidata import KittiLabel
 from det3.utils.utils import write_str_to_file
 def validate(data_dir:str, idx:str, label_Fcam:KittiLabel, save_dir:str):
     '''
@@ -24,9 +24,9 @@ def validate(data_dir:str, idx:str, label_Fcam:KittiLabel, save_dir:str):
         save_dir: dir for saving visulizaition figures
     Note: the following code is dangerous, and should not be used in other place.
     '''
-    from det3.dataloarder.carladata import CarlaData
+    from det3.dataloader.carladata import CarlaData
     from det3.visualizer.vis import FVImage, BEVImage
-    from det3.dataloarder.kittidata import KittiObj, KittiLabel, KittiCalib
+    from det3.dataloader.kittidata import KittiObj, KittiLabel, KittiCalib
     from PIL import Image
     tag = idx.split(".")[0]
     pc, label, calib = CarlaData(data_dir, tag).read_data()

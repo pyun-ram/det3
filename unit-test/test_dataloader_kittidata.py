@@ -6,11 +6,11 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 import unittest
 import numpy as np
 try:
-    from ..dataloarder.kittidata import KittiCalib, KittiObj, KittiLabel
+    from ..dataloader.kittidata import KittiCalib, KittiObj, KittiLabel
     from ..utils.utils import read_pc_from_bin
 except:
     # Run script
-    from det3.dataloarder.kittidata import KittiCalib, KittiObj, KittiLabel
+    from det3.dataloader.kittidata import KittiCalib, KittiObj, KittiLabel
     from det3.utils.utils import read_pc_from_bin
 
 class TestKittiCalib(unittest.TestCase):

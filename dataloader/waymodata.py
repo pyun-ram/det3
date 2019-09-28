@@ -4,7 +4,7 @@ import numpy as np
 import math
 import os
 from numpy.linalg import inv
-from det3.dataloarder.carladata import CarlaCalib, CarlaObj, CarlaLabel, CarlaData
+from det3.dataloader.carladata import CarlaCalib, CarlaObj, CarlaLabel, CarlaData
 try:
     from ..utils import utils
 except:

@@ -12,7 +12,7 @@ import argparse
 import os
 import logging
 import numpy as np
-from det3.dataloarder.kittidata import KittiData, KittiLabel, KittiObj
+from det3.dataloader.kittidata import KittiData, KittiLabel, KittiObj
 from det3.utils.utils import roty
 from det3.methods.deep3dbox.utils import recover_loc_by_geometry, filter_label_range
 

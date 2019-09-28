@@ -7,9 +7,9 @@ import os
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-from det3.dataloarder.kittidata import KittiData
+from det3.dataloader.kittidata import KittiData
 from det3.methods.voxelnet.utils import *
-from det3.dataloarder.augmentor import KittiAugmentor
+from det3.dataloader.augmentor import KittiAugmentor
 from det3.utils.utils import load_pickle
 import glob
 

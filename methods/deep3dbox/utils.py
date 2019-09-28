@@ -6,7 +6,7 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 import numpy as np
 from scipy.optimize import lsq_linear
 from det3.utils.utils import roty, istype
-from det3.dataloarder.kittidata import KittiObj
+from det3.dataloader.kittidata import KittiObj
 
 def recover_loc_by_geometry(K, ry, l, w, h, bbox2d, calib):
     '''

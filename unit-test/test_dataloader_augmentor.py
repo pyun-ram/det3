@@ -7,16 +7,16 @@ import unittest
 import numpy as np
 from PIL import Image
 try:
-    from ..dataloarder.augmentor import KittiAugmentor, CarlaAugmentor
-    from ..dataloarder.kittidata import *
-    from ..dataloarder.carladata import *
+    from ..dataloader.augmentor import KittiAugmentor, CarlaAugmentor
+    from ..dataloader.kittidata import *
+    from ..dataloader.carladata import *
     from ..utils.utils import read_pc_from_bin, read_pc_from_npy
     from ..visualizer.vis import *
 except:
     # Run script
-    from det3.dataloarder.augmentor import KittiAugmentor, CarlaAugmentor
-    from det3.dataloarder.kittidata import *
-    from det3.dataloarder.carladata import *
+    from det3.dataloader.augmentor import KittiAugmentor, CarlaAugmentor
+    from det3.dataloader.kittidata import *
+    from det3.dataloader.carladata import *
     from det3.utils.utils import read_pc_from_bin, read_pc_from_npy
     from det3.visualizer.vis import *
 

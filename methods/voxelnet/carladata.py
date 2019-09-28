@@ -8,7 +8,7 @@ import numpy as np
 from numpy.linalg import norm
 import torch
 from torch.utils.data import Dataset
-from det3.dataloarder.carladata import CarlaData
+from det3.dataloader.carladata import CarlaData
 from det3.methods.voxelnet.utils import *
 from det3.utils.utils import load_pickle
 

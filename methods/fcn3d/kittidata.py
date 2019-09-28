@@ -8,7 +8,7 @@ import os
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-from det3.dataloarder.kittidata import KittiData
+from det3.dataloader.kittidata import KittiData
 from det3.methods.fcn3d.utils import *
 
 class KITTIDataFCN3D():

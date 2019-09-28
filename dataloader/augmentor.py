@@ -3,9 +3,9 @@ File Created: Wednesday, 26th June 2019 10:25:13 am
 Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
-from det3.dataloarder.kittidata import KittiLabel, KittiCalib, KittiObj
-from det3.dataloarder.carladata import CarlaLabel, CarlaCalib, CarlaObj
-from det3.dataloarder.waymodata import WaymoLabel, WaymoCalib, WaymoObj
+from det3.dataloader.kittidata import KittiLabel, KittiCalib, KittiObj
+from det3.dataloader.carladata import CarlaLabel, CarlaCalib, CarlaObj
+from det3.dataloader.waymodata import WaymoLabel, WaymoCalib, WaymoObj
 from det3.utils.utils import istype, apply_R, apply_tr, rotz, compute_intersec
 import numpy as np
 from typing import List
@@ -608,8 +608,8 @@ class WaymoAugmentor:
         return label_, pc_
 
 if __name__ == "__main__":
-    from det3.dataloarder.kittidata import KittiData, KittiCalib
-    from det3.dataloarder.waymodata import WaymoData, WaymoCalib
+    from det3.dataloader.kittidata import KittiData, KittiCalib
+    from det3.dataloader.waymodata import WaymoData, WaymoCalib
     from det3.utils.utils import read_pc_from_bin
     from det3.visualizer.vis import BEVImage
     from det3.methods.voxelnet.config import cfg

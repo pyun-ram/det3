@@ -19,10 +19,10 @@ from tqdm import tqdm
 def vis_fn(idx):
     global dataset, data_dir, output_dir
     if dataset == "KITTI":
-        from det3.dataloarder.kittidata import KittiData
+        from det3.dataloader.kittidata import KittiData
         calib, img, label, pc = KittiData(data_dir, idx).read_data()
     elif dataset == "CARLA":
-        from det3.dataloarder.carladata import CarlaData
+        from det3.dataloader.carladata import CarlaData
         import numpy as np
         pc_dict, label, calib = CarlaData(data_dir, idx).read_data()
         pc = np.vstack([calib.lidar2imu(v, key="Tr_imu_to_{}".format(k)) for k, v in pc_dict.items()])

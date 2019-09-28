@@ -6,10 +6,10 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 import unittest
 import numpy as np
 try:
-    from ..dataloarder.carladata import CarlaCalib, CarlaObj, CarlaLabel
+    from ..dataloader.carladata import CarlaCalib, CarlaObj, CarlaLabel
 except:
     # Run script
-    from det3.dataloarder.carladata import CarlaCalib, CarlaObj, CarlaLabel
+    from det3.dataloader.carladata import CarlaCalib, CarlaObj, CarlaLabel
 
 class TestCarlarCalib(unittest.TestCase):
     def test_init(self):

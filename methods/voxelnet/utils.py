@@ -6,9 +6,9 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 import numpy as np
 from det3.methods.voxelnet.box_overlaps import bbox_overlaps
 from det3.utils.utils import istype, rotz, apply_R, apply_tr, nms_general
-from det3.dataloarder.kittidata import KittiLabel, KittiObj
-from det3.dataloarder.carladata import CarlaLabel, CarlaObj
-from det3.dataloarder.waymodata import WaymoLabel, WaymoObj
+from det3.dataloader.kittidata import KittiLabel, KittiObj
+from det3.dataloader.carladata import CarlaLabel, CarlaObj
+from det3.dataloader.waymodata import WaymoLabel, WaymoObj
 
 def filter_camera_angle(pts):
     """
