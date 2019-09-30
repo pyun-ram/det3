@@ -9,13 +9,13 @@ import numpy as np
 __C = edict()
 cfg = __C
 
-__C.TAG = 'VoxelNet-dev-000A'
-__C.cls = 'Car'
+__C.TAG = 'VoxelNet-Peddev-000A'
 __C.DATADIR = '/usr/app/data/KITTI/'
+__C.cls = 'Pedestrian'
 __C.gpu = 0
 __C.resume = None
 __C.start_epoch = 0
-__C.epochs = 200
+__C.epochs = 1000
 __C.lr_dict = {
     "mode": "super-converge", # "const", "decay", "super-converge"
     "lr_range": [1e-4, 1e-3],
@@ -38,24 +38,42 @@ __C.weight_decay = 0
 __C.batch_size = 8
 __C.num_trainloader_wkers = 8
 __C.seed = None
-__C.alpha = 1
-__C.beta = 1
-__C.eta = 0.5
-__C.gamma = 2.0
-__C.lambda_rot = 0 # weight of rot regularization term
-__C.weight_var = 1
-__C.sparse = True
-__C.bool_fast_loader = False
-__C.val_freq = 5
-__C.val_max_visnum = 100
-__C.cls = 'Car'
-__C.name_featurenet = "SimpleVoxel" #FeatureNet" or "SimpleVoxel"
-__C.name_RPN = "RPNV3" #"RPN" or "RPNV2"
 __C.KITTI_cls = {
     'Car': ['Car', 'Van'],
     'Pedestrian': ['Pedestrian'],
     'Cyclist': ['Cyclist']
     }
+if __C.cls == "Car":
+    __C.alpha = 1
+    __C.beta = 1
+    __C.eta = 0.5
+    __C.gamma = 2.0
+    __C.lambda_rot = 0 # weight of rot regularization term
+    __C.weight_var = 0
+elif __C.cls == "Pedestrian":
+    __C.alpha = 5
+    __C.beta = 1
+    __C.eta = 0.5
+    __C.gamma = 2.0
+    __C.lambda_rot = 0 # weight of rot regularization term
+    __C.weight_var = 0
+elif __C.cls == "Cyclist":
+    __C.alpha = 5
+    __C.beta = 1
+    __C.eta = 0.5
+    __C.gamma = 2.0
+    __C.lambda_rot = 0 # weight of rot regularization term
+    __C.weight_var = 0
+else:
+    raise NotImplementedError
+
+__C.sparse = True
+__C.bool_fast_loader = False
+__C.name_featurenet = "SimpleVoxel" #FeatureNet" or "SimpleVoxel"
+__C.name_RPN = "RPNV2" #"RPN" or "RPNV2"
+
+__C.val_freq = 1
+__C.val_max_visnum = 100
 __C.aug_dict = {
     "p_rot":0.1,
     "p_tr": 0.1,
@@ -68,7 +86,7 @@ __C.aug_param = {
     "dz_range": [-0.2, 0.2],
     "dry_range": [-5 / 180.0 * np.pi, 5 / 180.0 * np.pi]
 }
-if __C.sparse:
+if __C.sparse and __C.cls == 'Car':
     __C.FEATURE_RATIO = 8
     __C.voxel_point_count = 5
     __C.print_freq = 1
@@ -76,7 +94,23 @@ if __C.sparse:
     __C.y_range = (-40, 40)          # Lidar Frame
     __C.z_range = (-3, 1.1)        # Lidar Frame
     __C.resolution = (0.05, 0.05, 0.1) # Lidar Frame (dx, dy, dz)
-else:
+elif __C.sparse and __C.cls == 'Pedestrian':
+    __C.FEATURE_RATIO = 8
+    __C.voxel_point_count = 5
+    __C.print_freq = 1
+    __C.x_range = (0, 50.4)            # Lidar Frame
+    __C.y_range = (-20, 20)          # Lidar Frame
+    __C.z_range = (-3, 1.1)        # Lidar Frame
+    __C.resolution = (0.02, 0.02, 0.1) # Lidar Frame (dx, dy, dz)
+elif __C.sparse and __C.cls == 'Cyclist':
+    __C.FEATURE_RATIO = 8
+    __C.voxel_point_count = 5
+    __C.print_freq = 1
+    __C.x_range = (0, 50.4)            # Lidar Frame
+    __C.y_range = (-20, 20)          # Lidar Frame
+    __C.z_range = (-3, 1.1)        # Lidar Frame
+    __C.resolution = (0.02, 0.02, 0.1) # Lidar Frame (dx, dy, dz)
+elif not __C.sparse:
     __C.FEATURE_RATIO = 2
     __C.voxel_point_count = 35
     __C.print_freq = 1
@@ -84,7 +118,8 @@ else:
     __C.y_range = (-40, 40)          # Lidar Frame
     __C.z_range = (-3, 1)        # Lidar Frame
     __C.resolution = (0.2, 0.2, 0.4) # Lidar Frame (dx, dy, dz)
-
+else:
+    raise NotImplementedError
 __C.INPUT_WIDTH = int((__C.x_range[1] - __C.x_range[0]) / __C.resolution[0])
 __C.INPUT_HEIGHT = int((__C.y_range[1] - __C.y_range[0]) / __C.resolution[1])
 __C.FEATURE_WIDTH = int(__C.INPUT_WIDTH / __C.FEATURE_RATIO)
@@ -97,8 +132,26 @@ if __C.cls == 'Car':
     __C.ANCHOR_Z = -1.0 - __C.ANCHOR_H/2
     __C.RPN_POS_IOU = 0.6
     __C.RPN_NEG_IOU = 0.45
-__C.RPN_SCORE_THRESH = 0.8 #0.96
-__C.RPN_NMS_THRESH = 0.01
+    __C.RPN_SCORE_THRESH = 0.8 #0.96
+    __C.RPN_NMS_THRESH = 0.01
+elif __C.cls == 'Pedestrian':
+    __C.ANCHOR_L = 0.8
+    __C.ANCHOR_W = 0.7
+    __C.ANCHOR_H = 1.76
+    __C.ANCHOR_Z = -1.46
+    __C.RPN_POS_IOU = 0.6
+    __C.RPN_NEG_IOU = 0.45
+    __C.RPN_SCORE_THRESH = 0.4 #0.96
+    __C.RPN_NMS_THRESH = 0.2
+elif __C.cls == 'Cyclist':
+    __C.ANCHOR_L = 1.8
+    __C.ANCHOR_W = 0.6
+    __C.ANCHOR_H = 1.74
+    __C.ANCHOR_Z = -1.49
+    __C.RPN_POS_IOU = 0.6
+    __C.RPN_NEG_IOU = 0.45
+    __C.RPN_SCORE_THRESH = 0.4 #0.96
+    __C.RPN_NMS_THRESH = 0.2
 __C.MIDGRID_SHAPE = [int(itm) for itm in [math.ceil((__C.z_range[1] - __C.z_range[0])/__C.resolution[-1]),
                                           __C.INPUT_HEIGHT,
                                           __C.INPUT_WIDTH]]

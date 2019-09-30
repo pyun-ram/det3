@@ -172,7 +172,8 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg):
         losses.update(loss_dict["loss"].item(), current_batch_size)
         cls_losses.update(loss_dict["cls_loss"].item(), current_batch_size)
         reg_losses.update(loss_dict["reg_loss"].item(), current_batch_size)
-        var_losses.update(loss_dict["var_loss"].item(), current_batch_size)
+        if not isinstance(loss_dict["var_loss"], float):
+            var_losses.update(loss_dict["var_loss"].item(), current_batch_size)
         cls_pos_losses.update(loss_dict["cls_pos_loss"].item(), current_batch_size)
         cls_neg_losses.update(loss_dict["cls_neg_loss"].item(), current_batch_size)
         rot_rgl_losses.update(loss_dict["rot_rgl_loss"].item(), current_batch_size)
