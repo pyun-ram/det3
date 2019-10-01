@@ -274,7 +274,8 @@ def validate(val_loader, model, criterion, epoch, cfg):
         val_image_ids = [int(itm.split(".")[0]) for itm in val_image_ids]
         val_image_ids.sort()
         gt_annos = kitti.get_label_annos(gt_path, val_image_ids)
-        val_ap_str = get_official_eval_result(gt_annos, dt_annos, 0)
+        cls_to_idx = {"Car": 0, "Pedestrian": 1, "Cyclist": 2}
+        val_ap_str = get_official_eval_result(gt_annos, dt_annos, cls_to_idx[cfg.cls])
         val_ap_dict = parse_eval_ap(val_ap_str)
 
     return losses.avg, val_ap_dict
