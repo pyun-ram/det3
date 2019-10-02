@@ -18,6 +18,8 @@ from det3.methods.voxelnet.model import VoxelNet
 from det3.methods.voxelnet.criteria import VoxelNetLoss
 from det3.methods.voxelnet.utils import parse_grid_to_label
 from det3.visualizer.vis import BEVImage, FVImage
+import kitti_common as kitti
+from eval import get_official_eval_result, get_coco_eval_result
 
 root_dir = __file__.split('/')
 root_dir = os.path.join(root_dir[0], root_dir[1])
@@ -95,8 +97,7 @@ def evaluate(data_loader, model, criterion, cfg):
                 # gt_target = torch.from_numpy(gt_target).contiguous().cuda(cfg.gpu, non_blocking=True)
 
             # compute output
-            est_pmap, est_rmap = model(voxel_feature, coordinate, batch_size=cfg.batch_size)
-            output = {"obj":est_pmap, 'reg':est_rmap}
+            output = model(voxel_feature, coordinate, batch_size=cfg.batch_size)
 
             # measure elapsed time
             batch_time.update(time.time() - end)
@@ -110,12 +111,17 @@ def evaluate(data_loader, model, criterion, cfg):
             else:
                 fvimg.from_lidar(calib, pc[:, :3])
 
-            est_pmap_np = est_pmap.cpu().numpy()
-            est_rmap_np = est_rmap.cpu().numpy()
+            est_pmap_np = output["obj"].cpu().numpy()
+            est_rmap_np = output["reg"].cpu().numpy()
             rec_label = parse_grid_to_label(est_pmap_np[0], est_rmap_np[0], anchors,
                                             anchor_size=(cfg.ANCHOR_L, cfg.ANCHOR_W, cfg.ANCHOR_H),
                                             cls=cfg.cls, calib=calib, threshold_score=cfg.RPN_SCORE_THRESH,
                                             threshold_nms=cfg.RPN_NMS_THRESH)
+            if label is not None:
+                for obj in label.data:
+                    if obj.type in cfg.KITTI_cls[cfg.cls]:
+                        bevimg.draw_box(obj, calib, bool_gt=True, width=3) # The latter bbox should be with a smaller width
+                        fvimg.draw_3dbox(obj, calib, bool_gt=True, width=3) # The latter bbox should be with a smaller width
             for obj in rec_label.data:
                 if obj.type in cfg.KITTI_cls[cfg.cls]:
                     bevimg.draw_box(obj, calib, bool_gt=False, width=2) # The latter bbox should be with a smaller width
@@ -132,6 +138,16 @@ def evaluate(data_loader, model, criterion, cfg):
                            'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                            'Loss {loss.val:.4f} ({loss.avg:.4f})'.format(
                                i, len(data_loader), batch_time=batch_time, loss=losses))
+        assert len(data_loader) > 50
+        det_path =  os.path.join(log_dir, 'eval_results', 'data')
+        dt_annos = kitti.get_label_annos(det_path)
+        gt_path = os.path.join(data_loader.label2_dir)
+        val_image_ids = os.listdir(det_path)
+        val_image_ids = [int(itm.split(".")[0]) for itm in val_image_ids]
+        val_image_ids.sort()
+        gt_annos = kitti.get_label_annos(gt_path, val_image_ids)
+        cls_to_idx = {"Car": 0, "Pedestrian": 1, "Cyclist": 2}
+        val_ap_str = get_official_eval_result(gt_annos, dt_annos, cls_to_idx[cfg.cls])
     return losses.avg
 
 def output_log(s):

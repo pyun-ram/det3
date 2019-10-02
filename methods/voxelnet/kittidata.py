@@ -113,9 +113,10 @@ class KittiDatasetVoxelNet(Dataset):
         if self.train_val_flag in ['train', 'val', 'dev']:
             kittidata_output_dict = None
         elif self.train_val_flag == "test":
+            bool_have_label = os.path.isdir(self.label2_dir)
             kittidata_output_dict = {"calib": True,
                                      "image": True,
-                                     "label": False,
+                                     "label": bool_have_label,
                                      "velodyne": True}
         else:
             raise NotImplementedError
