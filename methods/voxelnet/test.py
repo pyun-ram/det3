@@ -148,6 +148,7 @@ def evaluate(data_loader, model, criterion, cfg):
         gt_annos = kitti.get_label_annos(gt_path, val_image_ids)
         cls_to_idx = {"Car": 0, "Pedestrian": 1, "Cyclist": 2}
         val_ap_str = get_official_eval_result(gt_annos, dt_annos, cls_to_idx[cfg.cls])
+        output_log(val_ap_str)
     return losses.avg
 
 def output_log(s):
