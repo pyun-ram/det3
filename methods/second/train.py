@@ -10,6 +10,7 @@ from det3.methods.second.builder import (voxelizer_builder, box_coder_builder,
                                          optimizer_builder, evaluater_builder,
                                          model_manager_builder)
 from shutil import copy
+import sys
 def main(tag, cfg_path):
     # Initilization
         # initilize logger
@@ -71,4 +72,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     tag = args.tag if args.tag is not None else f"SECOND-{time.time():.2f}"
     cfg = args.cfg
+    print(tag, cfg)
+    sys.exit("DEBUG")
     main(tag, cfg)
