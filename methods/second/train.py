@@ -3,24 +3,29 @@ File Created: Monday, 7th October 2019 8:35:49 pm
 Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
+import os
+import sys
+import time
 import argparse
-from det3.methods.second.utils import Logger
+from pathlib import Path
+from shutil import copy
+from det3.methods.second.utils import Logger, load_module
 from det3.methods.second.builder import (voxelizer_builder, box_coder_builder,
                                          second_builder, dataloader_builder,
                                          optimizer_builder, evaluater_builder,
                                          model_manager_builder)
-from shutil import copy
-import sys
 def main(tag, cfg_path):
-    # Initilization
-        # initilize logger
-    logger = Logger(path=None)
-        # initilize folder structure
-    log_dir = None
-    saved_weights_dir = None
-    cfg = load_config_file(path=cfg_path) # copy and load specifically the new copy
+    root_dir = Path(__file__).parent
+    log_dir = root_dir/"logs"/tag
+    saved_weights_dir = root_dir/"saved_weights"/tag
+    log_dir.mkdir(parents=True, exist_ok=True)
+    saved_weights_dir.mkdir(parents=True, exist_ok=True)
+    setup_logger(log_dir)
+    cfg = load_config_file(cfg_path=cfg_path, log_dir=log_dir)
+
     # build net
-    voxelizer = voxelizer_builder.build(voxelizer_cfg=cfg["voxelizer"])
+    voxelizer = voxelizer_builder.build(voxelizer_cfg=cfg.Voxelizer)
+    exit("DEBUG")
     box_coder = box_coder_builder.build(box_coder_cfg=cfg["box_coder"])
     net = second_builder.build(net_cfg=cfg["net"], voxelizer=voxelizer, box_coder=box_coder)
     # build dataloader
@@ -42,12 +47,17 @@ def main(tag, cfg_path):
         validate(net, dataloader=val_dataloader, evaluater=evaluater, logger=logger)
         save_weight(model_manager, net, weight_path=None)
 
-def load_config_file(path) -> dict:
-    # backup config file
-    # load config file (backup copy)
-    # log config file (log & print)
-    # return cfg (dict)
-    raise NotImplementedError
+def setup_logger(log_dir):
+    logger = Logger()
+    logger.global_dir = log_dir
+    return logger
+
+def load_config_file(cfg_path, log_dir) -> dict:
+    assert os.path.isfile(cfg_path)
+    bkup_path = Path(log_dir)/"config.py"
+    copy(cfg_path, bkup_path)
+    cfg = load_module(bkup_path, "cfg")
+    return cfg
 
 def resume_weight(model_manager, net, weight_path):
     raise NotImplementedError
@@ -70,8 +80,6 @@ if __name__ == "__main__":
                         type=str, metavar='CFG',
                         help='config file path')
     args = parser.parse_args()
-    tag = args.tag if args.tag is not None else f"SECOND-{time.time():.2f}"
     cfg = args.cfg
-    print(tag, cfg)
-    sys.exit("DEBUG")
+    tag = args.tag if args.tag is not None else f"SECOND-{time.time():.2f}"
     main(tag, cfg)

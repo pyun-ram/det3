@@ -1,4 +1,6 @@
 import os
+import logging
+from pathlib import Path
 class Logger:
     """For simple log.
     generate 3 kinds of log: 
@@ -20,10 +22,12 @@ class Logger:
     def global_dir(self, v):
         assert os.path.isdir(v), f"{v} is not a valid dir."
         Logger.global_dir=v
+        logging.basicConfig(filename=Path(v, 'log.txt'))
     
     @staticmethod
-    def log_txt(self, s):
-        raise NotImplementedError
+    def log_txt(s):
+        print(s)
+        logging.critical(s)
 
     @staticmethod
     def log_img(self, img, path):
