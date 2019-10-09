@@ -7,3 +7,9 @@ class BaseBoxCoder:
     
     def decode(grid):
         raise NotImplementedError
+    
+class BoxCoderV1(BaseBoxCoder):
+    def __init__(self):
+        pass
+
+    def encode(boxes, anchors)
