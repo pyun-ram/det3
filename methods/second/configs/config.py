@@ -13,11 +13,24 @@ __C.Voxelizer = {
 }
 __C.AnchorGenerator = {
     "type": "AnchorGeneratorBEV",
-    "anchor_range": [0, -40.0, -1.00, 70.4, 40.0, -1.00],
+    "anchor_ranges": [0, -40.0, -1.00, 70.4, 40.0, -1.00],
     "sizes": [1.6, 3.9, 1.56], # wlh
     "rotations": [0, 1.57],
 }
-__C.BoxCoder = {}
+__C.TargetAssigner = {
+    "type": "TaskAssignerV1",
+    "classes": ["Car"],
+    "feature_map_sizes": [None],
+    "region_similarity_calculators": ["nearest_iou_similarity"],
+    "positive_fraction": -1,
+    "sample_size": 512,
+    "assign_per_class": True,
+}
+__C.BoxCoder = {
+    "type": "BoxCoderV1",
+    "custom_ndim": 0,
+}
+
 __C.Net = {}
 __C.DataLoader = {}
 __C.Optimizer = {}

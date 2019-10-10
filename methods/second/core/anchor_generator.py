@@ -60,5 +60,6 @@ if __name__=="__main__":
     rotations=[0, 1.57]
     anchor_generator_est = AnchorGeneratorBEV(anchor_ranges, sizes, rotations)
     est = anchor_generator_est.generate(feature_map_size=[1, 200, 176])
-    gt = np.load("./gt_anchor_generator.npy")
-    print((est == gt).all())
+    # gt = np.load("./gt_anchor_generator.npy")
+    # print((est == gt).all())
+    print(est.shape)

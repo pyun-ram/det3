@@ -27,8 +27,9 @@ def main(tag, cfg_path):
     # build net
     voxelizer = voxelizer_builder.build(voxelizer_cfg=cfg.Voxelizer)
     anchor_generator = anchor_generator_builder.build(anchor_generator_cfg=cfg.AnchorGenerator)
+    box_coder = box_coder_builder.build(box_coder_cfg=cfg.BoxCoder)
+    # target_assigner = target_assigner_builder.build(target_assigner_cfg=cfg.TargetAssigner)
     exit("DEBUG")
-    box_coder = box_coder_builder.build(box_coder_cfg=cfg["box_coder"])
     net = second_builder.build(net_cfg=cfg["net"], voxelizer=voxelizer, box_coder=box_coder)
     # build dataloader
     dataloader_cfg = cfg["data_loader"]
