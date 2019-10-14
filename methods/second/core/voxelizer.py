@@ -99,6 +99,14 @@ class VoxelizerV1(BaseVoxelizer):
             -1, max_points, 1)
         return res
 
+    @property
+    def voxel_size(self):
+        return self._voxel_size
+
+    @property
+    def grid_size(self):
+        return self._grid_size
+
 if __name__=="__main__":
     from det3.utils.utils import read_pc_from_bin
     from spconv.utils import VoxelGeneratorV2

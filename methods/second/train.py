@@ -11,7 +11,8 @@ from pathlib import Path
 from shutil import copy
 from det3.methods.second.utils import Logger, load_module
 from det3.methods.second.builder import (voxelizer_builder, box_coder_builder,
-                                         anchor_generator_builder,
+                                         similarity_calculator_builder, 
+                                         anchor_generator_builder, target_assigner_builder,
                                          second_builder, dataloader_builder,
                                          optimizer_builder, evaluater_builder,
                                          model_manager_builder)
@@ -28,7 +29,11 @@ def main(tag, cfg_path):
     voxelizer = voxelizer_builder.build(voxelizer_cfg=cfg.Voxelizer)
     anchor_generator = anchor_generator_builder.build(anchor_generator_cfg=cfg.AnchorGenerator)
     box_coder = box_coder_builder.build(box_coder_cfg=cfg.BoxCoder)
-    # target_assigner = target_assigner_builder.build(target_assigner_cfg=cfg.TargetAssigner)
+    similarity_calculator = similarity_calculator_builder.build(similarity_calculator_cfg=cfg.SimilarityCalculator)
+    target_assigner = target_assigner_builder.build(target_assigner_cfg=cfg.TargetAssigner,
+                                                    box_coder=box_coder,
+                                                    anchor_generators=[anchor_generator],
+                                                    region_similarity_calculators=[similarity_calculator])
     exit("DEBUG")
     net = second_builder.build(net_cfg=cfg["net"], voxelizer=voxelizer, box_coder=box_coder)
     # build dataloader

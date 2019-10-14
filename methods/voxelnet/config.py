@@ -72,7 +72,7 @@ __C.bool_fast_loader = False
 __C.name_featurenet = "SimpleVoxel" #FeatureNet" or "SimpleVoxel"
 __C.name_RPN = "RPNV2" #"RPN" or "RPNV2"
 
-__C.val_freq = 1
+__C.val_freq = 1000
 __C.val_max_visnum = 100
 __C.aug_dict = {
     "p_rot":0.1,
