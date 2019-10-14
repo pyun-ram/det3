@@ -34,8 +34,8 @@ def main(tag, cfg_path):
                                                     box_coder=box_coder,
                                                     anchor_generators=[anchor_generator],
                                                     region_similarity_calculators=[similarity_calculator])
+    net = second_builder.build(cfg=cfg.Net, voxelizer=voxelizer, target_assigner=target_assigner)
     exit("DEBUG")
-    net = second_builder.build(net_cfg=cfg["net"], voxelizer=voxelizer, box_coder=box_coder)
     # build dataloader
     dataloader_cfg = cfg["data_loader"]
     train_dataloader = dataloader_builder.build(dataloader_cfg=dataloader_cfg["train"])
