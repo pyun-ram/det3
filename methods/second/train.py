@@ -7,6 +7,9 @@ import os
 import sys
 import time
 import argparse
+import torch
+import torch.utils.data
+import numpy as np
 from pathlib import Path
 from shutil import copy
 from det3.methods.second.utils import Logger, load_module
@@ -16,6 +19,51 @@ from det3.methods.second.builder import (voxelizer_builder, box_coder_builder,
                                          second_builder, dataloader_builder,
                                          optimizer_builder, evaluater_builder,
                                          model_manager_builder)
+
+def merge_second_batch(batch_list):
+    from collections import defaultdict
+    example_merged = defaultdict(list)
+    for example in batch_list:
+        for k, v in example.items():
+            example_merged[k].append(v)
+    ret = {}
+    for key, elems in example_merged.items():
+        if key in [
+                'voxels', 'num_points', 'num_gt', 'voxel_labels', 'gt_names', 'gt_classes', 'gt_boxes'
+        ]:
+            ret[key] = np.concatenate(elems, axis=0)
+        elif key == 'metadata':
+            ret[key] = elems
+        elif key == "calib":
+            ret[key] = {}
+            for elem in elems:
+                for k1, v1 in elem.items():
+                    if k1 not in ret[key]:
+                        ret[key][k1] = [v1]
+                    else:
+                        ret[key][k1].append(v1)
+            for k1, v1 in ret[key].items():
+                ret[key][k1] = np.stack(v1, axis=0)
+        elif key == 'coordinates':
+            coors = []
+            for i, coor in enumerate(elems):
+                coor_pad = np.pad(
+                    coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
+                coors.append(coor_pad)
+            ret[key] = np.concatenate(coors, axis=0)
+        elif key == 'metrics':
+            ret[key] = elems
+        else:
+            ret[key] = np.stack(elems, axis=0)
+    return ret
+
+
+def _worker_init_fn(worker_id):
+    time_seed = np.array(time.time(), dtype=np.int32)
+    np.random.seed(time_seed + worker_id)
+    print(f"WORKER {worker_id} seed:", np.random.get_state()[1][0])
+
+
 def main(tag, cfg_path):
     root_dir = Path(__file__).parent
     log_dir = root_dir/"logs"/tag
@@ -35,19 +83,37 @@ def main(tag, cfg_path):
                                                     anchor_generators=[anchor_generator],
                                                     region_similarity_calculators=[similarity_calculator])
     net = second_builder.build(cfg=cfg.Net, voxelizer=voxelizer, target_assigner=target_assigner)
-    exit("DEBUG")
     # build dataloader
-    dataloader_cfg = cfg["data_loader"]
-    train_dataloader = dataloader_builder.build(dataloader_cfg=dataloader_cfg["train"])
-    val_dataloader = dataloader_builder.build(dataloader_cfg=dataloader_cfg["val"])
+    train_data = dataloader_builder.build(cfg.Net, cfg.TrainDataLoader,
+                                          voxelizer, target_assigner, training=True)
+    train_dataloader = torch.utils.data.DataLoader(
+        train_data,
+        batch_size=cfg.TrainDataLoader["batch_size"],
+        shuffle=True,
+        num_workers=cfg.TrainDataLoader["num_workers"],
+        pin_memory=False,
+        collate_fn=merge_second_batch,
+        worker_init_fn=_worker_init_fn,
+        drop_last=True)
+    val_data = dataloader_builder.build(cfg.Net, cfg.ValDataLoader,
+                                          voxelizer, target_assigner, training=False)
+    val_dataloader = torch.utils.data.DataLoader(
+        val_data,
+        batch_size=cfg.TrainDataLoader["batch_size"],
+        shuffle=True,
+        num_workers=cfg.TrainDataLoader["num_workers"],
+        pin_memory=False,
+        collate_fn=merge_second_batch,
+        worker_init_fn=_worker_init_fn,
+        drop_last=True)
     # build optimizer
-    optimizer = optimizer_builder.build(opt_cfg=cfg["optimizer"])
+    optimizer, lr_scheduler = optimizer_builder.build(optimizer_cfg=cfg.Optimizer, lr_scheduler_cfg=cfg.LRScheduler, net=net)
     # build evaluater
-    evaluater = evaluater_builder.build(evaluater_cfg=cfg["evaluater"])
+    # evaluater = evaluater_builder.build(evaluater_cfg=cfg["evaluater"])
     # build model_manager
-    model_manager = model_manager_builder.build(model_manager_cfg=cfg["weight_manager"])
+    # model_manager = model_manager_builder.build(model_manager_cfg=cfg["weight_manager"])
     # load weight
-    resume_weight(model_manager, net, weight_path=None)
+    # resume_weight(model_manager, net, weight_path=None)
     # train
     epoch=None
     for i in range(epoch):

@@ -17,9 +17,12 @@ __C.BoxCoder = {
 }
 __C.AnchorGenerator = {
     "type": "AnchorGeneratorBEV",
+    "class_name": "Car",
     "anchor_ranges": [0, -40.0, -1.00, 70.4, 40.0, -1.00],
     "sizes": [1.6, 3.9, 1.56], # wlh
     "rotations": [0, 1.57],
+    "match_threshold": 0.6,
+    "unmatch_threshold": 0.45,
 }
 __C.SimilarityCalculator = {
     "type": "NearestIoUSimilarity"
@@ -43,6 +46,7 @@ __C.Net = {
         "name": "SpMiddleFHD",
         "use_norm": True,
         "num_input_features": 4,
+        "downsample_factor": 8
     },
     "RPN":{
         "name": "RPNV2",
@@ -92,7 +96,95 @@ __C.Net = {
     "neg_cls_weight": 1.0,
 
 }
-__C.DataLoader = {}
-__C.Optimizer = {}
+__C.TrainDataLoader = {
+    "batch_size": 8,
+    "num_workers": 8,
+    "Dataset": {
+        "name": "KittiDataset",
+        "kitti_info_path": "/usr/app/data/KITTI/kitti_infos_train.pkl",
+        "kitti_root_path": "/usr/app/data/KITTI/",
+    },
+    "DBSampler": {
+        "name": "DataBaseSamplerV2",
+        "db_info_path": "/usr/app/data/KITTI/kitti_dbinfos_train.pkl",
+        "sample_groups": [
+            {"Car": 15},
+        ],
+        "DBProcer": [
+            {"name": "DBFilterByMinNumPoint",
+             "min_gt_point_dict": {"Car": 5}},
+            {"name": "DBFilterByDifficulty",
+             "removed_difficulties": [-1]},
+        ],
+        "rate": 1.0,
+        "global_random_rotation_range_per_object": [0, 0]
+    },
+    "PreProcess":{
+        "max_number_of_voxels": 17000,
+        "remove_unknown_examples": False,
+        "shuffle_points": True,
+        "groundtruth_rotation_uniform_noise": [-0.78539816, 0.78539816],
+        "groundtruth_localization_noise_std": [1.0, 1.0, 0.5],
+        "global_rotation_uniform_noise": [-0.78539816, 0.78539816],
+        "global_scaling_uniform_noise": [0.95, 1.05],
+        "global_random_rotation_range_per_object": [0, 0],
+        "global_translate_noise_std": [0, 0, 0],
+        "anchor_area_threshold": -1,
+        "groundtruth_points_drop_percentage": 0.0,
+        "groundtruth_drop_max_keep_points": 15,
+        "remove_points_after_sample": True,
+        "remove_environment": False,
+        "use_group_id": False,
+        "min_num_of_points_in_gt": -1, # deactivate
+        "random_flip_x": False,
+        "random_flip_y": True,
+        "sample_importance": 1.0,
+    }
+}
+__C.ValDataLoader = {
+    "batch_size": 8,
+    "num_workers": 8,
+    "Dataset": {
+        "name": "KittiDataset",
+        "kitti_info_path": "/usr/app/data/KITTI/kitti_infos_val.pkl",
+        "kitti_root_path": "/usr/app/data/KITTI/",
+    },
+    "PreProcess":{
+        "max_number_of_voxels": 40000,
+        "shuffle_points": False,
+        "anchor_area_threshold": -1,
+        "remove_environment": False,
+
+        "remove_unknown_examples": None,
+        "groundtruth_rotation_uniform_noise": [],
+        "groundtruth_localization_noise_std": [],
+        "global_rotation_uniform_noise": [],
+        "global_scaling_uniform_noise":[],
+        "global_random_rotation_range_per_object":[],
+        "global_translate_noise_std":[],
+        "groundtruth_points_drop_percentage":None,
+        "groundtruth_drop_max_keep_points":None,
+        "remove_points_after_sample":None,
+        "use_group_id":None,
+        "min_num_of_points_in_gt":None,
+        "random_flip_x":None,
+        "random_flip_y":None,
+        "sample_importance":None,
+    }
+}
+__C.Optimizer = {
+    "name": "ADAMOptimizer",
+    "amsgrad": False,
+    "weight_decay": 0.01,
+    "fixed_weight_decay": True,
+    "steps": 23200 #464 * 50
+}
+__C.LRScheduler = {
+    "name": "OneCycle",
+    "lr_max": 2.25e-3,
+    "moms": [0.95, 0.85],
+    "div_factor": 10.0,
+    "pct_start": 0.4,
+}
 __C.Evaluater = {}
 __C.WeightManager = {}

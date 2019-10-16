@@ -8,6 +8,16 @@ from det3.methods.second.utils.log_tool import Logger
 from det3.methods.second.utils.torch_utils import one_hot
 from det3.methods.second.ops.ops import limit_period, center_to_corner_box2d, corner_to_standup_nd
 from det3.methods.second.ops.torch_ops import rotate_nms
+
+def get_downsample_factor(model_config):
+    downsample_factor = np.prod(model_config["RPN"]["layer_strides"])
+    if len(model_config["RPN"]["upsample_strides"]) > 0:
+        downsample_factor /= model_config["RPN"]["upsample_strides"][-1]
+    downsample_factor *= model_config["MiddleLayer"]["downsample_factor"]
+    downsample_factor = np.round(downsample_factor).astype(np.int64)
+    assert downsample_factor > 0
+    return downsample_factor
+
 class VoxelNet(nn.Module):
     def __init__(self,
                  vfe_cfg:dict,
@@ -62,7 +72,9 @@ class VoxelNet(nn.Module):
         encode_background_as_zeros = rpn_cfg["encode_background_as_zeros"]
         use_sigmoid_score = cfg["use_sigmoid_score"]
         self.voxel_feature_extractor = voxel_encoder.get_vfe_class(vfe_cfg["name"])(**vfe_cfg)
-        self.middle_feature_extractor = middle.get_middle_class(middle_cfg["name"])(**middle_cfg)
+        middle_cfg_ = middle_cfg.copy()
+        del middle_cfg_["downsample_factor"]
+        self.middle_feature_extractor = middle.get_middle_class(middle_cfg["name"])(**middle_cfg_)
         self.rpn = rpn.get_rpn_class(rpn_cfg["name"])(**rpn_cfg)
 
         self.rpn_acc = metrics.Accuracy(

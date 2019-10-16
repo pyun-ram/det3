@@ -42,6 +42,87 @@ class TaskAssignerV1(BaseTaskAssigner):
         self._feature_map_sizes = feature_map_sizes
         Logger.log_txt("Warning: TaskAssignerV1 requires unit-test.")
 
+    def generate_anchors(self, feature_map_size):
+        anchors_list = []
+        ndim = len(feature_map_size)
+        matched_thresholds = [
+            a.match_threshold for a in self._anchor_generators
+        ]
+        unmatched_thresholds = [
+            a.unmatch_threshold for a in self._anchor_generators
+        ]
+        match_list, unmatch_list = [], []
+        if self._feature_map_sizes is not None:
+            feature_map_sizes = self._feature_map_sizes
+        else:
+            feature_map_sizes = [feature_map_size] * len(self._anchor_generators)
+        idx = 0
+        for anchor_generator, match_thresh, unmatch_thresh, fsize in zip(
+                self._anchor_generators, matched_thresholds,
+                unmatched_thresholds, feature_map_sizes):
+            if len(fsize) == 0:
+                fsize = feature_map_size
+                self._feature_map_sizes[idx] = feature_map_size
+            anchors = anchor_generator.generate(fsize)
+            anchors = anchors.reshape([*fsize, -1, self.box_ndim])
+            anchors = anchors.transpose(ndim, *range(0, ndim), ndim + 1)
+            anchors_list.append(anchors.reshape(-1, self.box_ndim))
+            num_anchors = np.prod(anchors.shape[:-1])
+            match_list.append(
+                np.full([num_anchors], match_thresh, anchors.dtype))
+            unmatch_list.append(
+                np.full([num_anchors], unmatch_thresh, anchors.dtype))
+            idx += 1
+        anchors = np.concatenate(anchors_list, axis=0)
+        matched_thresholds = np.concatenate(match_list, axis=0)
+        unmatched_thresholds = np.concatenate(unmatch_list, axis=0)
+        return {
+            "anchors": anchors,
+            "matched_thresholds": matched_thresholds,
+            "unmatched_thresholds": unmatched_thresholds
+        }
+
+    def generate_anchors_dict(self, feature_map_size):
+        from collections import OrderedDict
+        ndim = len(feature_map_size)
+        anchors_list = []
+        matched_thresholds = [
+            a.match_threshold for a in self._anchor_generators
+        ]
+        unmatched_thresholds = [
+            a.unmatch_threshold for a in self._anchor_generators
+        ]
+        match_list, unmatch_list = [], []
+        anchors_dict = OrderedDict()
+        for a in self._anchor_generators:
+            anchors_dict[a.class_name] = {}
+        if self._feature_map_sizes is not None:
+            feature_map_sizes = self._feature_map_sizes
+        else:
+            feature_map_sizes = [feature_map_size] * len(self._anchor_generators)
+        idx = 0
+        for anchor_generator, match_thresh, unmatch_thresh, fsize in zip(
+                self._anchor_generators, matched_thresholds,
+                unmatched_thresholds, feature_map_sizes):
+            if len(fsize) == 0:
+                fsize = feature_map_size
+                self._feature_map_sizes[idx] = feature_map_size
+
+            anchors = anchor_generator.generate(fsize)
+            anchors = anchors.reshape([*fsize, -1, self.box_ndim])
+            anchors = anchors.transpose(ndim, *range(0, ndim), ndim + 1)
+            num_anchors = np.prod(anchors.shape[:-1])
+            match_list.append(
+                np.full([num_anchors], match_thresh, anchors.dtype))
+            unmatch_list.append(
+                np.full([num_anchors], unmatch_thresh, anchors.dtype))
+            class_name = anchor_generator.class_name
+            anchors_dict[class_name]["anchors"] = anchors.reshape(-1, self.box_ndim)
+            anchors_dict[class_name]["matched_thresholds"] = match_list[-1]
+            anchors_dict[class_name]["unmatched_thresholds"] = unmatch_list[-1]
+            idx += 1
+        return anchors_dict
+
     @property
     def box_coder(self):
         return self._box_coder

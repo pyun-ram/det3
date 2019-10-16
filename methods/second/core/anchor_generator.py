@@ -17,6 +17,9 @@ class AnchorGeneratorBEV(BaseAnchorGenerator):
     '''
     def __init__(self,
                  anchor_ranges,
+                 match_threshold,
+                 unmatch_threshold,
+                 class_name,
                  sizes=[1.6, 3.9, 1.56],
                  rotations=[0, np.pi / 2],
                  custom_values=(),
@@ -26,6 +29,13 @@ class AnchorGeneratorBEV(BaseAnchorGenerator):
         self._rotations = rotations
         self._dtype = dtype
         self._custom_values = custom_values
+        self.match_threshold = match_threshold
+        self.unmatch_threshold = unmatch_threshold
+        self._class_name = class_name
+
+    @property
+    def class_name(self):
+        return self._class_name
 
     def generate(self, feature_map_size):
         from det3.methods.second.ops.ops import create_anchors_3d_range
