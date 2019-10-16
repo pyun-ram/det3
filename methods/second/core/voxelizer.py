@@ -107,6 +107,20 @@ class VoxelizerV1(BaseVoxelizer):
     def grid_size(self):
         return self._grid_size
 
+    @property
+    def point_cloud_range(self):
+        return self._point_cloud_range
+
+    def generate(self, points, max_voxels=None):
+        res = self.points_to_voxel(
+            points, self._voxel_size, self._point_cloud_range,
+            self._coor_to_voxelidx, self._max_num_points, max_voxels
+            or self._max_voxels)
+        for k, v in res.items():
+            if k != "voxel_num":
+                res[k] = v[:res["voxel_num"]]
+        return res
+
 if __name__=="__main__":
     from det3.utils.utils import read_pc_from_bin
     from spconv.utils import VoxelGeneratorV2

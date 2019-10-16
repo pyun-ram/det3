@@ -99,6 +99,26 @@ def second_box_decode(box_encodings,
     cgs = [t + a for t, a in zip(cts, cas)]
     return np.concatenate([xg, yg, zg, wg, lg, hg, rg, *cgs], axis=-1)
 
+def box_camera_to_lidar(data, r_rect, velo2cam):
+    xyz = data[:, 0:3]
+    l, h, w = data[:, 3:4], data[:, 4:5], data[:, 5:6]
+    r = data[:, 6:7]
+    xyz_lidar = camera_to_lidar(xyz, r_rect, velo2cam)
+    return np.concatenate([xyz_lidar, w, l, h, r], axis=1)
+
+def points_in_rbbox(points, rbbox, z_axis=2, origin=(0.5, 0.5, 0.5)):
+    from det3.methods.second.data.preprocess import points_in_convex_polygon_3d_jit
+    rbbox_corners = center_to_corner_box3d(
+        rbbox[:, :3], rbbox[:, 3:6], rbbox[:, 6], origin=origin, axis=z_axis)
+    surfaces = corner_to_surfaces_3d(rbbox_corners)
+    indices = points_in_convex_polygon_3d_jit(points[:, :3], surfaces)
+    return indices
+
+def change_box3d_center_(box3d, src, dst):
+    dst = np.array(dst, dtype=box3d.dtype)
+    src = np.array(src, dtype=box3d.dtype)
+    box3d[..., :3] += box3d[..., 3:6] * (dst - src)
+
 def create_target_np(all_anchors,
                      gt_boxes,
                      similarity_fn,
@@ -174,6 +194,7 @@ def create_target_np(all_anchors,
         gt_classes = np.ones([gt_boxes.shape[0]], dtype=np.int32)
     if gt_importance is None:
         gt_importance = np.ones([gt_boxes.shape[0]], dtype=np.float32)
+
     # Compute anchor labels:
     # label=1 is positive, 0 is negative, -1 is don't care (ignore)
     labels = np.empty((num_inside, ), dtype=np.int32)
@@ -183,12 +204,13 @@ def create_target_np(all_anchors,
     importance = np.empty((num_inside, ), dtype=np.float32)
     importance.fill(1)
     if len(gt_boxes) > 0:
-        # compute overlaps between the anchors and the gt boxes overlaps
+        # Compute overlaps between the anchors and the gt boxes overlaps
         anchor_by_gt_overlap = similarity_fn(anchors, gt_boxes)
         # Map from anchor to gt box that has highest overlap
         anchor_to_gt_argmax = anchor_by_gt_overlap.argmax(axis=1)
         # For each anchor, amount of overlap with most overlapping gt box
-        anchor_to_gt_max = anchor_by_gt_overlap[np.arrange(num_inside), anchor_to_gt_argmax]
+        anchor_to_gt_max = anchor_by_gt_overlap[np.arange(num_inside),
+                                                anchor_to_gt_argmax]  #
         # Map from gt box to an anchor that has highest overlap
         gt_to_anchor_argmax = anchor_by_gt_overlap.argmax(axis=0)
         # For each gt box, amount of overlap with most overlapping anchor
@@ -198,11 +220,16 @@ def create_target_np(all_anchors,
         # must remove gt which doesn't match any anchor.
         empty_gt_mask = gt_to_anchor_max == 0
         gt_to_anchor_max[empty_gt_mask] = -1
+        # Find all anchors that share the max overlap amount
+        # (this includes many ties)
         anchors_with_max_overlap = np.where(
             anchor_by_gt_overlap == gt_to_anchor_max)[0]
+        # Fg label: for each gt use anchors with highest overlap
+        # (including ties)
         gt_inds_force = anchor_to_gt_argmax[anchors_with_max_overlap]
         labels[anchors_with_max_overlap] = gt_classes[gt_inds_force]
         gt_ids[anchors_with_max_overlap] = gt_inds_force
+        # Fg label: above threshold IOU
         pos_inds = anchor_to_gt_max >= matched_threshold
         gt_inds = anchor_to_gt_argmax[pos_inds]
         labels[pos_inds] = gt_classes[gt_inds]
@@ -210,6 +237,7 @@ def create_target_np(all_anchors,
         bg_inds = np.where(anchor_to_gt_max < unmatched_threshold)[0]
         importance[pos_inds] = gt_importance[gt_inds]
     else:
+        # labels[:] = 0
         bg_inds = np.arange(num_inside)
     fg_inds = np.where(labels > 0)[0]
     fg_max_overlap = None
@@ -219,7 +247,8 @@ def create_target_np(all_anchors,
     if positive_fraction is not None:
         num_fg = int(positive_fraction * rpn_batch_size)
         if len(fg_inds) > num_fg:
-            disable_inds = npr.choice(fg_inds, size=(len(fg_inds) - num_fg), replace=False)
+            disable_inds = npr.choice(
+                fg_inds, size=(len(fg_inds) - num_fg), replace=False)
             labels[disable_inds] = -1
             fg_inds = np.where(labels > 0)[0]
 
@@ -709,3 +738,9 @@ def corner_to_standup_nd_jit(boxes_corner):
         for j in range(ndim):
             result[i, j + ndim] = np.max(boxes_corner[i, :, j])
     return result
+
+def minmax_to_corner_2d(minmax_box):
+    ndim = minmax_box.shape[-1] // 2
+    center = minmax_box[..., :ndim]
+    dims = minmax_box[..., ndim:] - center
+    return center_to_corner_box2d(center, dims, origin=0.0)

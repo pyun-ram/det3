@@ -4,7 +4,7 @@ import numba
 from det3.methods.second.ops.ops import (projection_matrix_to_CRT_kitti,
                                          get_frustum_v2, camera_to_lidar,
                                          corner_to_surfaces_3d, center_to_corner_box3d, corner_to_surfaces_3d_jit,
-                                         corner_to_standup_nd_jit, box2d_to_corner_jit, points_count_rbbox)
+                                         corner_to_standup_nd_jit, box2d_to_corner_jit, points_count_rbbox, points_in_rbbox, limit_period)
 import det3.methods.second.data.kitti_common as kitti
 class BatchSampler:
     "Source: https://github.com/traveller59/second.pytorch"
@@ -915,7 +915,7 @@ def prep_pointcloud(input_dict,
         if "group_ids" in gt_dict:
             group_ids = gt_dict["group_ids"]
 
-        prep.noise_per_object_v3_(
+        noise_per_object_v3_(
             gt_dict["gt_boxes"],
             points,
             gt_boxes_mask,
@@ -933,15 +933,15 @@ def prep_pointcloud(input_dict,
             [class_names.index(n) + 1 for n in gt_dict["gt_names"]],
             dtype=np.int32)
         gt_dict["gt_classes"] = gt_classes
-        gt_dict["gt_boxes"], points = prep.random_flip(gt_dict["gt_boxes"],
+        gt_dict["gt_boxes"], points = random_flip(gt_dict["gt_boxes"],
                                                        points, 0.5, random_flip_x, random_flip_y)
-        gt_dict["gt_boxes"], points = prep.global_rotation_v2(
+        gt_dict["gt_boxes"], points = global_rotation_v2(
             gt_dict["gt_boxes"], points, *global_rotation_noise)
-        gt_dict["gt_boxes"], points = prep.global_scaling_v2(
+        gt_dict["gt_boxes"], points = global_scaling_v2(
             gt_dict["gt_boxes"], points, *global_scaling_noise)
-        prep.global_translate_(gt_dict["gt_boxes"], points, global_translate_noise_std)
+        global_translate_(gt_dict["gt_boxes"], points, global_translate_noise_std)
         bv_range = voxel_generator.point_cloud_range[[0, 1, 3, 4]]
-        mask = prep.filter_gt_box_outside_range_by_center(gt_dict["gt_boxes"], bv_range)
+        mask = filter_gt_box_outside_range_by_center(gt_dict["gt_boxes"], bv_range)
         _dict_select(gt_dict, mask)
 
         # limit rad to [-pi, pi]
@@ -1070,3 +1070,121 @@ def prep_pointcloud(input_dict,
             'importance': targets_dict['importance'],
         })
     return example
+
+def random_flip(gt_boxes, points, probability=0.5, random_flip_x=True, random_flip_y=True):
+    flip_x = np.random.choice([False, True],
+                              replace=False,
+                              p=[1 - probability, probability])
+    flip_y = np.random.choice([False, True],
+                              replace=False,
+                              p=[1 - probability, probability])
+    if flip_y and random_flip_y:
+        gt_boxes[:, 1] = -gt_boxes[:, 1]
+        gt_boxes[:, 6] = -gt_boxes[:, 6] + np.pi
+        if gt_boxes.shape[1] == 9:
+            gt_boxes[:, 8] = -gt_boxes[:, 8]
+        points[:, 1] = -points[:, 1]
+    if flip_x and random_flip_x:
+        gt_boxes[:, 0] = -gt_boxes[:, 0]
+        gt_boxes[:, 6] = -gt_boxes[:, 6]
+        if gt_boxes.shape[1] == 9:
+            gt_boxes[:, 7] = -gt_boxes[:, 7]
+        points[:, 0] = -points[:, 0]
+
+    return gt_boxes, points
+
+def global_scaling_v2(gt_boxes, points, min_scale=0.95, max_scale=1.05):
+    noise_scale = np.random.uniform(min_scale, max_scale)
+    points[:, :3] *= noise_scale
+    gt_boxes[:, :6] *= noise_scale
+    if gt_boxes.shape[1] == 9:
+        gt_boxes[:, 7:] *= noise_scale
+    return gt_boxes, points
+
+
+def global_rotation_v2(gt_boxes, points, min_rad=-np.pi / 4,
+                       max_rad=np.pi / 4):
+    from det3.methods.second.ops import ops as box_np_ops
+    noise_rotation = np.random.uniform(min_rad, max_rad)
+    points[:, :3] = box_np_ops.rotation_points_single_angle(
+        points[:, :3], noise_rotation, axis=2)
+    gt_boxes[:, :3] = box_np_ops.rotation_points_single_angle(
+        gt_boxes[:, :3], noise_rotation, axis=2)
+    gt_boxes[:, 6] += noise_rotation
+    if gt_boxes.shape[1] == 9:
+        # rotate velo vector
+        rot_cos = np.cos(noise_rotation)
+        rot_sin = np.sin(noise_rotation)
+        rot_mat_T = np.array(
+            [[rot_cos, -rot_sin], [rot_sin, rot_cos]],
+            dtype=points.dtype)
+
+        gt_boxes[:, 7:9] = gt_boxes[:, 7:9] @ rot_mat_T
+
+    return gt_boxes, points
+
+def global_translate_(gt_boxes, points, noise_translate_std):
+    """
+    Apply global translation to gt_boxes and points.
+    """
+
+    if not isinstance(noise_translate_std, (list, tuple, np.ndarray)):
+        noise_translate_std = np.array([noise_translate_std, noise_translate_std, noise_translate_std])
+    if all([e == 0 for e in noise_translate_std]):
+        return gt_boxes, points
+    noise_translate = np.array([np.random.normal(0, noise_translate_std[0], 1),
+                                np.random.normal(0, noise_translate_std[1], 1),
+                                np.random.normal(0, noise_translate_std[0], 1)]).T
+
+    points[:, :3] += noise_translate
+    gt_boxes[:, :3] += noise_translate
+
+def filter_gt_box_outside_range_by_center(gt_boxes, limit_range):
+    """remove gtbox outside training range.
+    this function should be applied after other prep functions
+    Args:
+        gt_boxes ([type]): [description]
+        limit_range ([type]): [description]
+    """
+    from det3.methods.second.ops import ops as box_np_ops
+    gt_box_centers = gt_boxes[:, :2]
+    bounding_box = box_np_ops.minmax_to_corner_2d(
+        np.asarray(limit_range)[np.newaxis, ...])
+    ret = points_in_convex_polygon_jit(gt_box_centers, bounding_box)
+    return ret.reshape(-1)
+
+@numba.jit
+def points_in_convex_polygon_jit(points, polygon, clockwise=True):
+    """check points is in 2d convex polygons. True when point in polygon
+    Args:
+        points: [num_points, 2] array.
+        polygon: [num_polygon, num_points_of_polygon, 2] array.
+        clockwise: bool. indicate polygon is clockwise.
+    Returns:
+        [num_points, num_polygon] bool array.
+    """
+    # first convert polygon to directed lines
+    num_points_of_polygon = polygon.shape[1]
+    num_points = points.shape[0]
+    num_polygons = polygon.shape[0]
+    if clockwise:
+        vec1 = polygon - polygon[:, [num_points_of_polygon - 1] +
+                                 list(range(num_points_of_polygon - 1)), :]
+    else:
+        vec1 = polygon[:, [num_points_of_polygon - 1] +
+                       list(range(num_points_of_polygon - 1)), :] - polygon
+    # vec1: [num_polygon, num_points_of_polygon, 2]
+    ret = np.zeros((num_points, num_polygons), dtype=np.bool_)
+    success = True
+    cross = 0.0
+    for i in range(num_points):
+        for j in range(num_polygons):
+            success = True
+            for k in range(num_points_of_polygon):
+                cross = vec1[j, k, 1] * (polygon[j, k, 0] - points[i, 0])
+                cross -= vec1[j, k, 0] * (polygon[j, k, 1] - points[i, 1])
+                if cross >= 0:
+                    success = False
+                    break
+            ret[i, j] = success
+    return ret

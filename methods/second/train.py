@@ -82,7 +82,7 @@ def main(tag, cfg_path):
                                                     box_coder=box_coder,
                                                     anchor_generators=[anchor_generator],
                                                     region_similarity_calculators=[similarity_calculator])
-    net = second_builder.build(cfg=cfg.Net, voxelizer=voxelizer, target_assigner=target_assigner)
+    net = second_builder.build(cfg=cfg.Net, voxelizer=voxelizer, target_assigner=target_assigner).cuda()
     # build dataloader
     train_data = dataloader_builder.build(cfg.Net, cfg.TrainDataLoader,
                                           voxelizer, target_assigner, training=True)
@@ -110,16 +110,87 @@ def main(tag, cfg_path):
     optimizer, lr_scheduler = optimizer_builder.build(optimizer_cfg=cfg.Optimizer, lr_scheduler_cfg=cfg.LRScheduler, net=net)
     # build evaluater
     # evaluater = evaluater_builder.build(evaluater_cfg=cfg["evaluater"])
+    evaluater = None
     # build model_manager
     # model_manager = model_manager_builder.build(model_manager_cfg=cfg["weight_manager"])
+    model_manager = None
     # load weight
     # resume_weight(model_manager, net, weight_path=None)
     # train
-    epoch=None
-    for i in range(epoch):
-        train_one_epoch(net, dataloader=train_dataloader,  optimizer=optimizer, evaluater=evaluater, logger=logger)
-        validate(net, dataloader=val_dataloader, evaluater=evaluater, logger=logger)
-        save_weight(model_manager, net, weight_path=None)
+    # epoch=None
+    # for i in range(epoch):
+    #     train_one_epoch(net, dataloader=train_dataloader,  optimizer=optimizer, evaluater=evaluater)
+    #     validate(net, dataloader=val_dataloader, evaluater=evaluater)
+    #     save_weight(model_manager, net, weight_path=None)
+    logger = Logger()
+    start_step = net.get_global_step()
+    total_step = cfg.Optimizer["steps"]
+    optimizer.zero_grad()
+    step_times = []
+    step = start_step
+    t = time.time()
+    while True:
+        for example in train_dataloader:
+            lr_scheduler.step(net.get_global_step())
+            example_torch = example_convert_to_torch(example, torch.float32)
+
+            batch_size = example["anchors"].shape[0]
+
+            ret_dict = net(example_torch)
+            cls_preds = ret_dict["cls_preds"]
+            loss = ret_dict["loss"].mean()
+            cls_loss_reduced = ret_dict["cls_loss_reduced"].mean()
+            loc_loss_reduced = ret_dict["loc_loss_reduced"].mean()
+            cls_pos_loss = ret_dict["cls_pos_loss"].mean()
+            cls_neg_loss = ret_dict["cls_neg_loss"].mean()
+            loc_loss = ret_dict["loc_loss"]
+            cls_loss = ret_dict["cls_loss"]
+            cared = ret_dict["cared"]
+            labels = example_torch["labels"]
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(net.parameters(), 10.0)
+            optimizer.step()
+            optimizer.zero_grad()
+            net.update_global_step()
+            step_time = (time.time() - t)
+            step_times.append(step_time)
+            t = time.time()
+            num_pos = int((labels > 0)[0].float().sum().cpu().numpy())
+            num_neg = int((labels == 0)[0].float().sum().cpu().numpy())
+            print(step, f"loss: {loss}, cls_pos_loss: {cls_pos_loss}, cls_neg_loss: {cls_neg_loss}, loc_loss: {loc_loss.mean()}")
+            step += 1
+            if step >= total_step:
+                break
+
+def example_convert_to_torch(example, dtype=torch.float32,
+                             device=None) -> dict:
+    device = device or torch.device("cuda:0")
+    example_torch = {}
+    float_names = [
+        "voxels", "anchors", "reg_targets", "reg_weights", "bev_map", "importance"
+    ]
+    for k, v in example.items():
+        if k in float_names:
+            # slow when directly provide fp32 data with dtype=torch.half
+            example_torch[k] = torch.tensor(
+                v, dtype=torch.float32, device=device).to(dtype)
+        elif k in ["coordinates", "labels", "num_points"]:
+            example_torch[k] = torch.tensor(
+                v, dtype=torch.int32, device=device)
+        elif k in ["anchors_mask"]:
+            example_torch[k] = torch.tensor(
+                v, dtype=torch.uint8, device=device)
+        elif k == "calib":
+            calib = {}
+            for k1, v1 in v.items():
+                calib[k1] = torch.tensor(
+                    v1, dtype=dtype, device=device).to(dtype)
+            example_torch[k] = calib
+        elif k == "num_voxels":
+            example_torch[k] = torch.tensor(v)
+        else:
+            example_torch[k] = v
+    return example_torch
 
 def setup_logger(log_dir):
     logger = Logger()
@@ -139,10 +210,10 @@ def resume_weight(model_manager, net, weight_path):
 def save_weight(model_manager, net, weight_path):
     raise NotImplementedError
 
-def train_one_epoch(net, dataloader, optimizer, evaluater, logger):
+def train_one_epoch(net, dataloader, optimizer, evaluater):
     raise NotImplementedError
 
-def validate(net, dataloader, evaluater, logger):
+def validate(net, dataloader, evaluater):
     raise NotImplementedError
 
 if __name__ == "__main__":

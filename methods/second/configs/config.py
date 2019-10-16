@@ -32,7 +32,7 @@ __C.TargetAssigner = {
     "classes": ["Car"],
     "feature_map_sizes": None,
     "region_similarity_calculators": ["nearest_iou_similarity"],
-    "positive_fraction": -1,
+    "positive_fraction": None,
     "sample_size": 512,
     "assign_per_class": True,
 }

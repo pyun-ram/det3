@@ -1,5 +1,6 @@
 import torch
 from functools import partial
+import numpy as np
 class LRSchedulerStep(object):
     def __init__(self, fai_optimizer, total_step, lr_phases, mom_phases):
         self.optimizer = fai_optimizer

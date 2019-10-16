@@ -5,7 +5,7 @@ import numpy as np
 from det3.methods.second.models import voxel_encoder, middle, rpn, losses
 from det3.methods.second.utils import metrics
 from det3.methods.second.utils.log_tool import Logger
-from det3.methods.second.utils.torch_utils import one_hot
+from det3.methods.second.utils.torch_utils import one_hot as OneHot
 from det3.methods.second.ops.ops import limit_period, center_to_corner_box2d, corner_to_standup_nd
 from det3.methods.second.ops.torch_ops import rotate_nms
 
@@ -95,6 +95,12 @@ class VoxelNet(nn.Module):
         self._time_dict = {}
         self._time_total_dict = {}
         self._time_count_dict = {}
+
+    def get_global_step(self):
+        return int(self.global_step.cpu().numpy()[0])
+
+    def update_global_step(self):
+        self.global_step += 1
 
     def network_forward(self, voxels, num_points, coors, batch_size):
         """this function is used for subclass.
@@ -431,7 +437,7 @@ def create_loss(loc_loss_ftor,
     else:
         cls_preds = cls_preds.view(batch_size, -1, num_class + 1)
     cls_targets = cls_targets.squeeze(-1)
-    one_hot_targets = one_hot(
+    one_hot_targets = OneHot(
         cls_targets, depth=num_class + 1, dtype=box_preds.dtype)
     if encode_background_as_zeros:
         one_hot_targets = one_hot_targets[..., 1:]
@@ -481,14 +487,16 @@ def get_direction_target(anchors,
                          one_hot=True,
                          dir_offset=0,
                          num_bins=2):
+    def limit_period_torch(val, offset=0.5, period=np.pi):
+        return val - torch.floor(val / period + offset) * period
     batch_size = reg_targets.shape[0]
     anchors = anchors.view(batch_size, -1, anchors.shape[-1])
     rot_gt = reg_targets[..., 6] + anchors[..., 6]
-    offset_rot = limit_period(rot_gt - dir_offset, 0, 2 * np.pi)
+    offset_rot = limit_period_torch(rot_gt - dir_offset, 0, 2 * np.pi)
     dir_cls_targets = torch.floor(offset_rot / (2 * np.pi / num_bins)).long()
     dir_cls_targets = torch.clamp(dir_cls_targets, min=0, max=num_bins - 1)
     if one_hot:
-        dir_cls_targets = one_hot(
+        dir_cls_targets = OneHot(
             dir_cls_targets, num_bins, dtype=anchors.dtype)
     return dir_cls_targets
 
