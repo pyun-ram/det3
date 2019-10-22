@@ -36,4 +36,5 @@ def build(optimizer_cfg, lr_scheduler_cfg, net):
                                     list(lr_scheduler_cfg["moms"]),
                                     lr_scheduler_cfg["div_factor"],
                                     lr_scheduler_cfg["pct_start"])
+    optimizer.name = optimizer_cfg["name"]
     return optimizer, lr_scheduler

@@ -3,6 +3,8 @@ __C = edict()
 cfg = __C
 
 __C.Task = {
+    "disp_itv":10,
+    "save_itv": 901,
 }
 __C.Voxelizer = {
     "type": "VoxelizerV1",
@@ -83,10 +85,10 @@ __C.Net = {
     "sin_error_factor": 1.0,
     "use_rotate_nms": True,
     "multiclass_nms": False,
-    "nms_pre_max_sizes": 1000,
-    "nms_post_max_sizes": 100,
-    "nms_score_thresholds": 0.3, # 0.4 in submit, but 0.3 can get better hard performance
-    "nms_iou_thresholds": 0.01,
+    "nms_pre_max_sizes": [1000],
+    "nms_post_max_sizes": [100],
+    "nms_score_thresholds": [0.3], # 0.4 in submit, but 0.3 can get better hard performance
+    "nms_iou_thresholds": [0.01],
     "cls_loss_weight": 1.0,
     "loc_loss_weight": 2.0,
     "loss_norm_type": "NormByNumPositives",
@@ -187,4 +189,6 @@ __C.LRScheduler = {
     "pct_start": 0.4,
 }
 __C.Evaluater = {}
-__C.WeightManager = {}
+__C.WeightManager = {
+    "restore": 'methods/second/saved_weights/Second-dev-000A/VoxelNet-5407.tckpt'
+}

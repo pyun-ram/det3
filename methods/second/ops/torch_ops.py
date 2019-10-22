@@ -42,3 +42,92 @@ def rotate_nms_cc(dets, thresh):
     # print(dets_corners.shape, order.shape, standup_iou.shape)
     return rotate_non_max_suppression_cpu(dets_corners, order, standup_iou,
                                           thresh)
+
+def second_box_encode(boxes, anchors, encode_angle_to_vector=False, smooth_dim=False):
+    """box encode for VoxelNet
+    Args:
+        boxes ([N, 7] Tensor): normal boxes: x, y, z, l, w, h, r
+        anchors ([N, 7] Tensor): anchors
+    """
+    box_ndim = anchors.shape[-1]
+    cas, cgs = [], []
+    if box_ndim > 7:
+        xa, ya, za, wa, la, ha, ra, *cas = torch.split(anchors, 1, dim=-1)
+        xg, yg, zg, wg, lg, hg, rg, *cgs = torch.split(boxes, 1, dim=-1)
+    else:
+        xa, ya, za, wa, la, ha, ra = torch.split(anchors, 1, dim=-1)
+        xg, yg, zg, wg, lg, hg, rg = torch.split(boxes, 1, dim=-1)
+
+    diagonal = torch.sqrt(la**2 + wa**2)
+    xt = (xg - xa) / diagonal
+    yt = (yg - ya) / diagonal
+    zt = (zg - za) / ha
+    cts = [g - a for g, a in zip(cgs, cas)]
+    if smooth_dim:
+        lt = lg / la - 1
+        wt = wg / wa - 1
+        ht = hg / ha - 1
+    else:
+        lt = torch.log(lg / la)
+        wt = torch.log(wg / wa)
+        ht = torch.log(hg / ha)
+    if encode_angle_to_vector:
+        rgx = torch.cos(rg)
+        rgy = torch.sin(rg)
+        rax = torch.cos(ra)
+        ray = torch.sin(ra)
+        rtx = rgx - rax
+        rty = rgy - ray
+        return torch.cat([xt, yt, zt, wt, lt, ht, rtx, rty, *cts], dim=-1)
+    else:
+        rt = rg - ra
+        return torch.cat([xt, yt, zt, wt, lt, ht, rt, *cts], dim=-1)
+
+
+def second_box_decode(box_encodings, anchors, encode_angle_to_vector=False, smooth_dim=False):
+    """box decode for VoxelNet in lidar
+    Args:
+        boxes ([N, 7] Tensor): normal boxes: x, y, z, w, l, h, r
+        anchors ([N, 7] Tensor): anchors
+    """
+    box_ndim = anchors.shape[-1]
+    cas, cts = [], []
+    if box_ndim > 7:
+        xa, ya, za, wa, la, ha, ra, *cas = torch.split(anchors, 1, dim=-1)
+        if encode_angle_to_vector:
+            xt, yt, zt, wt, lt, ht, rtx, rty, *cts = torch.split(
+                box_encodings, 1, dim=-1)
+        else:
+            xt, yt, zt, wt, lt, ht, rt, *cts = torch.split(box_encodings, 1, dim=-1)
+    else:
+        xa, ya, za, wa, la, ha, ra = torch.split(anchors, 1, dim=-1)
+        if encode_angle_to_vector:
+            xt, yt, zt, wt, lt, ht, rtx, rty = torch.split(
+                box_encodings, 1, dim=-1)
+        else:
+            xt, yt, zt, wt, lt, ht, rt = torch.split(box_encodings, 1, dim=-1)
+
+    # za = za + ha / 2
+    # xt, yt, zt, wt, lt, ht, rt = torch.split(box_encodings, 1, dim=-1)
+    diagonal = torch.sqrt(la**2 + wa**2)
+    xg = xt * diagonal + xa
+    yg = yt * diagonal + ya
+    zg = zt * ha + za
+    if smooth_dim:
+        lg = (lt + 1) * la
+        wg = (wt + 1) * wa
+        hg = (ht + 1) * ha
+    else:
+        lg = torch.exp(lt) * la
+        wg = torch.exp(wt) * wa
+        hg = torch.exp(ht) * ha
+    if encode_angle_to_vector:
+        rax = torch.cos(ra)
+        ray = torch.sin(ra)
+        rgx = rtx + rax
+        rgy = rty + ray
+        rg = torch.atan2(rgy, rgx)
+    else:
+        rg = rt + ra
+    cgs = [t + a for t, a in zip(cts, cas)]
+    return torch.cat([xg, yg, zg, wg, lg, hg, rg, *cgs], dim=-1)

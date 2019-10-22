@@ -21,11 +21,17 @@ class BoxCoderV1(BaseBoxCoder):
             boxes ([N, 7 + ?] Tensor): normal boxes: x, y, z, w, l, h, r, custom values
             anchors ([N, 7] Tensor): anchors
         """
-        from det3.methods.second.ops.ops import second_box_encode
+        if isinstance(boxes, np.ndarray):
+            from det3.methods.second.ops.ops import second_box_encode
+        else:
+            from det3.methods.second.ops.torch_ops import second_box_encode
         return second_box_encode(boxes, anchors)
 
     def decode(self, encodings, anchors):
-        from det3.methods.second.ops.ops import second_box_decode
+        if isinstance(encodings, np.ndarray):
+            from det3.methods.second.ops.ops import second_box_decode
+        else:
+            from det3.methods.second.ops.torch_ops import second_box_decode
         return second_box_decode(encodings, anchors)
 
     @property

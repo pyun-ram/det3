@@ -156,6 +156,8 @@ class VoxelNet(nn.Module):
                     for nuscenes, sample_token is saved in it.
             }
         """
+        def limit_period_torch(val, offset=0.5, period=np.pi):
+            return val - torch.floor(val / period + offset) * period
         batch_size = example['anchors'].shape[0]
         if "metadata" not in example or len(example["metadata"]) == 0:
             meta_list = [None] * batch_size
@@ -178,7 +180,7 @@ class VoxelNet(nn.Module):
 
         batch_cls_preds = batch_cls_preds.view(batch_size, -1,
                                                num_class_with_bg)
-        batch_box_preds = self._box_coder.decode_torch(batch_box_preds,
+        batch_box_preds = self._box_coder.decode(batch_box_preds,
                                                        batch_anchors)
         if self._use_direction_classifier:
             batch_dir_preds = preds_dict["dir_cls_preds"]
@@ -279,7 +281,7 @@ class VoxelNet(nn.Module):
                 if self._use_direction_classifier:
                     dir_labels = selected_dir_labels
                     period = (2 * np.pi / self._num_direction_bins)
-                    dir_rot = limit_period(
+                    dir_rot = limit_period_torch(
                         box_preds[..., 6] - self._dir_offset,
                         self._dir_limit_offset, period)
                     box_preds[

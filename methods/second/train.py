@@ -11,6 +11,7 @@ import torch
 import torch.utils.data
 import numpy as np
 from pathlib import Path
+import pickle
 from shutil import copy
 from det3.methods.second.utils import Logger, load_module
 from det3.methods.second.builder import (voxelizer_builder, box_coder_builder,
@@ -19,6 +20,7 @@ from det3.methods.second.builder import (voxelizer_builder, box_coder_builder,
                                          second_builder, dataloader_builder,
                                          optimizer_builder, evaluater_builder,
                                          model_manager_builder)
+from det3.methods.second.core.model_manager import save_models, restore
 
 def merge_second_batch(batch_list):
     from collections import defaultdict
@@ -94,48 +96,39 @@ def main(tag, cfg_path):
         pin_memory=False,
         collate_fn=merge_second_batch,
         worker_init_fn=_worker_init_fn,
-        drop_last=True)
+        drop_last=False)
     val_data = dataloader_builder.build(cfg.Net, cfg.ValDataLoader,
                                           voxelizer, target_assigner, training=False)
     val_dataloader = torch.utils.data.DataLoader(
         val_data,
         batch_size=cfg.TrainDataLoader["batch_size"],
-        shuffle=True,
+        shuffle=False,
         num_workers=cfg.TrainDataLoader["num_workers"],
         pin_memory=False,
         collate_fn=merge_second_batch,
         worker_init_fn=_worker_init_fn,
-        drop_last=True)
+        drop_last=False)
     # build optimizer
     optimizer, lr_scheduler = optimizer_builder.build(optimizer_cfg=cfg.Optimizer, lr_scheduler_cfg=cfg.LRScheduler, net=net)
     # build evaluater
     # evaluater = evaluater_builder.build(evaluater_cfg=cfg["evaluater"])
     evaluater = None
-    # build model_manager
-    # model_manager = model_manager_builder.build(model_manager_cfg=cfg["weight_manager"])
-    model_manager = None
-    # load weight
-    # resume_weight(model_manager, net, weight_path=None)
-    # train
-    # epoch=None
-    # for i in range(epoch):
-    #     train_one_epoch(net, dataloader=train_dataloader,  optimizer=optimizer, evaluater=evaluater)
-    #     validate(net, dataloader=val_dataloader, evaluater=evaluater)
-    #     save_weight(model_manager, net, weight_path=None)
+    if cfg.WeightManager["restore"] is not None:
+        restore(cfg.WeightManager["restore"], net)
     logger = Logger()
     start_step = net.get_global_step()
     total_step = cfg.Optimizer["steps"]
+    disp_itv = cfg.Task["disp_itv"]
+    save_itv = cfg.Task["save_itv"]
     optimizer.zero_grad()
     step_times = []
     step = start_step
     t = time.time()
-    while True:
+    while step < total_step:
         for example in train_dataloader:
             lr_scheduler.step(net.get_global_step())
             example_torch = example_convert_to_torch(example, torch.float32)
-
             batch_size = example["anchors"].shape[0]
-
             ret_dict = net(example_torch)
             cls_preds = ret_dict["cls_preds"]
             loss = ret_dict["loss"].mean()
@@ -157,10 +150,30 @@ def main(tag, cfg_path):
             t = time.time()
             num_pos = int((labels > 0)[0].float().sum().cpu().numpy())
             num_neg = int((labels == 0)[0].float().sum().cpu().numpy())
-            print(step, f"loss: {loss}, cls_pos_loss: {cls_pos_loss}, cls_neg_loss: {cls_neg_loss}, loc_loss: {loc_loss.mean()}")
+            if step % disp_itv == 0:
+                print(step, f"loss: {loss}, cls_pos_loss: {cls_pos_loss}, cls_neg_loss: {cls_neg_loss}, loc_loss: {loc_loss.mean()}")
+                logger.log_tsbd_scalor("train/loss", loss, net.get_global_step())
+            if step % save_itv == 0:
+                save_models(saved_weights_dir, [net, optimizer], net.get_global_step(), max_to_keep=float('inf'))
+                net.eval()
+                detections = []
+                result_path_step = log_dir / f"step_{net.get_global_step()}"
+                result_path_step.mkdir(parents=True, exist_ok=True)
+                logger.log_txt("#################################"+str(step))
+                logger.log_txt("# EVAL" + str(step))
+                logger.log_txt("#################################"+str(step))
+                for val_example in val_dataloader:
+                    val_example = example_convert_to_torch(val_example, torch.float32)
+                    detections += net(val_example)
+                result_dict = val_data.dataset.evaluation(detections, str(result_path_step))
+                for k, v in result_dict["results"].items():
+                    logger.log_txt("Evaluation {}".format(k))
+                    logger.log_txt(v)
+                logger.log_metrics(result_dict["detail"], step)
+                with open(result_path_step / "result.pkl", 'wb') as f:
+                    pickle.dump(detections, f)
+                net.train()
             step += 1
-            if step >= total_step:
-                break
 
 def example_convert_to_torch(example, dtype=torch.float32,
                              device=None) -> dict:
@@ -203,12 +216,6 @@ def load_config_file(cfg_path, log_dir) -> dict:
     copy(cfg_path, bkup_path)
     cfg = load_module(bkup_path, "cfg")
     return cfg
-
-def resume_weight(model_manager, net, weight_path):
-    raise NotImplementedError
-
-def save_weight(model_manager, net, weight_path):
-    raise NotImplementedError
 
 def train_one_epoch(net, dataloader, optimizer, evaluater):
     raise NotImplementedError
