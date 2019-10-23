@@ -65,6 +65,7 @@ class Logger:
     
     @staticmethod
     def log_txt(s):
+        print(s)
         logging.critical(s)
 
     @staticmethod

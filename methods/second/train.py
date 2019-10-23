@@ -160,7 +160,7 @@ def main(tag, cfg_path):
                 result_path_step = log_dir / f"step_{net.get_global_step()}"
                 result_path_step.mkdir(parents=True, exist_ok=True)
                 logger.log_txt("#################################"+str(step))
-                logger.log_txt("# EVAL" + str(step))
+                logger.log_txt("# VAL" + str(step))
                 logger.log_txt("#################################"+str(step))
                 for val_example in val_dataloader:
                     val_example = example_convert_to_torch(val_example, torch.float32)
@@ -210,11 +210,14 @@ def setup_logger(log_dir):
     logger.global_dir = log_dir
     return logger
 
-def load_config_file(cfg_path, log_dir) -> dict:
+def load_config_file(cfg_path, log_dir, backup=True) -> dict:
     assert os.path.isfile(cfg_path)
-    bkup_path = Path(log_dir)/"config.py"
-    copy(cfg_path, bkup_path)
-    cfg = load_module(bkup_path, "cfg")
+    if backup:
+        bkup_path = Path(log_dir)/"config.py"
+        copy(cfg_path, bkup_path)
+        cfg = load_module(bkup_path, "cfg")
+    else:
+        cfg = load_module(cfg_path, "cfg")
     return cfg
 
 def train_one_epoch(net, dataloader, optimizer, evaluater):
