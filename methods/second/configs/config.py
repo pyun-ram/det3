@@ -190,5 +190,5 @@ __C.LRScheduler = {
 }
 __C.Evaluater = {}
 __C.WeightManager = {
-    "restore": 'methods/second/saved_weights/Second-dev-000A/VoxelNet-5407.tckpt'
+    "restore": 'methods/second/saved_weights/Second-dev-000A/VoxelNet-10813.tckpt'
 }
