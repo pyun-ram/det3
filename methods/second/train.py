@@ -150,10 +150,10 @@ def main(tag, cfg_path):
             t = time.time()
             num_pos = int((labels > 0)[0].float().sum().cpu().numpy())
             num_neg = int((labels == 0)[0].float().sum().cpu().numpy())
-            if step % disp_itv == 0:
+            if step % disp_itv == 0 and step != 0:
                 print(step, f"loss: {loss}, cls_pos_loss: {cls_pos_loss}, cls_neg_loss: {cls_neg_loss}, loc_loss: {loc_loss.mean()}")
                 logger.log_tsbd_scalor("train/loss", loss, net.get_global_step())
-            if step % save_itv == 0:
+            if step % save_itv == 0 and step != 0:
                 save_models(saved_weights_dir, [net, optimizer], net.get_global_step(), max_to_keep=float('inf'))
                 net.eval()
                 detections = []
