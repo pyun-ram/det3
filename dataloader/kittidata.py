@@ -7,11 +7,14 @@ import os
 import math
 import numpy as np
 from numpy.linalg import inv
+from enum import Enum
 try:
     from ..utils import utils
 except:
     # Run script python3 dataloader/kittidata.py
     import det3.utils.utils as utils
+
+Frame = Enum('Frame', ('LiDAR', 'Cam2'))
 
 # KITTI
 class KittiCalib:
@@ -115,6 +118,10 @@ class KittiLabel:
     def __init__(self, label_path=None):
         self.path = label_path
         self.data = None
+        self._objs_box = None
+        self._objs_name = None
+        self._objs_score = None
+        self._current_frame = None
 
     def read_label_file(self, no_dontcare=True):
         '''
@@ -128,7 +135,58 @@ class KittiLabel:
             self.data.append(KittiObj(s))
         if no_dontcare:
             self.data = list(filter(lambda obj: obj.type != "DontCare", self.data))
+        num_obj = len(self.data)
+        self._objs_array = np.zeros((num_obj, 14)).astype(np.float32)
+        self._objs_name = []
+        self._objs_score = []
+        for i, obj in enumerate(self.data):
+            # trun, occ, alpha,
+            # bbox_l, bbox_t, bbox_r, bbox_b,
+            # h, w, l, x, y, z, ry
+            self._objs_array[i, :] = np.array([obj.truncated, obj.occluded, obj.alpha,\
+                                               obj.bbox_l, obj.bbox_t, obj.bbox_r, obj.bbox_b, \
+                                               obj.h, obj.w, obj.l, obj.x, obj.y, obj.z, obj.ry])
+            self._objs_name.append(obj.type)
+            self._objs_score.append(obj.score)
+        self._current_frame = Frame.Cam2
         return self
+
+    @property
+    def bboxes3d(self):
+        return self._objs_array[:, -7:]
+
+    @property
+    def bboxes2d_cam(self):
+        return self._objs_array[:, 3:7]
+
+    @property
+    def bboxes_score(self):
+        return self._objs_score
+
+    @property
+    def have_score(self):
+        return not None in self._objs_score
+
+    @property
+    def have_dontcare(self):
+        return "DontCare" in self._objs_name
+
+    @property
+    def bboxes_name(self):
+        return self._objs_name
+
+    @property
+    def current_frame(self):
+        return self._current_frame
+
+    @current_frame.setter
+    def current_frame(self, frame: [Frame, str]):
+        if isinstance(frame, str):
+            self._current_frame = Frame[frame]
+        elif isinstance(frame, Frame):
+            self._current_frame = frame
+        else:
+            raise NotImplementedError
 
     def __str__(self):
         '''
@@ -410,6 +468,4 @@ class KittiData:
         return calib, image, label, pc
 
 if __name__ == "__main__":
-    label = KittiLabel("/usr/app/data/KITTI/dev/label_2/000009.txt").read_label_file()
-    for obj in label.data:
-        print(obj)
+    label = KittiLabel("/usr/app/data/KITTI/training/label_2/000009.txt").read_label_file()
