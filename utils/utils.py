@@ -7,6 +7,10 @@ import numpy as np
 from PIL import Image
 import pickle
 
+def write_pc_to_file(pc, path):
+    with open(path, 'wb') as f:
+        pc.tofile(f)
+
 def save_pickle(obj, file_path):
     with open(file_path, 'wb') as f:
         pickle.dump(obj, f)

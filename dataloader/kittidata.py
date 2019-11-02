@@ -188,6 +188,19 @@ class KittiLabel:
         else:
             raise NotImplementedError
 
+    def add_obj(self, obj):
+        self.data.append(obj)
+        self._objs_name.append(obj.type)
+        self._objs_score.append(obj.score)
+        tmp = np.array([obj.truncated, obj.occluded, obj.alpha,\
+                        obj.bbox_l, obj.bbox_t, obj.bbox_r, obj.bbox_b, \
+                        obj.h, obj.w, obj.l, obj.x, obj.y, obj.z, obj.ry]).reshape(1, -1)
+        self._objs_array = np.concatenate([self._objs_array, tmp], axis=0)
+
+    def copy(self):
+        import copy
+        return copy.deepcopy(self)
+
     def __str__(self):
         '''
         TODO: Unit TEST

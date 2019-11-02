@@ -107,20 +107,29 @@ __C.TrainDataLoader = {
         "kitti_root_path": "/usr/app/data/KITTI/",
     },
     "DBSampler": {
-        "name": "DataBaseSamplerV2",
+        "name": "DataBaseSamplerV3",
         "db_info_path": "/usr/app/data/KITTI/kitti_dbinfos_train.pkl",
-        "sample_groups": [
-            {"Car": 15},
-        ],
+        "sample_dict": {"Car": 15},
         "DBProcer": [
             {"name": "DBFilterByMinNumPoint",
              "min_gt_point_dict": {"Car": 5}},
-            {"name": "DBFilterByDifficulty",
-             "removed_difficulties": [-1]},
         ],
-        "rate": 1.0,
-        "global_random_rotation_range_per_object": [0, 0]
     },
+    # "DBSampler": {
+    #     "name": "DataBaseSamplerV2",
+    #     "db_info_path": "/usr/app/data/KITTI/kitti_dbinfos_train.pkl",
+    #     "sample_groups": [
+    #         {"Car": 15},
+    #     ],
+    #     "DBProcer": [
+    #         {"name": "DBFilterByMinNumPoint",
+    #          "min_gt_point_dict": {"Car": 5}},
+    #         {"name": "DBFilterByDifficulty",
+    #          "removed_difficulties": [-1]},
+    #     ],
+    #     "rate": 1.0,
+    #     "global_random_rotation_range_per_object": [0, 0]
+    # },
     "PreProcess":{
         "max_number_of_voxels": 17000,
         "remove_unknown_examples": False,

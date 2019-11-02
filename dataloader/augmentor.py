@@ -46,7 +46,8 @@ class KittiAugmentor:
             self.mode = None
         # print(self.mode)
 
-    def check_overlap(self, label: KittiLabel) -> bool:
+    @staticmethod
+    def check_overlap(label: KittiLabel) -> bool:
         '''
         check if there is overlap in label.
         inputs:

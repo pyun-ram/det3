@@ -2,20 +2,124 @@ import numpy as np
 import pathlib
 import copy
 from functools import reduce
-from det3.methods.second.data.preprocess import (BatchSampler,
-                                                 random_crop_frustum,
-                                                 mask_points_in_corners,
-                                                 noise_per_object_v3_,
-                                                 box_collision_test)
-from det3.methods.second.utils.utils import shape_mergeable
-from det3.methods.second.ops.ops import (rotation_points_single_angle,
-                                         box3d_to_bbox, center_to_corner_box2d,
-                                         center_to_corner_box2d)
+from det3.methods.second.data.mypreprocess import DBBatchSampler
+from det3.utils.utils import read_pc_from_bin
+from det3.methods.second.utils.log_tool import Logger
 class BaseDBSampler:
     def __init__(self):
         raise NotImplementedError
 
+class DataBaseSamplerV3(BaseDBSampler):
+    def __init__(self, db_infos, sample_dict:dict, db_prepor=None):
+        for k, v in db_infos.items():
+            Logger.log_txt(f"load {len(v)} {k} database infos")
+        if db_prepor is not None:
+            db_infos = db_prepor(db_infos)
+            Logger.log_txt("After filter database:")
+            for k, v in db_infos.items():
+                Logger.log_txt(f"load {len(v)} {k} database infos")
+        self._db_infos = db_infos
+        self._sampler_dict = dict()
+        for k, v in self._db_infos.items():
+            self._sampler_dict[k] = DBBatchSampler(v, k, shuffle=True)
+        self._sample_dict = sample_dict
+
+    def sample(self, gt_label, gt_calib):
+        '''
+        parameters:
+            gt_label: KittiLabel of GT with current_frame == Cam2
+            gt_calib: KittiCalib of GT
+            sample_dict: {cls: max_num_objs} (deprecated)
+                e.g. {
+                    "Car": 15, # It will return the result containing maximum 15 cars (including GT)
+                    ...
+                }
+        returns:
+            res_label: KITTI label with current_frame == Cam2
+            gt_mask : A mask corresponding to the res_label.data (If GT obj, true.)
+            calib_list: a list of calib object corresponding to the res_label.data
+            objpc_list: a list of object p.c. corresponding to the res_label.data
+            Note that for the calib_list and objpc_list,
+            the entries corresponding to GT obj will be None.
+        '''
+        from det3.dataloader.kittidata import Frame
+        assert gt_label.current_frame == Frame.Cam2
+        res_label = gt_label.copy()
+        _sample_dict = self._sample_dict.copy()
+        for cls in gt_label.bboxes_name:
+            if cls in _sample_dict.keys():
+                _sample_dict[cls] = _sample_dict[cls] - 1 if _sample_dict[cls] > 1 else 1
+        for k, v in _sample_dict.items():
+            _sample_dict[k] = np.random.randint(low=0, high=v, dtype=np.int16)
+        gt_mask = [True] * len(gt_label.data)
+        calib_list = [None] * len(gt_label.data)
+        objpc_list = [None] * len(gt_label.data)
+        for cls, num_sample in _sample_dict.items():
+            if num_sample == 0:
+                continue
+            assert num_sample > 0, "num_sample must be positive integers"
+            cls_samples = self._sampler_dict[cls].sample(num_sample)
+            for cls_sample in cls_samples:
+                attmps = 0
+                # if origin mode (_set_location & _set_rotation), max_attmps should be 1
+                max_attemps = 1
+                while attmps < max_attemps:
+                    obj = cls_sample["box3d_cam"]
+                    calib = cls_sample["calib"]
+                    objpc = read_pc_from_bin(cls_sample["gtpc_path"])
+                    self._set_location(obj, calib, objpc, mode="origin")
+                    self._set_rotation(obj, calib, objpc, mode="origin")
+                    if not self._have_collision(res_label, obj):
+                        res_label.add_obj(obj)
+                        gt_mask.append(False)
+                        calib_list.append(calib)
+                        objpc_list.append(objpc)
+                        break
+                    else:
+                        attmps += 1
+                        Logger.log_txt(f"DataBaseSamplerV3:sample: exceed "+
+                                       f"max_attemps: {max_attemps}.")
+        res_dict = {
+            "res_label": res_label,
+            "gt_mask": gt_mask,
+            "calib_list": calib_list,
+            "objpc_list": objpc_list,
+            "num_obj": len(objpc_list)
+        }
+        return res_dict
+
+    def _set_location(self, obj, calib, objpc, mode="origin"):
+        if mode == "origin":
+            pass
+        else:
+            raise NotImplementedError
+        return
+
+    def _set_rotation(self, obj, calib, objpc, mode="origin"):
+        if mode == "origin":
+            pass
+        else:
+            raise NotImplementedError
+        return
+
+    def _have_collision(sekf, label, new_obj):
+        # TODO: Bottleneck in speed
+        # (Specifically: KittiAugmentor check_overlap)
+        from det3.dataloader.augmentor import KittiAugmentor
+        _label = label.copy()
+        _label.add_obj(new_obj)
+        return not KittiAugmentor.check_overlap(label=_label)
+
 class DataBaseSamplerV2(BaseDBSampler):
+    from det3.methods.second.data.preprocess import (BatchSampler,
+                                                     random_crop_frustum,
+                                                     mask_points_in_corners,
+                                                     noise_per_object_v3_,
+                                                     box_collision_test)
+    from det3.methods.second.utils.utils import shape_mergeable
+    from det3.methods.second.ops.ops import (rotation_points_single_angle,
+                                             box3d_to_bbox, center_to_corner_box2d,
+                                             center_to_corner_box2d)
     def __init__(self,
                  db_infos,
                  groups,
@@ -313,17 +417,89 @@ class DataBaseSamplerV2(BaseDBSampler):
         return valid_samples
 
 if __name__=="__main__":
+    # from det3.methods.second.configs.config import cfg
+    # from det3.methods.second.utils.import_tool import load_module
+    # from det3.methods.second.data.preprocess import DataBasePreprocessor
+    # import pickle
+    # info_path = cfg.DataLoaders["DBSampler"]["db_info_path"]
+    # dbprocers_cfg = cfg.DataLoaders["DBSampler"]["DBProcer"]
+    # tmps = [(load_module("methods/second/data/preprocess.py", cfg["name"]), cfg) for cfg in dbprocers_cfg]
+    # dbproces = []
+    # for builder, params in tmps:
+    #     del params["name"]
+    #     dbproces.append(builder(**params))
+    # db_prepor = DataBasePreprocessor(dbproces)
+    # with open(info_path, "rb") as f:
+    #     db_infos = pickle.load(f)
+
     from det3.methods.second.configs.config import cfg
     from det3.methods.second.utils.import_tool import load_module
-    from det3.methods.second.data.preprocess import DataBasePreprocessor
-    import pickle
-    info_path = cfg.DataLoaders["DBSampler"]["db_info_path"]
-    dbprocers_cfg = cfg.DataLoaders["DBSampler"]["DBProcer"]
-    tmps = [(load_module("methods/second/data/preprocess.py", cfg["name"]), cfg) for cfg in dbprocers_cfg]
+    from det3.methods.second.data.mypreprocess import DataBasePreprocessor
+    from det3.utils.utils import load_pickle
+    from det3.dataloader.kittidata import KittiCalib, KittiLabel
+    from det3.visualizer.vis import BEVImage, FVImage
+    from PIL import Image
+    import time
+    from tqdm import tqdm
+
+    dbprocers_cfg = cfg.TrainDataLoader["DBSampler"]["DBProcer"]
+    tmps = [(load_module("methods/second/data/mypreprocess.py", cfg["name"]), cfg) for cfg in dbprocers_cfg]
     dbproces = []
     for builder, params in tmps:
         del params["name"]
         dbproces.append(builder(**params))
     db_prepor = DataBasePreprocessor(dbproces)
-    with open(info_path, "rb") as f:
-        db_infos = pickle.load(f)
+    db_infos = load_pickle("/usr/app/data/MyKITTI/KITTI_dbinfos_train.pkl")
+    train_infos = load_pickle("/usr/app/data/MyKITTI/KITTI_infos_train.pkl")
+    sample_dict = cfg.TrainDataLoader["DBSampler"]["sample_dict"]
+    dbsampler = DataBaseSamplerV3(db_infos, db_prepor=db_prepor, sample_dict=sample_dict)
+
+    for i in tqdm(range(len(train_infos))):
+        train_info = train_infos[i]
+        calib = train_info["calib"]
+        label = train_info["label"]
+        tag = train_info["tag"]
+        pc_reduced = read_pc_from_bin(train_info["reduced_pc_path"])
+        orgbev = BEVImage(x_range=(0, 70), y_range=(-40, 40), grid_size=(0.1, 0.1))
+        orgfv = FVImage()
+        orgbev.from_lidar(pc_reduced)
+        orgfv.from_lidar(calib, pc_reduced)
+        for obj in label.data:
+            orgbev.draw_box(obj, calib)
+            orgfv.draw_3dbox(obj, calib)
+
+        sample_res = dbsampler.sample(gt_label=label, gt_calib=calib)
+        for i in range(sample_res["num_obj"]):
+            obj = sample_res["res_label"].data[i]
+            obj_calib = sample_res["calib_list"][i]
+            objpc = sample_res["objpc_list"][i]
+            if objpc is not None:
+                # del origin pts in obj
+                mask = obj.get_pts_idx(pc_reduced[:, :3], obj_calib)
+                mask = np.logical_not(mask)
+                pc_reduced = pc_reduced[mask, :]
+                # add objpc
+                pc_reduced = np.concatenate([pc_reduced, objpc], axis=0)
+            else:
+                pass # original obj
+
+        resbev = BEVImage(x_range=(0, 70), y_range=(-40, 40), grid_size=(0.1, 0.1))
+        resfv = FVImage()
+        resbev.from_lidar(pc_reduced)
+        resfv.from_lidar(calib, pc_reduced)
+        for obj, obj_calib in zip(sample_res["res_label"].data, sample_res["calib_list"]):
+            if obj_calib is None:
+                resbev.draw_box(obj, calib)
+                resfv.draw_3dbox(obj, calib)
+            else:
+                resbev.draw_box(obj, obj_calib)
+                resfv.draw_3dbox(obj, obj_calib)
+
+        orgbev_img = Image.fromarray(orgbev.data)
+        orgbev_img.save(f"/usr/app/vis/b{tag}_orgbev_{sample_res['num_obj']}.png")
+        resbev_img = Image.fromarray(resbev.data)
+        resbev_img.save(f"/usr/app/vis/b{tag}_resbev_{sample_res['num_obj']}.png")
+        orgfv_img = Image.fromarray(orgfv.data)
+        orgfv_img.save(f"/usr/app/vis/f{tag}_orgfv_{sample_res['num_obj']}.png")
+        resfv_img = Image.fromarray(resfv.data)
+        resfv_img.save(f"/usr/app/vis/f{tag}_resfv_{sample_res['num_obj']}.png")

@@ -46,27 +46,29 @@ class Logger:
     3. save images for visualization
     once it is initilized, all later usage will based on the initilized path
     """
-    global_dir = None
-    tsbd = None
+    g_global_dir = None
+    g_tsbd = None
     def __init__(self):
         pass
 
     @property
     def global_dir(self):
-        return Logger.global_dir
+        return Logger.g_global_dir
 
     @global_dir.setter
     def global_dir(self, v):
         assert os.path.isdir(v), f"{v} is not a valid dir."
-        Logger.global_dir=v
+        Logger.g_global_dir=v
         logging.basicConfig(filename=Path(v, 'log.txt'))
-        Logger.tsbd = SummaryWriter(v)
+        Logger.g_tsbd = SummaryWriter(v)
 
     
     @staticmethod
     def log_txt(s):
-        print(s)
-        logging.critical(s)
+        if Logger.g_global_dir is None:
+            print(s)
+        else:
+            logging.critical(s)
 
     @staticmethod
     def log_img(self, img, path):
@@ -74,7 +76,7 @@ class Logger:
     
     @staticmethod
     def log_tsbd_scalor(k, v, epoch):
-        Logger.tsbd.add_scalar(k, v, epoch)
+        Logger.g_tsbd.add_scalar(k, v, epoch)
 
     @staticmethod
     def log_tsbd_img(self, img):
@@ -89,11 +91,11 @@ class Logger:
                     continue
                 v_dict = {str(i): e for i, e in enumerate(v)}
                 for k1, v1 in v_dict.items():
-                    Logger.tsbd.add_scalar(k + "/" + k1, v1, step)
+                    Logger.g_tsbd.add_scalar(k + "/" + k1, v1, step)
             else:
                 if isinstance(v, str):
                     continue
-                Logger.tsbd.add_scalar(k, v, step)
+                Logger.g_tsbd.add_scalar(k, v, step)
         log_str = metric_to_str(metrics)
         logging.critical(log_str)
 

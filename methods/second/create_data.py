@@ -150,7 +150,8 @@ def create_db_file_wk_fn(idx):
             "tag": tag,
             "gt_idx": gt_idx,
             "box3d_cam": box3d_cam,
-            "num_points_in_gt": num_points_in_gt
+            "num_points_in_gt": num_points_in_gt,
+            "calib": calib
             }
         g_dbinfos.append(obj_info)
         
@@ -169,6 +170,7 @@ def create_db_file(root_dir:str, idx_path:str, save_dir:str):
         gt_idx: int, # no. of obj
         box3d_cam: KittiObj,
         num_points_in_gt: int,
+        calib: KittiCalib
     }
     '''
     global g_data_dir, g_dbinfos
