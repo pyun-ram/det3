@@ -119,6 +119,7 @@ class KittiLabel:
         self.path = label_path
         self.data = None
         self._objs_box = None
+        self._objs_array = None
         self._objs_name = None
         self._objs_score = None
         self._current_frame = None
@@ -189,13 +190,18 @@ class KittiLabel:
             raise NotImplementedError
 
     def add_obj(self, obj):
+        if self.data is None:
+            self.data = []
+            self._objs_name = []
+            self._objs_score = []
         self.data.append(obj)
         self._objs_name.append(obj.type)
         self._objs_score.append(obj.score)
-        tmp = np.array([obj.truncated, obj.occluded, obj.alpha,\
-                        obj.bbox_l, obj.bbox_t, obj.bbox_r, obj.bbox_b, \
+        tmp = np.array([obj.truncated, obj.occluded, obj.alpha,
+                        obj.bbox_l, obj.bbox_t, obj.bbox_r, obj.bbox_b,
                         obj.h, obj.w, obj.l, obj.x, obj.y, obj.z, obj.ry]).reshape(1, -1)
-        self._objs_array = np.concatenate([self._objs_array, tmp], axis=0)
+        self._objs_array = (np.concatenate([self._objs_array, tmp], axis=0)
+                            if self._objs_array is not None else tmp)
 
     def copy(self):
         import copy

@@ -71,6 +71,7 @@ class KittiAugmentor:
 
     def apply(self, label: KittiLabel, pc: np.array, calib: KittiCalib) -> (KittiLabel, np.array):
         assert self.mode is not None
+        print(self.mode)
         func = getattr(self, self.mode)
         params = [label, pc, calib]
         params += self.dict_params[self.mode]
@@ -94,6 +95,7 @@ class KittiAugmentor:
         dry_min, dry_max = dry_range
         max_attemp = 10
         num_attemp = 0
+        calib_is_iter = isinstance(calib, list)
         while True:
             num_attemp += 1
             # copy pc & label
@@ -106,24 +108,45 @@ class KittiAugmentor:
                 print("KittiAugmentor.rotate_obj: Warning: the attemp times is over {} times,"
                       "will return the original copy".format(max_attemp))
                 return label_, pc_
-            for obj in label_.data:
-                # generate random number
-                dry = np.random.rand() * (dry_max - dry_min) + dry_min
-                # modify pc_
-                idx = obj.get_pts_idx(pc_[:, :3], calib)
-                bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
-                bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
-                pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Flidar)
-                # obj.ry += dry is correspond to rotz(-dry)
-                # since obj is in cam frame
-                # pc_ is in LiDAR frame
-                pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(-dry))
-                pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Flidar)
-                # modify obj
-                obj.ry += dry
+            if not calib_is_iter:
+                for obj in label_.data:
+                    # generate random number
+                    dry = np.random.rand() * (dry_max - dry_min) + dry_min
+                    # modify pc_
+                    idx = obj.get_pts_idx(pc_[:, :3], calib)
+                    bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+                    bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
+                    pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Flidar)
+                    # obj.ry += dry is correspond to rotz(-dry)
+                    # since obj is in cam frame
+                    # pc_ is in LiDAR frame
+                    pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(-dry))
+                    pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Flidar)
+                    # modify obj
+                    obj.ry += dry
+            else:
+                for obj, calib_ in zip(label_.data, calib):
+                    # generate random number
+                    dry = np.random.rand() * (dry_max - dry_min) + dry_min
+                    # modify pc_
+                    idx = obj.get_pts_idx(pc_[:, :3], calib_)
+                    bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+                    bottom_Flidar = calib_.leftcam2lidar(bottom_Fcam)
+                    pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Flidar)
+                    # obj.ry += dry is correspond to rotz(-dry)
+                    # since obj is in cam frame
+                    # pc_ is in LiDAR frame
+                    pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(-dry))
+                    pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Flidar)
+                    # modify obj
+                    obj.ry += dry
             if self.check_overlap(label_):
                 break
-        return label_, pc_
+        res_label = KittiLabel()
+        for obj in label_.data:
+            res_label.add_obj(obj)
+        res_label.current_frame = "Cam2"
+        return res_label, pc_
 
     def tr_obj(self, label: KittiLabel, pc: np.array, calib: KittiCalib,
                dx_range: List[float], dy_range: List[float], dz_range: List[float]) -> (KittiLabel, np.array):
@@ -147,6 +170,7 @@ class KittiAugmentor:
         dz_min, dz_max = dz_range
         max_attemp = 10
         num_attemp = 0
+        calib_is_iter = isinstance(calib, list)
         while True:
             num_attemp += 1
             # copy pc & label
@@ -159,24 +183,45 @@ class KittiAugmentor:
                 print("KittiAugmentor.tr_obj: Warning: the attemp times is over {} times,"
                       "will return the original copy".format(max_attemp))
                 return label_, pc_
-            for obj in label_.data:
-                # gennerate ramdom number
-                dx = np.random.rand() * (dx_max - dx_min) + dx_min
-                dy = np.random.rand() * (dy_max - dy_min) + dy_min
-                dz = np.random.rand() * (dz_max - dz_min) + dz_min
-                # modify pc_
-                idx = obj.get_pts_idx(pc_[:, :3], calib)
-                dtr = np.array([dx, dy, dz]).reshape(1, -1)
-                pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
-                # modify obj
-                bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
-                bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
-                bottom_Flidar = apply_tr(bottom_Flidar, dtr)
-                bottom_Fcam = calib.lidar2leftcam(bottom_Flidar)
-                obj.x, obj.y, obj.z = bottom_Fcam.flatten()
+            if not calib_is_iter:
+                for obj in label_.data:
+                    # gennerate ramdom number
+                    dx = np.random.rand() * (dx_max - dx_min) + dx_min
+                    dy = np.random.rand() * (dy_max - dy_min) + dy_min
+                    dz = np.random.rand() * (dz_max - dz_min) + dz_min
+                    # modify pc_
+                    idx = obj.get_pts_idx(pc_[:, :3], calib)
+                    dtr = np.array([dx, dy, dz]).reshape(1, -1)
+                    pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
+                    # modify obj
+                    bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+                    bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
+                    bottom_Flidar = apply_tr(bottom_Flidar, dtr)
+                    bottom_Fcam = calib.lidar2leftcam(bottom_Flidar)
+                    obj.x, obj.y, obj.z = bottom_Fcam.flatten()
+            else:
+                for obj, calib_ in zip(label_.data, calib):
+                    # gennerate ramdom number
+                    dx = np.random.rand() * (dx_max - dx_min) + dx_min
+                    dy = np.random.rand() * (dy_max - dy_min) + dy_min
+                    dz = np.random.rand() * (dz_max - dz_min) + dz_min
+                    # modify pc_
+                    idx = obj.get_pts_idx(pc_[:, :3], calib_)
+                    dtr = np.array([dx, dy, dz]).reshape(1, -1)
+                    pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
+                    # modify obj
+                    bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+                    bottom_Flidar = calib_.leftcam2lidar(bottom_Fcam)
+                    bottom_Flidar = apply_tr(bottom_Flidar, dtr)
+                    bottom_Fcam = calib_.lidar2leftcam(bottom_Flidar)
+                    obj.x, obj.y, obj.z = bottom_Fcam.flatten()
             if self.check_overlap(label_):
                 break
-        return label_, pc_
+        res_label = KittiLabel()
+        for obj in label_.data:
+            res_label.add_obj(obj)
+        res_label.current_frame = "Cam2"
+        return res_label, pc_
 
     def flip_pc(self, label: KittiLabel, pc: np.array, calib: KittiCalib) -> (KittiLabel, np.array):
         '''
@@ -187,6 +232,7 @@ class KittiAugmentor:
             calib:
         '''
         assert istype(label, "KittiLabel")
+        calib_is_iter = isinstance(calib, list)
         # copy pc & label
         pc_ = pc.copy()
         label_ = KittiLabel()
@@ -196,14 +242,27 @@ class KittiAugmentor:
         # flip point cloud
         pc_[:, 1] *= -1
         # modify gt
+        if not calib_is_iter:
+            for obj in label_.data:
+                bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+                bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
+                bottom_Flidar[0, 1] *= -1
+                bottom_Fcam = calib.lidar2leftcam(bottom_Flidar)
+                obj.x, obj.y, obj.z = bottom_Fcam.flatten()
+                obj.ry *= -1
+        else:
+            for obj, calib_ in zip(label_.data, calib):
+                bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+                bottom_Flidar = calib_.leftcam2lidar(bottom_Fcam)
+                bottom_Flidar[0, 1] *= -1
+                bottom_Fcam = calib_.lidar2leftcam(bottom_Flidar)
+                obj.x, obj.y, obj.z = bottom_Fcam.flatten()
+                obj.ry *= -1
+        res_label = KittiLabel()
         for obj in label_.data:
-            bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
-            bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
-            bottom_Flidar[0, 1] *= -1
-            bottom_Fcam = calib.lidar2leftcam(bottom_Flidar)
-            obj.x, obj.y, obj.z = bottom_Fcam.flatten()
-            obj.ry *= -1
-        return label_, pc_
+            res_label.add_obj(obj)
+        res_label.current_frame = "Cam2"
+        return res_label, pc_
 
     def keep(self, label: KittiLabel, pc: np.array, calib: KittiCalib) -> (KittiLabel, np.array):
         # copy pc & label
@@ -212,7 +271,11 @@ class KittiAugmentor:
         label_.data = []
         for obj in label.data:
             label_.data.append(KittiObj(str(obj)))
-        return label_, pc_
+        res_label = KittiLabel()
+        for obj in label_.data:
+            res_label.add_obj(obj)
+        res_label.current_frame = "Cam2"
+        return res_label, pc_
 
 class CarlaAugmentor:
     def __init__(self, *, p_rot: float = 0, p_tr: float = 0, p_flip: float = 0, p_keep: float = 0,
