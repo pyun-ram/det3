@@ -1,4 +1,13 @@
 import numpy as np
+from det3.dataloader.kittidata import KittiLabel
+def filt_label_by_cls(label, keep_cls):
+    label.data = list(filter(lambda obj: obj.type in keep_cls, label.data))
+    res = KittiLabel()
+    for obj in label.data:
+        res.add_obj(obj)
+    res.current_frame = label.current_frame
+    return res
+
 def is_array_like(x):
     "Source: https://github.com/traveller59/second.pytorch"
     return isinstance(x, (list, tuple, np.ndarray))

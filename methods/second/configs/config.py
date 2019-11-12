@@ -1,4 +1,5 @@
 from easydict import EasyDict as edict
+import numpy as np
 __C = edict()
 cfg = __C
 
@@ -96,91 +97,50 @@ __C.Net = {
     "direction_loss_weight": 0.2,
     "pos_cls_weight": 1.0,
     "neg_cls_weight": 1.0,
-
 }
+
 __C.TrainDataLoader = {
     "batch_size": 8,
     "num_workers": 8,
     "Dataset": {
-        "name": "KittiDataset",
-        "kitti_info_path": "/usr/app/data/KITTI/kitti_infos_train.pkl",
-        "kitti_root_path": "/usr/app/data/KITTI/",
+        "name": "MyKittiDataset",
+        "kitti_info_path": "/usr/app/data/MyKITTI/KITTI_infos_train.pkl",
+        "kitti_root_path": "/usr/app/data/MyKITTI/",
     },
     "DBSampler": {
         "name": "DataBaseSamplerV3",
-        "db_info_path": "/usr/app/data/KITTI/kitti_dbinfos_train.pkl",
+        "db_info_path": "/usr/app/data/MyKITTI/KITTI_dbinfos_train.pkl",
         "sample_dict": {"Car": 15},
         "DBProcer": [
             {"name": "DBFilterByMinNumPoint",
              "min_gt_point_dict": {"Car": 5}},
         ],
     },
-    # "DBSampler": {
-    #     "name": "DataBaseSamplerV2",
-    #     "db_info_path": "/usr/app/data/KITTI/kitti_dbinfos_train.pkl",
-    #     "sample_groups": [
-    #         {"Car": 15},
-    #     ],
-    #     "DBProcer": [
-    #         {"name": "DBFilterByMinNumPoint",
-    #          "min_gt_point_dict": {"Car": 5}},
-    #         {"name": "DBFilterByDifficulty",
-    #          "removed_difficulties": [-1]},
-    #     ],
-    #     "rate": 1.0,
-    #     "global_random_rotation_range_per_object": [0, 0]
-    # },
     "PreProcess":{
         "max_number_of_voxels": 17000,
-        "remove_unknown_examples": False,
-        "shuffle_points": True,
-        "groundtruth_rotation_uniform_noise": [-0.78539816, 0.78539816],
-        "groundtruth_localization_noise_std": [1.0, 1.0, 0.5],
-        "global_rotation_uniform_noise": [-0.78539816, 0.78539816],
-        "global_scaling_uniform_noise": [0.95, 1.05],
-        "global_random_rotation_range_per_object": [0, 0],
-        "global_translate_noise_std": [0, 0, 0],
-        "anchor_area_threshold": -1,
-        "groundtruth_points_drop_percentage": 0.0,
-        "groundtruth_drop_max_keep_points": 15,
-        "remove_points_after_sample": True,
-        "remove_environment": False,
-        "use_group_id": False,
-        "min_num_of_points_in_gt": -1, # deactivate
-        "random_flip_x": False,
-        "random_flip_y": True,
-        "sample_importance": 1.0,
+        "augment_dict": {
+            "p_rot": 0.2,
+            "dry_range": [-2 * 180 / np.pi, 2 * 180 / np.pi],
+            "p_tr": 0.3,
+            "dx_range": [-0.5, 0.5],
+            "dy_range": [-0.5, 0.5],
+            "dz_range": [-0.1, 0.1],
+            "p_flip": 0.1,
+            "p_keep": 0.4
+        },
     }
 }
 __C.ValDataLoader = {
     "batch_size": 8,
     "num_workers": 8,
     "Dataset": {
-        "name": "KittiDataset",
-        "kitti_info_path": "/usr/app/data/KITTI/kitti_infos_val.pkl",
-        "kitti_root_path": "/usr/app/data/KITTI/",
+        "name": "MyKittiDataset",
+        "kitti_info_path": "/usr/app/data/MyKITTI/KITTI_infos_val.pkl",
+        "kitti_root_path": "/usr/app/data/MyKITTI/",
     },
     "PreProcess":{
         "max_number_of_voxels": 40000,
-        "shuffle_points": False,
-        "anchor_area_threshold": -1,
-        "remove_environment": False,
-
-        "remove_unknown_examples": None,
-        "groundtruth_rotation_uniform_noise": [],
-        "groundtruth_localization_noise_std": [],
-        "global_rotation_uniform_noise": [],
-        "global_scaling_uniform_noise":[],
-        "global_random_rotation_range_per_object":[],
-        "global_translate_noise_std":[],
-        "groundtruth_points_drop_percentage":None,
-        "groundtruth_drop_max_keep_points":None,
-        "remove_points_after_sample":None,
-        "use_group_id":None,
-        "min_num_of_points_in_gt":None,
-        "random_flip_x":None,
-        "random_flip_y":None,
-        "sample_importance":None,
+        "augment_dict": None
     }
 }
 __C.Optimizer = {
@@ -199,5 +159,5 @@ __C.LRScheduler = {
 }
 __C.Evaluater = {}
 __C.WeightManager = {
-    "restore": 'methods/second/saved_weights/Second-dev-000A/VoxelNet-22526.tckpt'
+    "restore": None
 }

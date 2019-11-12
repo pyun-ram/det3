@@ -2,7 +2,7 @@ import numpy as np
 import abc
 from det3.dataloader.augmentor import KittiAugmentor
 from det3.dataloader.kittidata import KittiLabel, Frame
-from det3.methods.voxelnet.utils import filter_label_cls, filter_label_pts
+from det3.methods.second.utils.utils import filt_label_by_cls
 
 class DBBatchSampler:
     def __init__(self, sample_list, name, shuffle):
@@ -104,12 +104,12 @@ def prep_pointcloud(input_dict,
         # augmentation
         augmentor = KittiAugmentor(**augment_dict)
         label, pc_reduced = augmentor.apply(label, pc_reduced, calib_list)
+        # label cleaning
+        label = filt_label_by_cls(label, keep_cls=target_assigner.classes)
     else:
-        label = gt_label
+        label = input_dict["cam"]["label"]
         pc_reduced = pc_reduced
-        calib_list = [gt_calib] * len(label)
-    # label cleaning
-    label = filter_label_cls(label, actuall_cls=target_assigner.classes)
+        calib_list = [gt_calib] * len(label.data)
     # Voxelization
     vox_res = voxelizer.generate(pc_reduced, max_voxels)
     voxels = vox_res["voxels"]
@@ -145,6 +145,7 @@ def prep_pointcloud(input_dict,
             anchors[:, [0, 1, 3, 4, 6]])
         matched_thresholds = ret["matched_thresholds"]
         unmatched_thresholds = ret["unmatched_thresholds"]
+    example["anchors"] = anchors
     anchors_mask = None
     if not training:
         return example
@@ -171,20 +172,26 @@ def prep_pointcloud(input_dict,
 
 def kittilabel2gt_dict(kittilabel: KittiLabel, class_names, calib_list) -> dict:
     assert kittilabel.current_frame == Frame.Cam2
-    gt_boxes = kittilabel.bboxes3d
-    wlh = gt_boxes[:, [1, 2, 0]]
-    ry = gt_boxes[:, -1:]
-    xyz_Flidar = np.zeros_like(wlh)
-    for i, (obj, calib) in enumerate(zip(kittilabel.data, calib_list)):
-        bcenter_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, 3)
-        bcenter_Flidar = calib.leftcam2lidar(bcenter_Fcam)
-        xyz_Flidar[i, :] = bcenter_Flidar
-    gt_boxes_Flidar = np.concatenate([xyz_Flidar, wlh, ry], axis=1)
-    gt_names = kittilabel.bboxes_name
-    gt_classes = np.array(
-        [class_names.index(n) + 1 for n in gt_names],
-        dtype=np.int32)
-    gt_importance = np.ones([len(kittilabel.data)], dtype=gt_boxes.dtype)
+    if not (kittilabel.data is None or kittilabel.data == []):
+        gt_boxes = kittilabel.bboxes3d
+        wlh = gt_boxes[:, [1, 2, 0]]
+        ry = gt_boxes[:, -1:]
+        xyz_Flidar = np.zeros_like(wlh)
+        for i, (obj, calib) in enumerate(zip(kittilabel.data, calib_list)):
+            bcenter_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, 3)
+            bcenter_Flidar = calib.leftcam2lidar(bcenter_Fcam)
+            xyz_Flidar[i, :] = bcenter_Flidar
+        gt_boxes_Flidar = np.concatenate([xyz_Flidar, wlh, ry], axis=1)
+        gt_names = kittilabel.bboxes_name
+        gt_classes = np.array(
+            [class_names.index(n) + 1 for n in gt_names],
+            dtype=np.int32)
+        gt_importance = np.ones([len(kittilabel.data)], dtype=gt_boxes.dtype)
+    else:
+        gt_boxes_Flidar = np.array([])
+        gt_classes = []
+        gt_names = []
+        gt_importance = []
     gt_dict = {
         "gt_boxes": gt_boxes_Flidar,
         "gt_classes": gt_classes,

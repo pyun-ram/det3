@@ -21,6 +21,7 @@ from det3.methods.second.builder import (voxelizer_builder, box_coder_builder,
                                          optimizer_builder, evaluater_builder,
                                          model_manager_builder)
 from det3.methods.second.core.model_manager import save_models, restore
+from tqdm import tqdm
 
 def merge_second_batch(batch_list):
     from collections import defaultdict
@@ -162,13 +163,12 @@ def main(tag, cfg_path):
                 logger.log_txt("#################################"+str(step))
                 logger.log_txt("# VAL" + str(step))
                 logger.log_txt("#################################"+str(step))
-                for val_example in val_dataloader:
+                for val_example in tqdm(val_dataloader):
                     val_example = example_convert_to_torch(val_example, torch.float32)
                     detections += net(val_example)
-                result_dict = val_data.dataset.evaluation(detections, str(result_path_step))
-                for k, v in result_dict["results"].items():
-                    logger.log_txt("Evaluation {}".format(k))
-                    logger.log_txt(v)
+                result_dict = val_data.dataset.evaluation(detections,
+                    label_dir=os.path.join(val_data.dataset.root_path,"training", "label_2"),
+                    output_dir=str(result_path_step))
                 logger.log_metrics(result_dict["detail"], step)
                 with open(result_path_step / "result.pkl", 'wb') as f:
                     pickle.dump(detections, f)

@@ -71,7 +71,6 @@ class KittiAugmentor:
 
     def apply(self, label: KittiLabel, pc: np.array, calib: KittiCalib) -> (KittiLabel, np.array):
         assert self.mode is not None
-        print(self.mode)
         func = getattr(self, self.mode)
         params = [label, pc, calib]
         params += self.dict_params[self.mode]
@@ -107,7 +106,7 @@ class KittiAugmentor:
             if num_attemp > max_attemp:
                 print("KittiAugmentor.rotate_obj: Warning: the attemp times is over {} times,"
                       "will return the original copy".format(max_attemp))
-                return label_, pc_
+                break
             if not calib_is_iter:
                 for obj in label_.data:
                     # generate random number
@@ -182,7 +181,7 @@ class KittiAugmentor:
             if num_attemp > max_attemp:
                 print("KittiAugmentor.tr_obj: Warning: the attemp times is over {} times,"
                       "will return the original copy".format(max_attemp))
-                return label_, pc_
+                break
             if not calib_is_iter:
                 for obj in label_.data:
                     # gennerate ramdom number

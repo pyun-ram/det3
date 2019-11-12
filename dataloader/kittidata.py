@@ -187,6 +187,7 @@ class KittiLabel:
         elif isinstance(frame, Frame):
             self._current_frame = frame
         else:
+            print(type(frame))
             raise NotImplementedError
 
     def add_obj(self, obj):
@@ -212,8 +213,11 @@ class KittiLabel:
         TODO: Unit TEST
         '''
         s = ''
-        for obj in self.data:
-            s += obj.__str__() + '\n'
+        if self.data is not None:
+            for obj in self.data:
+                s += obj.__str__() + '\n'
+        else:
+            pass
         return s
 
     def equal(self, label, acc_cls, rtol):

@@ -185,11 +185,11 @@ class TaskAssignerV1(BaseTaskAssigner):
                 prune_anchor_fn = None
             targets = create_target_np(
                 anchor_dict["anchors"].reshape(-1, self.box_ndim),
-                gt_boxes[mask],
+                gt_boxes[mask] if gt_boxes.shape != 0 else None,
                 similarity_fn,
                 box_encoding_fn,
                 prune_anchor_fn=prune_anchor_fn,
-                gt_classes=gt_classes[mask],
+                gt_classes=gt_classes[mask] if len(gt_classes) != 0 else None,
                 matched_threshold=anchor_dict["matched_thresholds"],
                 unmatched_threshold=anchor_dict["unmatched_thresholds"],
                 positive_fraction=self._positive_fraction,

@@ -1,9 +1,16 @@
-from det3.methods.second.data.dataset import Dataset, register_dataset
-from det3.utils.utils import load_pickle, read_pc_from_bin, read_image
+import os
+import shutil
+import numpy as np
 from pathlib import Path
+from second.utils.eval import get_coco_eval_result, get_official_eval_result
+from det3.methods.second.data.dataset import Dataset, register_dataset
+from det3.utils.utils import load_pickle, read_pc_from_bin, read_image, write_str_to_file
+from det3.methods.second.data  import kitti_common as kitti
+from det3.dataloader.kittidata import KittiLabel, KittiObj
 
 @register_dataset
 class MyKittiDataset(Dataset):
+    NumPointFeatures = 4
     def __init__(self,
                  root_path,
                  info_path,
@@ -21,14 +28,58 @@ class MyKittiDataset(Dataset):
     def __len__(self):
         return len(self._kitti_infos)
 
-    def convert_detection_to_kitti_label(self, detection):
-        # inherit from kitti_dataset.py
-        # Note: the [x,y,z] here I used is the bottom center instead of the center
-        raise NotImplementedError
+    @property
+    def root_path(self):
+        return self._root_path
 
-    def evaluation(self, detections, output_dir):
-        # inherit from kitti_dataset.py
-        raise NotImplementedError
+    def save_detections(self, detections, tags, calibs, save_dir):
+        res_dir = save_dir
+        if os.path.isdir(res_dir):
+            shutil.rmtree(res_dir, ignore_errors=True)
+        os.makedirs(res_dir)
+        for det, tag, calib in zip(detections, tags, calibs):
+            label = KittiLabel()
+            label.current_frame = "Cam2"
+            final_box_preds = det["box3d_lidar"].detach().cpu().numpy()
+            label_preds = det["label_preds"].detach().cpu().numpy()
+            scores = det["scores"].detach().cpu().numpy()
+            for i in range(final_box_preds.shape[0]):
+                obj_np = final_box_preds[i, :]
+                bcenter_Flidar = obj_np[:3].reshape(1, 3)
+                bcenter_Fcam = calib.lidar2leftcam(bcenter_Flidar)
+                wlh = obj_np[3:6]
+                ry = obj_np[-1]
+                obj = KittiObj()
+                obj.type = self._class_names[int(label_preds[i])]
+                obj.score = scores[i]
+                obj.x, obj.y, obj.z = bcenter_Fcam.flatten()
+                obj.w, obj.l, obj.h = wlh.flatten()
+                obj.ry = ry
+                obj.from_corners(calib, obj.get_bbox3dcorners(), obj.type, obj.score)
+                obj.truncated = 0
+                obj.occluded = 0
+                obj.alpha = -np.arctan2(-bcenter_Flidar[0, 1], bcenter_Flidar[0, 0]) + ry
+                label.add_obj(obj)
+            # save label
+            write_str_to_file(str(label), os.path.join(res_dir, f"{tag}.txt"))
+
+    def evaluation(self, detections, label_dir, output_dir):
+        tags = [itm["tag"] for itm in self._kitti_infos]
+        calibs = [itm["calib"] for itm in self._kitti_infos]
+        det_path = os.path.join(output_dir, "data")
+        assert len(tags) == len(detections) == len(calibs)
+        self.save_detections(detections, tags, calibs, det_path)
+        assert len(detections) > 50
+        dt_annos = kitti.get_label_annos(det_path)
+        gt_path = os.path.join(label_dir)
+        val_image_ids = os.listdir(det_path)
+        val_image_ids = [int(itm.split(".")[0]) for itm in val_image_ids]
+        val_image_ids.sort()
+        gt_annos = kitti.get_label_annos(gt_path, val_image_ids)
+        cls_to_idx = {"Car": 0, "Pedestrian": 1, "Cyclist": 2}
+        current_classes = [cls_to_idx[itm] for itm in self._class_names]
+        val_ap_dict = get_official_eval_result(gt_annos, dt_annos, current_classes)
+        return val_ap_dict
 
     def __getitem__(self, idx):
         input_dict = self.get_sensor_data(idx)
@@ -64,7 +115,7 @@ if __name__ == "__main__":
     from det3.methods.second.data.mypreprocess import DataBasePreprocessor
     from det3.methods.second.core.db_sampler import DataBaseSamplerV3
     from det3.methods.second.builder import (voxelizer_builder, box_coder_builder,
-                                             similarity_calculator_builder, 
+                                             similarity_calculator_builder,
                                              anchor_generator_builder, target_assigner_builder)
     from det3.dataloader.augmentor import KittiAugmentor
     import numpy as np
@@ -90,7 +141,7 @@ if __name__ == "__main__":
     # augmentor = KittiAugmentor(p_rot=0.2, p_flip=0.2, p_keep=0.4, p_tr=0.2,
     #                            dx_range=[-0.5, 0.5], dy_range=[-0.5, 0.5], dz_range=[-0.1, 0.1],
     #                            dry_range=[-5 * 180 / np.pi, 5 * 180 / np.pi])
-    augment_dict={
+    augment_dict = {
         "p_rot": 0.2,
         "dry_range": [-5 * 180 / np.pi, 5 * 180 / np.pi],
         "p_tr": 0.3,
@@ -102,7 +153,7 @@ if __name__ == "__main__":
     }
     prep_cfg = cfg.TrainDataLoader["PreProcess"]
     prep_func = partial(prep_pointcloud,
-                        training=True,
+                        training=False,
                         db_sampler=dbsampler,
                         augment_dict=augment_dict,
                         voxelizer=voxelizer,
