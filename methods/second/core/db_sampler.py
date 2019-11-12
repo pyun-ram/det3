@@ -77,8 +77,8 @@ class DataBaseSamplerV3(BaseDBSampler):
                         break
                     else:
                         attmps += 1
-                        Logger.log_txt(f"DataBaseSamplerV3:sample: exceed "+
-                                       f"max_attemps: {max_attemps}.")
+                        # Logger.log_txt(f"DataBaseSamplerV3:sample: exceed "+
+                        #                f"max_attemps: {max_attemps}.")
         res_dict = {
             "res_label": res_label,
             "gt_mask": gt_mask,

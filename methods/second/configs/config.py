@@ -4,7 +4,7 @@ __C = edict()
 cfg = __C
 
 __C.Task = {
-    "disp_itv":10,
+    "disp_itv": 10,
     "save_itv": 901,
 }
 __C.Voxelizer = {
@@ -120,10 +120,10 @@ __C.TrainDataLoader = {
         "max_number_of_voxels": 17000,
         "augment_dict": {
             "p_rot": 0.2,
-            "dry_range": [-2 * 180 / np.pi, 2 * 180 / np.pi],
+            "dry_range": [-45 / 180.0 * np.pi, 45 / 180.0 * np.pi],
             "p_tr": 0.3,
-            "dx_range": [-0.5, 0.5],
-            "dy_range": [-0.5, 0.5],
+            "dx_range": [-1, 1],
+            "dy_range": [-1, 1],
             "dz_range": [-0.1, 0.1],
             "p_flip": 0.1,
             "p_keep": 0.4
