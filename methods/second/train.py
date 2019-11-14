@@ -169,6 +169,9 @@ def main(tag, cfg_path):
                 result_dict = val_data.dataset.evaluation(detections,
                     label_dir=os.path.join(val_data.dataset.root_path,"training", "label_2"),
                     output_dir=str(result_path_step))
+                for k, v in result_dict["results"].items():
+                    logger.log_txt("Evaluation {}".format(k))
+                    logger.log_txt(v)
                 logger.log_metrics(result_dict["detail"], step)
                 with open(result_path_step / "result.pkl", 'wb') as f:
                     pickle.dump(detections, f)
