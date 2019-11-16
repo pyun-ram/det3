@@ -116,7 +116,7 @@ __C.TrainDataLoader = {
         "sample_dict": {"Car": 15},
         "sample_param":{
             "mode": "random", # "random"
-            "x_range": ("abs", [10, 50]), # Flidar
+            "x_range": ("abs", [10, 70.4]), # Flidar
             "y_range": ("abs", [-40, 40]), # Flidar
             "z_range": None, # Flidar
             "ry_range": None
