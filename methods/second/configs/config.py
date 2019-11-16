@@ -3,6 +3,9 @@ import numpy as np
 __C = edict()
 cfg = __C
 
+def deg2rad(deg):
+    return deg / 180 * np.pi
+
 __C.Task = {
     "disp_itv": 10,
     "save_itv": 901,
@@ -111,6 +114,13 @@ __C.TrainDataLoader = {
         "name": "DataBaseSamplerV3",
         "db_info_path": "/usr/app/data/MyKITTI/KITTI_dbinfos_train.pkl",
         "sample_dict": {"Car": 15},
+        "sample_param":{
+            "mode": "random", # "random"
+            "x_range": ("abs", [10, 50]), # Flidar
+            "y_range": ("abs", [-40, 40]), # Flidar
+            "z_range": None, # Flidar
+            "ry_range": None
+        },
         "DBProcer": [
             {"name": "DBFilterByMinNumPoint",
              "min_gt_point_dict": {"Car": 5}},
@@ -148,7 +158,7 @@ __C.Optimizer = {
     "amsgrad": False,
     "weight_decay": 0.01,
     "fixed_weight_decay": True,
-    "steps": 23200 #464 * 50
+    "steps" : 464 * 50
 }
 __C.LRScheduler = {
     "name": "OneCycle",
@@ -159,5 +169,5 @@ __C.LRScheduler = {
 }
 __C.Evaluater = {}
 __C.WeightManager = {
-    "restore": None
+    "restore": None,
 }

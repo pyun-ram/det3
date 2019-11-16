@@ -3,14 +3,18 @@ import pathlib
 import copy
 from functools import reduce
 from det3.methods.second.data.mypreprocess import DBBatchSampler
-from det3.utils.utils import read_pc_from_bin
+from det3.utils.utils import read_pc_from_bin, apply_tr, apply_R, rotz
 from det3.methods.second.utils.log_tool import Logger
 class BaseDBSampler:
     def __init__(self):
         raise NotImplementedError
 
 class DataBaseSamplerV3(BaseDBSampler):
-    def __init__(self, db_infos, sample_dict:dict, db_prepor=None):
+    def __init__(self,
+                 db_infos,
+                 sample_dict:dict,
+                 db_prepor=None,
+                 sample_param:dict=None):
         for k, v in db_infos.items():
             Logger.log_txt(f"load {len(v)} {k} database infos")
         if db_prepor is not None:
@@ -23,6 +27,7 @@ class DataBaseSamplerV3(BaseDBSampler):
         for k, v in self._db_infos.items():
             self._sampler_dict[k] = DBBatchSampler(v, k, shuffle=True)
         self._sample_dict = sample_dict
+        self._sample_param = sample_param
 
     def sample(self, gt_label, gt_calib):
         '''
@@ -62,13 +67,13 @@ class DataBaseSamplerV3(BaseDBSampler):
             for cls_sample in cls_samples:
                 attmps = 0
                 # if origin mode (_set_location & _set_rotation), max_attmps should be 1
-                max_attemps = 1
+                max_attemps = 1 if self._sample_param["mode"] == "origin" else 10
                 while attmps < max_attemps:
                     obj = cls_sample["box3d_cam"]
                     calib = cls_sample["calib"]
                     objpc = read_pc_from_bin(cls_sample["gtpc_path"])
-                    self._set_location(obj, calib, objpc, mode="origin")
-                    self._set_rotation(obj, calib, objpc, mode="origin")
+                    self._set_location(obj, calib, objpc, self._sample_param)
+                    self._set_rotation(obj, calib, objpc, self._sample_param)
                     if not self._have_collision(res_label, obj):
                         res_label.add_obj(obj)
                         gt_mask.append(False)
@@ -77,8 +82,9 @@ class DataBaseSamplerV3(BaseDBSampler):
                         break
                     else:
                         attmps += 1
-                        # Logger.log_txt(f"DataBaseSamplerV3:sample: exceed "+
-                        #                f"max_attemps: {max_attemps}.")
+                        # if attmps >= max_attemps:
+                        #     Logger.log_txt(f"DataBaseSamplerV3:sample: exceed "+
+                        #                 f"max_attemps: {max_attemps}.")
         res_dict = {
             "res_label": res_label,
             "gt_mask": gt_mask,
@@ -88,21 +94,114 @@ class DataBaseSamplerV3(BaseDBSampler):
         }
         return res_dict
 
-    def _set_location(self, obj, calib, objpc, mode="origin"):
+    def _set_location(self, obj, calib, objpc, sample_param):
+        mode = sample_param["mode"]
         if mode == "origin":
             pass
+        elif mode == "random":
+            attemp = 0
+            max_attemps = 10
+            while(attemp < max_attemps):
+                x_range = sample_param["x_range"]
+                y_range = sample_param["y_range"]
+                z_range = sample_param["z_range"]
+                tr_x = self._get_tr(x_range, obj, calib, "x")
+                tr_y = self._get_tr(y_range, obj, calib, "y")
+                tr_z = self._get_tr(z_range, obj, calib, "z")
+                if (self._check_valid(obj, objpc, calib, [tr_x, tr_y, tr_z])):
+                    self._apply_tr(obj, objpc, calib, [tr_x, tr_y, tr_z])
+                    break
+                else:
+                    attemp += 1
+                    # if attemp >= max_attemps:
+                    #     Logger.log_txt(f"DataBaseSamplerV3:_set_location: exceed "+
+                    #                 f"max_attemps: {max_attemps}.")
+
         else:
             raise NotImplementedError
         return
 
-    def _set_rotation(self, obj, calib, objpc, mode="origin"):
+    def _check_valid(self, obj, objpc, calib, tr):
+        bcenter_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+        bcenter_Flidar = calib.leftcam2lidar(bcenter_Fcam)
+        bcenter_Flidar = apply_tr(bcenter_Flidar, np.array(tr))
+        mean_Flidar = apply_tr(objpc[:, :3].mean(axis=0).reshape(1, -1),
+                               np.array(tr))
+        dis = np.linalg.norm(mean_Flidar[:2] - bcenter_Flidar[:2], ord=2)
+        x, y = bcenter_Flidar[0, :2]
+        return dis < 5 and (y<x and -y<x)
+
+    def _get_tr(self, xx_range, obj, calib, dim):
+        if xx_range is None:
+            return 0
+        assert (isinstance(xx_range, tuple),
+                "xx_range should be a None/('abs'/'rel', [min, max])")
+        mode, minmax = xx_range
+        _min, _max = minmax
+        assert mode in ["abs", "rel"]
+        assert dim in ["x", "y", "z"]
+        dim2idx = {"x": 0, "y": 1, "z": 2}
+        if mode == "abs":
+            target_xx = float(np.random.uniform(_min, _max, 1))
+            bcenter_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1,3)
+            bcenter_Flidar = calib.leftcam2lidar(bcenter_Fcam)
+            current_xx = bcenter_Flidar[0, dim2idx[dim]]
+            rel_xx = target_xx - current_xx
+        elif mode == "rel":
+            rel_xx = float(np.random.uniform(_min, _max, 1))
+        return rel_xx
+
+    def _apply_tr(self, obj, objpc, calib, tr):
+        # Note: After apply tr, the obj.bbox2d will not coincide with obj.bbox3d
+        bcenter_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+        bcenter_Flidar = calib.leftcam2lidar(bcenter_Fcam)
+        bcenter_Flidar = apply_tr(bcenter_Flidar, np.array(tr))
+        bcenter_Fcam = calib.lidar2leftcam(bcenter_Flidar)
+        obj.x, obj.y, obj.z = bcenter_Fcam.flatten()
+
+        objpc[:, :3] = apply_tr(objpc[:, :3], np.array(tr))
+
+    def _set_rotation(self, obj, calib, objpc, sample_param):
+        mode = sample_param["mode"]
         if mode == "origin":
             pass
+        elif mode == "random":
+            ry_range = sample_param["ry_range"]
+            dry = self._get_dry(ry_range, obj, calib)
+            self._apply_dry(obj, objpc, calib, dry)
         else:
             raise NotImplementedError
         return
 
-    def _have_collision(sekf, label, new_obj):
+    def _get_dry(self, ry_range, obj, calib):
+        if ry_range is None:
+            return 0
+        assert (isinstance(ry_range, tuple),
+                "ry_range should be a None/('abs'/'rel', [min, max])")
+        mode, minmax = ry_range
+        _min, _max = minmax
+        assert mode in ["abs", "rel"]
+        if mode == "abs":
+            assert False, "Do not use abs range of ry for db sampling"
+        elif mode == "rel":
+            rel_ry = float(np.random.uniform(_min, _max, 1))
+        return rel_ry
+
+    def _apply_dry(self, obj, objpc, calib, dry):
+        if dry == 0:
+            return
+        bottom_Fcam = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+        bottom_Flidar = calib.leftcam2lidar(bottom_Fcam)
+        objpc[:, :3] = apply_tr(objpc[:, :3], -bottom_Flidar)
+        # obj.ry += dry is correspond to rotz(-dry)
+        # since obj is in cam frame
+        # pc_ is in LiDAR frame
+        objpc[:, :3] = apply_R(objpc[:, :3], rotz(-dry))
+        objpc[:, :3] = apply_tr(objpc[:, :3], bottom_Flidar)
+        # modify obj
+        obj.ry += dry
+
+    def _have_collision(self, label, new_obj):
         # TODO: Bottleneck in speed
         # (Specifically: KittiAugmentor check_overlap)
         from det3.dataloader.augmentor import KittiAugmentor
@@ -442,6 +541,7 @@ if __name__=="__main__":
     import time
     from tqdm import tqdm
 
+    np.random.seed(123)
     dbprocers_cfg = cfg.TrainDataLoader["DBSampler"]["DBProcer"]
     tmps = [(load_module("methods/second/data/mypreprocess.py", cfg["name"]), cfg) for cfg in dbprocers_cfg]
     dbproces = []
@@ -452,13 +552,18 @@ if __name__=="__main__":
     db_infos = load_pickle("/usr/app/data/MyKITTI/KITTI_dbinfos_train.pkl")
     train_infos = load_pickle("/usr/app/data/MyKITTI/KITTI_infos_train.pkl")
     sample_dict = cfg.TrainDataLoader["DBSampler"]["sample_dict"]
-    dbsampler = DataBaseSamplerV3(db_infos, db_prepor=db_prepor, sample_dict=sample_dict)
+    sample_param = cfg.TrainDataLoader["DBSampler"]["sample_param"]
+    dbsampler = DataBaseSamplerV3(db_infos,
+                                  db_prepor=db_prepor,
+                                  sample_dict=sample_dict,
+                                  sample_param=sample_param)
 
-    for i in tqdm(range(len(train_infos))):
-        train_info = train_infos[i]
+    for j in range(len(train_infos)):
+        train_info = train_infos[j]
         calib = train_info["calib"]
         label = train_info["label"]
         tag = train_info["tag"]
+        print(tag)
         pc_reduced = read_pc_from_bin(train_info["reduced_pc_path"])
         orgbev = BEVImage(x_range=(0, 70), y_range=(-40, 40), grid_size=(0.1, 0.1))
         orgfv = FVImage()
