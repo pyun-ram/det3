@@ -27,9 +27,11 @@ def build(model_cfg, dataloader_cfg, voxelizer, target_assigner, training):
             db_infos = pickle.load(f)
         dbsampler_builder = load_module("methods/second/core/db_sampler.py", dataloader_cfg["DBSampler"]["name"])
         sample_dict = dataloader_cfg["DBSampler"]["sample_dict"]
+        sample_param = dataloader_cfg["DBSampler"]["sample_param"]
         dbsampler = dbsampler_builder(db_infos=db_infos,
                                       db_prepor=db_prepor,
-                                      sample_dict=sample_dict)
+                                      sample_dict=sample_dict,
+                                      sample_param=sample_param)
         Logger.log_txt("Warning: dataloader_builder.py:"+
                        "DBSampler build function should be changed to configurable.")
     else:
