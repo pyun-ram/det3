@@ -101,6 +101,9 @@ def prep_pointcloud(input_dict,
             np.random.shuffle(pc_reduced)
             calib_list = [itm if itm is not None else gt_calib for itm in sample_res["calib_list"]]
             label = sample_res["res_label"]
+        else:
+            label = gt_label
+            calib_list = [gt_calib for itm in label.data]
         # augmentation
         augmentor = KittiAugmentor(**augment_dict)
         label, pc_reduced = augmentor.apply(label, pc_reduced, calib_list)
