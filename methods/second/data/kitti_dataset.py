@@ -35,6 +35,10 @@ class KittiDataset(Dataset):
     def __len__(self):
         return len(self._kitti_infos)
 
+    @property
+    def root_path(self):
+        return self._root_path
+
     def convert_detection_to_kitti_annos(self, detection):
         class_names = self._class_names
         det_image_idxes = [det["metadata"]["image_idx"] for det in detection]
