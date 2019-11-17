@@ -2,9 +2,18 @@ import numpy as np
 import pathlib
 import copy
 from functools import reduce
-from det3.methods.second.data.mypreprocess import DBBatchSampler
 from det3.utils.utils import read_pc_from_bin, apply_tr, apply_R, rotz
 from det3.methods.second.utils.log_tool import Logger
+
+from det3.methods.second.data.preprocess import (BatchSampler,
+                                                 random_crop_frustum,
+                                                 mask_points_in_corners,
+                                                 noise_per_object_v3_,
+                                                 box_collision_test)
+from det3.methods.second.utils.utils import shape_mergeable
+from det3.methods.second.ops.ops import (rotation_points_single_angle,
+                                         box3d_to_bbox, center_to_corner_box2d,
+                                         center_to_corner_box2d)
 class BaseDBSampler:
     def __init__(self):
         raise NotImplementedError
@@ -15,6 +24,7 @@ class DataBaseSamplerV3(BaseDBSampler):
                  sample_dict:dict,
                  db_prepor=None,
                  sample_param:dict=None):
+        from det3.methods.second.data.mypreprocess import DBBatchSampler
         for k, v in db_infos.items():
             Logger.log_txt(f"load {len(v)} {k} database infos")
         if db_prepor is not None:
@@ -210,15 +220,6 @@ class DataBaseSamplerV3(BaseDBSampler):
         return not KittiAugmentor.check_overlap(label=_label)
 
 class DataBaseSamplerV2(BaseDBSampler):
-    from det3.methods.second.data.preprocess import (BatchSampler,
-                                                     random_crop_frustum,
-                                                     mask_points_in_corners,
-                                                     noise_per_object_v3_,
-                                                     box_collision_test)
-    from det3.methods.second.utils.utils import shape_mergeable
-    from det3.methods.second.ops.ops import (rotation_points_single_angle,
-                                             box3d_to_bbox, center_to_corner_box2d,
-                                             center_to_corner_box2d)
     def __init__(self,
                  db_infos,
                  groups,

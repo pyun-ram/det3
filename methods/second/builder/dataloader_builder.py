@@ -4,7 +4,6 @@ from det3.methods.second.utils.import_tool import load_module
 from det3.methods.second.utils.log_tool import Logger
 from det3.methods.second.core.second import get_downsample_factor
 from det3.methods.second.data.dataset import get_dataset_class
-from det3.methods.second.data.mypreprocess import prep_pointcloud
 from det3.methods.second.ops.ops import rbbox2d_to_near_bbox
 from det3.methods.second.data.dataset import DatasetWrapper
 from functools import partial
@@ -26,14 +25,28 @@ def build(model_cfg, dataloader_cfg, voxelizer, target_assigner, training):
         with open(info_path, "rb") as f:
             db_infos = pickle.load(f)
         dbsampler_builder = load_module("methods/second/core/db_sampler.py", dataloader_cfg["DBSampler"]["name"])
-        sample_dict = dataloader_cfg["DBSampler"]["sample_dict"]
-        sample_param = dataloader_cfg["DBSampler"]["sample_param"]
-        dbsampler = dbsampler_builder(db_infos=db_infos,
-                                      db_prepor=db_prepor,
-                                      sample_dict=sample_dict,
-                                      sample_param=sample_param)
-        Logger.log_txt("Warning: dataloader_builder.py:"+
-                       "DBSampler build function should be changed to configurable.")
+        if dataloader_cfg["DBSampler"]["name"] == "DataBaseSamplerV3":
+            sample_dict = dataloader_cfg["DBSampler"]["sample_dict"]
+            sample_param = dataloader_cfg["DBSampler"]["sample_param"]
+            dbsampler = dbsampler_builder(db_infos=db_infos,
+                                        db_prepor=db_prepor,
+                                        sample_dict=sample_dict,
+                                        sample_param=sample_param)
+            Logger.log_txt("Warning: dataloader_builder.py:"+
+                        "DBSampler build function should be changed to configurable.")
+        elif dataloader_cfg["DBSampler"]["name"] == "DataBaseSamplerV2":
+            groups = dataloader_cfg["DBSampler"]["sample_groups"]
+            rate = dataloader_cfg["DBSampler"]["rate"]
+            global_rot_range = dataloader_cfg["DBSampler"]["global_random_rotation_range_per_object"]
+            dbsampler = dbsampler_builder(db_infos=db_infos,
+                                        groups=groups,
+                                        db_prepor=db_prepor,
+                                        rate=rate,
+                                        global_rot_range=global_rot_range)
+            Logger.log_txt("Warning: dataloader_builder.py:"+
+                        "DBSampler build function should be changed to configurable.")
+        else:
+            raise NotImplementedError
     else:
         dbsampler = None
         Logger.log_txt("Warning: dataloader_builder.py:"+
@@ -49,15 +62,53 @@ def build(model_cfg, dataloader_cfg, voxelizer, target_assigner, training):
     assert dataset_cls.NumPointFeatures >= 3, "you must set this to correct value"
     assert dataset_cls.NumPointFeatures == num_point_features, "currently you need keep them same"
     prep_cfg = dataloader_cfg["PreProcess"]
-    augment_dict = prep_cfg["augment_dict"]
-    prep_func = partial(
-        prep_pointcloud,
-        training=training,
-        db_sampler=dbsampler,
-        augment_dict=augment_dict,
-        voxelizer=voxelizer,
-        max_voxels=prep_cfg["max_number_of_voxels"],
-        target_assigner=target_assigner)
+    if dataloader_cfg["Dataset"]["name"] == "KittiDataset":
+        from det3.methods.second.data.preprocess import prep_pointcloud
+        prep_func = partial(
+            prep_pointcloud,
+            root_path=dataloader_cfg["Dataset"]["kitti_root_path"],
+            voxel_generator=voxelizer,
+            target_assigner=target_assigner,
+            training=training,
+            max_voxels=prep_cfg["max_number_of_voxels"],
+            remove_outside_points=False,
+            remove_unknown=prep_cfg["remove_unknown_examples"],
+            create_targets=training,
+            shuffle_points=prep_cfg["shuffle_points"],
+            gt_rotation_noise=list(prep_cfg["groundtruth_rotation_uniform_noise"]),
+            gt_loc_noise_std=list(prep_cfg["groundtruth_localization_noise_std"]),
+            global_rotation_noise=list(prep_cfg["global_rotation_uniform_noise"]),
+            global_scaling_noise=list(prep_cfg["global_scaling_uniform_noise"]),
+            global_random_rot_range=list(
+                prep_cfg["global_random_rotation_range_per_object"]),
+            global_translate_noise_std=list(prep_cfg["global_translate_noise_std"]),
+            db_sampler=dbsampler,
+            num_point_features=dataset_cls.NumPointFeatures,
+            anchor_area_threshold=prep_cfg["anchor_area_threshold"],
+            gt_points_drop=prep_cfg["groundtruth_points_drop_percentage"],
+            gt_drop_max_keep=prep_cfg["groundtruth_drop_max_keep_points"],
+            remove_points_after_sample=prep_cfg["remove_points_after_sample"],
+            remove_environment=prep_cfg["remove_environment"],
+            use_group_id=prep_cfg["use_group_id"],
+            out_size_factor=out_size_factor,
+            multi_gpu=False,
+            min_points_in_gt=prep_cfg["min_num_of_points_in_gt"],
+            random_flip_x=prep_cfg["random_flip_x"],
+            random_flip_y=prep_cfg["random_flip_y"],
+            sample_importance=prep_cfg["sample_importance"])
+    elif dataloader_cfg["Dataset"]["name"] == "MyKittiDataset":
+        from det3.methods.second.data.mypreprocess import prep_pointcloud
+        augment_dict = prep_cfg["augment_dict"]
+        prep_func = partial(
+            prep_pointcloud,
+            training=training,
+            db_sampler=dbsampler,
+            augment_dict=augment_dict,
+            voxelizer=voxelizer,
+            max_voxels=prep_cfg["max_number_of_voxels"],
+            target_assigner=target_assigner)
+    else:
+        raise NotImplementedError
     # generate anchors
     ret = target_assigner.generate_anchors(feature_map_size)
     class_names = target_assigner.classes
