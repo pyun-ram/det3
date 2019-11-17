@@ -166,9 +166,12 @@ def main(tag, cfg_path):
                 for val_example in tqdm(val_dataloader):
                     val_example = example_convert_to_torch(val_example, torch.float32)
                     detections += net(val_example)
-                result_dict = val_data.dataset.evaluation(detections,
-                    label_dir=os.path.join(val_data.dataset.root_path,"training", "label_2"),
-                    output_dir=str(result_path_step))
+                if cfg.ValDataLoader["Dataset"]["name"] == "MyKittiDataset":
+                    result_dict = val_data.dataset.evaluation(detections,
+                        label_dir=os.path.join(val_data.dataset.root_path,"training", "label_2"),
+                        output_dir=str(result_path_step))
+                elif cfg.ValDataLoader["Dataset"]["name"] == "KittiDataset":
+                    result_dict = val_data.dataset.evaluation(detections, str(result_path_step))
                 logger.log_metrics(result_dict["detail"], step)
                 with open(result_path_step / "result.pkl", 'wb') as f:
                     pickle.dump(detections, f)
