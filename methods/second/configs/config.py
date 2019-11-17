@@ -103,8 +103,8 @@ __C.Net = {
 }
 
 __C.TrainDataLoader = {
-    "batch_size": 8,
-    "num_workers": 8,
+    "batch_size": 6,
+    "num_workers": 6,
     "Dataset": {
         "name": "MyKittiDataset",
         "kitti_info_path": "/usr/app/data/MyKITTI/KITTI_infos_train.pkl",
@@ -129,20 +129,20 @@ __C.TrainDataLoader = {
     "PreProcess":{
         "max_number_of_voxels": 17000,
         "augment_dict": {
-            "p_rot": 0.2,
+            "p_rot": 0.3,
             "dry_range": [-45 / 180.0 * np.pi, 45 / 180.0 * np.pi],
             "p_tr": 0.3,
             "dx_range": [-1, 1],
             "dy_range": [-1, 1],
             "dz_range": [-0.1, 0.1],
-            "p_flip": 0.1,
-            "p_keep": 0.4
+            "p_flip": 0.3,
+            "p_keep": 0.1
         },
     }
 }
 __C.ValDataLoader = {
-    "batch_size": 8,
-    "num_workers": 8,
+    "batch_size": 6,
+    "num_workers": 6,
     "Dataset": {
         "name": "MyKittiDataset",
         "kitti_info_path": "/usr/app/data/MyKITTI/KITTI_infos_val.pkl",
