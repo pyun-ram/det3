@@ -358,10 +358,10 @@ class CarlaAugmentor:
         Note: If the attemp times is over max_attemp, it will return the original copy
         '''
         assert istype(label, "CarlaLabel")
-        assert istype(calib, "CarlaCalib")
         dry_min, dry_max = dry_range
         max_attemp = 10
         num_attemp = 0
+        calib_is_iter = isinstance(calib, list)
         while True:
             num_attemp += 1
             # copy pc & label
@@ -373,19 +373,35 @@ class CarlaAugmentor:
             if num_attemp > max_attemp:
                 print("CarlaAugmentor.rotate_obj: Warning: the attemp times is over {} times,"
                       "will return the original copy".format(max_attemp))
-                return label_, pc_
-            for obj in label_.data:
-                dry = np.random.rand() * (dry_max - dry_min) + dry_min
-                # modify pc
-                idx = obj.get_pts_idx(pc_[:, :3], calib)
-                bottom_Fimu = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
-                pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Fimu)
-                pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(dry))
-                pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Fimu)
-                # modify obj
-                obj.ry += dry
+                break
+            if not calib_is_iter:
+                for obj in label_.data:
+                    dry = np.random.rand() * (dry_max - dry_min) + dry_min
+                    # modify pc
+                    idx = obj.get_pts_idx(pc_[:, :3], calib)
+                    bottom_Fimu = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+                    pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Fimu)
+                    pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(dry))
+                    pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Fimu)
+                    # modify obj
+                    obj.ry += dry
+            else:
+                for obj, calib_ in zip(label_.data, calib):
+                    dry = np.random.rand() * (dry_max - dry_min) + dry_min
+                    # modify pc
+                    idx = obj.get_pts_idx(pc_[:, :3], calib_)
+                    bottom_Fimu = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+                    pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Fimu)
+                    pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(dry))
+                    pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Fimu)
+                    # modify obj
+                    obj.ry += dry
             if self.check_overlap(label_):
                 break
+        res_label = CarlaLabel()
+        for obj in label_.data:
+            res_label.add_obj(obj)
+        res_label.current_frame = "IMU"
         return label_, pc_
 
     def tr_obj(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib,
@@ -405,12 +421,12 @@ class CarlaAugmentor:
         Note: If the attemp times is over max_attemp, it will return the original copy
         '''
         assert istype(label, "CarlaLabel")
-        assert istype(calib, "CarlaCalib")
         dx_min, dx_max = dx_range
         dy_min, dy_max = dy_range
         dz_min, dz_max = dz_range
         max_attemp = 10
         num_attemp = 0
+        calib_is_iter = isinstance(calib, list)
         while True:
             num_attemp += 1
             # copy pc & label
@@ -422,21 +438,39 @@ class CarlaAugmentor:
             if num_attemp > max_attemp:
                 print("CarlaAugmentor.tr_obj: Warning: the attemp times is over {} times,"
                       "will return the original copy".format(max_attemp))
-                return label_, pc_
-            for obj in label_.data:
-                dx = np.random.rand() * (dx_max - dx_min) + dx_min
-                dy = np.random.rand() * (dy_max - dy_min) + dy_min
-                dz = np.random.rand() * (dz_max - dz_min) + dz_min
-                # modify pc
-                idx = obj.get_pts_idx(pc_[:, :3], calib)
-                dtr = np.array([dx, dy, dz]).reshape(1, -1)
-                pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
-                # modify obj
-                obj.x += dx
-                obj.y += dy
-                obj.z += dz
+                break
+            if not calib_is_iter:
+                for obj in label_.data:
+                    dx = np.random.rand() * (dx_max - dx_min) + dx_min
+                    dy = np.random.rand() * (dy_max - dy_min) + dy_min
+                    dz = np.random.rand() * (dz_max - dz_min) + dz_min
+                    # modify pc
+                    idx = obj.get_pts_idx(pc_[:, :3], calib)
+                    dtr = np.array([dx, dy, dz]).reshape(1, -1)
+                    pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
+                    # modify obj
+                    obj.x += dx
+                    obj.y += dy
+                    obj.z += dz
+            else:
+                for obj, calib_ in zip(label_.data, calib):
+                    dx = np.random.rand() * (dx_max - dx_min) + dx_min
+                    dy = np.random.rand() * (dy_max - dy_min) + dy_min
+                    dz = np.random.rand() * (dz_max - dz_min) + dz_min
+                    # modify pc
+                    idx = obj.get_pts_idx(pc_[:, :3], calib_)
+                    dtr = np.array([dx, dy, dz]).reshape(1, -1)
+                    pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
+                    # modify obj
+                    obj.x += dx
+                    obj.y += dy
+                    obj.z += dz
             if self.check_overlap(label_):
                 break
+        res_label = CarlaLabel()
+        for obj in label_.data:
+            res_label.add_obj(obj)
+        res_label.current_frame = "IMU"
         return label_, pc_
 
     def flip_pc(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib) -> (CarlaLabel, np.array):
@@ -448,7 +482,6 @@ class CarlaAugmentor:
             calib:
         '''
         assert istype(label, "CarlaLabel")
-        assert istype(calib, "CarlaCalib")
         # copy pc & label
         pc_ = pc.copy()
         label_ = CarlaLabel()
@@ -461,17 +494,24 @@ class CarlaAugmentor:
         for obj in label_.data:
             obj.y *= -1
             obj.ry *= -1
+        res_label = CarlaLabel()
+        for obj in label_.data:
+            res_label.add_obj(obj)
+        res_label.current_frame = "IMU"
         return label_, pc_
 
     def keep(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib) -> (CarlaLabel, np.array):
         assert istype(label, "CarlaLabel")
-        assert istype(calib, "CarlaCalib")
         # copy pc & label
         pc_ = pc.copy()
         label_ = CarlaLabel()
         label_.data = []
         for obj in label.data:
             label_.data.append(CarlaObj(str(obj)))
+        res_label = CarlaLabel()
+        for obj in label_.data:
+            res_label.add_obj(obj)
+        res_label.current_frame = "IMU"
         return label_, pc_
 
 class WaymoAugmentor:
