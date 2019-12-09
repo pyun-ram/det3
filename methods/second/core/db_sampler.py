@@ -79,7 +79,7 @@ class DataBaseSamplerV3(BaseDBSampler):
                 # if origin mode (_set_location & _set_rotation), max_attmps should be 1
                 max_attemps = 1 if self._sample_param["mode"] == "origin" else 10
                 while attmps < max_attemps:
-                    obj = cls_sample["box3d_cam"]
+                    obj = cls_sample["box3d_cam"].copy()
                     calib = cls_sample["calib"]
                     objpc = read_pc_from_bin(cls_sample["gtpc_path"])
                     self._set_location(obj, calib, objpc, self._sample_param)

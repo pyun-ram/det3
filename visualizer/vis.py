@@ -59,7 +59,7 @@ class BEVImage:
                 num_of_pts += 1
         bevimg = bevimg - np.min(bevimg)
         divisor = np.max(bevimg) - np.min(bevimg)
-        factor = 10 * num_of_pts / 4000 # for better visualization
+        factor = 100 * num_of_pts / 4000 # for better visualization
         bevimg = np.clip((bevimg / divisor * 255.0 * 100), a_min=0, a_max=255)
         # if blue pts and white background
         # bevimg = (255 - bevimg).astype(np.uint8)
@@ -126,6 +126,12 @@ class BEVImage:
         draw.line([p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], p1[0], p1[1]], fill=color, width=width)
         self.data = np.array(bev_img)
         return self
+
+    def save(self, path:str):
+        assert self.data is not None
+        from PIL import Image
+        tmp = Image.fromarray(self.data)
+        tmp.save(path)
 
 class FVImage:
     '''

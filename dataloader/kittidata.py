@@ -447,6 +447,10 @@ class KittiObj():
                 np.isclose(self.z, obj.z, rtol) and
                 np.isclose(math.cos(2 * (self.ry - obj.ry)), 1, rtol))
 
+    def copy(self):
+        import copy
+        return copy.deepcopy(self)
+
 class KittiData:
     '''
     class storing a frame of KITTI data

@@ -8,8 +8,34 @@ from PIL import Image
 import pickle
 
 def write_pc_to_file(pc, path):
-    with open(path, 'wb') as f:
-        pc.tofile(f)
+    '''
+    @ pc: np.array (np.float32)
+    '''
+    assert pc.dtype.type is np.float32
+    ftype = path.split(".")[-1]
+    if ftype == "bin":
+        with open(path, 'wb') as f:
+            pc.tofile(f)
+    elif ftype == "npy":
+        np.save(path, pc)
+    elif ftype == "pcd":
+        import open3d
+        pcd = open3d.geometry.PointCloud()
+        pcd.points = open3d.utility.Vector3dVector(pc[:, :3])
+        open3d.io.write_point_cloud(path, pcd)
+    else:
+        print(ftype)
+        raise NotImplementedError
+
+def read_pc_from_file(path, num_feature=4):
+    ftype = path.split(".")[-1]
+    if ftype == "bin":
+        return read_pc_from_bin(path, num_feature=num_feature)
+    elif ftype == "npy":
+        return read_pc_from_npy(path)
+    else:
+        print(ftype)
+        raise NotImplementedError
 
 def save_pickle(obj, file_path):
     with open(file_path, 'wb') as f:
@@ -65,9 +91,9 @@ def read_pc_from_npy(npy_path):
     assert not np.isnan(np.min(p))
     return p
 
-def read_pc_from_bin(bin_path):
+def read_pc_from_bin(bin_path, num_feature=4):
     """Load PointCloud data from bin file."""
-    p = np.fromfile(bin_path, dtype=np.float32).reshape(-1, 4)
+    p = np.fromfile(bin_path, dtype=np.float32).reshape(-1, num_feature)
     return p
 
 def rotx(t):

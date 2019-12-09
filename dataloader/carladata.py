@@ -7,11 +7,14 @@ import numpy as np
 import math
 import os
 from numpy.linalg import inv
+from enum import Enum
 try:
     from ..utils import utils
 except:
     # Run script python3 dataloader/carladata.py
     import det3.utils.utils as utils
+
+Frame = Enum('Frame', ('IMU'))
 
 class CarlaCalib:
     '''
@@ -333,6 +336,11 @@ class CarlaObj():
         self.bbox_r = maxx
         self.bbox_b = maxy
         return self
+
+    def copy(self):
+        import copy
+        return copy.deepcopy(self)
+
 class CarlaLabel:
     '''
     class storing Carla 3d object detection label
@@ -341,6 +349,11 @@ class CarlaLabel:
     def __init__(self, label_path=None):
         self.path = label_path
         self.data = None
+        self._objs_box = None
+        self._objs_array = None
+        self._objs_name = None
+        self._objs_score = None
+        self._current_frame = None
 
     def read_label_file(self, no_dontcare=True):
         '''
@@ -354,7 +367,76 @@ class CarlaLabel:
             self.data.append(CarlaObj(s))
         if no_dontcare:
             self.data = list(filter(lambda obj: obj.type != "DontCare", self.data))
+        num_obj = len(self.data)
+        self._objs_array = np.zeros((num_obj, 14)).astype(np.float32)
+        self._objs_name = []
+        self._objs_score = []
+        for i, obj in enumerate(self.data):
+            # trun, occ, alpha,
+            # bbox_l, bbox_t, bbox_r, bbox_b,
+            # h, w, l, x, y, z, ry
+            self._objs_array[i, :] = np.array([obj.truncated, obj.occluded, obj.alpha,\
+                                               obj.bbox_l, obj.bbox_t, obj.bbox_r, obj.bbox_b, \
+                                               obj.h, obj.w, obj.l, obj.x, obj.y, obj.z, obj.ry])
+            self._objs_name.append(obj.type)
+            self._objs_score.append(obj.score)
+        self._current_frame = Frame.IMU
         return self
+
+    @property
+    def bboxes3d(self):
+        return self._objs_array[:, -7:]
+
+    @property
+    def bboxes2d_cam(self):
+        return self._objs_array[:, 3:7]
+
+    @property
+    def bboxes_score(self):
+        return self._objs_score
+
+    @property
+    def have_score(self):
+        return not None in self._objs_score
+
+    @property
+    def bboxes_name(self):
+        return self._objs_name
+
+    @property
+    def current_frame(self):
+        return self._current_frame
+
+    @current_frame.setter
+    def current_frame(self, frame: [Frame, str]):
+        if isinstance(frame, str):
+            self._current_frame = Frame[frame]
+        elif isinstance(frame, Frame):
+            self._current_frame = frame
+        else:
+            print(type(frame))
+            raise NotImplementedError
+
+    def add_obj(self, obj):
+        if self.data is None:
+            self.data = []
+            self._objs_name = []
+            self._objs_score = []
+        self.data.append(obj)
+        self._objs_name.append(obj.type)
+        self._objs_score.append(obj.score)
+        tmp = np.array([obj.truncated, obj.occluded, obj.alpha,
+                        obj.bbox_l, obj.bbox_t, obj.bbox_r, obj.bbox_b,
+                        obj.h, obj.w, obj.l, obj.x, obj.y, obj.z, obj.ry]).reshape(1, -1)
+        self._objs_array = (np.concatenate([self._objs_array, tmp], axis=0)
+                            if self._objs_array is not None else tmp)
+
+    def copy(self):
+        import copy
+        return copy.deepcopy(self)
+
+    def __len__(self):
+        return len(self.data)
 
     def __str__(self):
         '''
@@ -418,8 +500,7 @@ class CarlaData:
         self.label_path = os.path.join(root_dir, "label_imu", idx+'.txt')
 
         velodyne_list = os.listdir(root_dir)
-        velodyne_list = [itm if 'velo' in itm.split('_') else None for itm in velodyne_list]
-        self.velodyne_list = list(filter(lambda itm: itm is not None, velodyne_list))
+        self.velodyne_list = [itm for itm in velodyne_list if itm.split('_')[0]=="velo"]
         self.velodyne_paths = [os.path.join(root_dir, itm, idx+'.npy') for itm in self.velodyne_list]
         self.output_dict = output_dict
         if self.output_dict is None:

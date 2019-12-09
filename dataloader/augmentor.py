@@ -311,7 +311,8 @@ class CarlaAugmentor:
             self.mode = None
         # print(self.mode)
 
-    def check_overlap(self, label: CarlaLabel) -> bool:
+    @staticmethod
+    def check_overlap(label: CarlaLabel) -> bool:
         '''
         check if there is overlap in label.
         inputs:
