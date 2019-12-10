@@ -402,7 +402,7 @@ class CarlaAugmentor:
         for obj in label_.data:
             res_label.add_obj(obj)
         res_label.current_frame = "IMU"
-        return label_, pc_
+        return res_label, pc_
 
     def tr_obj(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib,
                dx_range: List[float], dy_range: List[float], dz_range: List[float]) -> (CarlaLabel, np.array):
@@ -471,7 +471,7 @@ class CarlaAugmentor:
         for obj in label_.data:
             res_label.add_obj(obj)
         res_label.current_frame = "IMU"
-        return label_, pc_
+        return res_label, pc_
 
     def flip_pc(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib) -> (CarlaLabel, np.array):
         '''
@@ -498,7 +498,7 @@ class CarlaAugmentor:
         for obj in label_.data:
             res_label.add_obj(obj)
         res_label.current_frame = "IMU"
-        return label_, pc_
+        return res_label, pc_
 
     def keep(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib) -> (CarlaLabel, np.array):
         assert istype(label, "CarlaLabel")
@@ -512,7 +512,7 @@ class CarlaAugmentor:
         for obj in label_.data:
             res_label.add_obj(obj)
         res_label.current_frame = "IMU"
-        return label_, pc_
+        return res_label, pc_
 
 class WaymoAugmentor:
     def __init__(self, *, p_rot: float = 0, p_tr: float = 0, p_flip: float = 0, p_keep: float = 0,
