@@ -191,7 +191,7 @@ class KittiLabel:
             raise NotImplementedError
 
     def add_obj(self, obj):
-        if self.data is None:
+        if len(self) == 0:
             self.data = []
             self._objs_name = []
             self._objs_score = []
@@ -207,6 +207,9 @@ class KittiLabel:
     def copy(self):
         import copy
         return copy.deepcopy(self)
+
+    def __len__(self):
+        return len(self.data) if self.data is not None else 0
 
     def __str__(self):
         '''
