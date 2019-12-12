@@ -61,13 +61,13 @@ class Logger:
         Logger.g_global_dir=v
         logging.basicConfig(filename=Path(v, 'log.txt'))
         Logger.g_tsbd = SummaryWriter(v)
-
     
     @staticmethod
     def log_txt(s):
         if Logger.g_global_dir is None:
             print(s)
         else:
+            print(s)
             logging.critical(s)
 
     @staticmethod
