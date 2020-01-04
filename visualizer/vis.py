@@ -285,6 +285,13 @@ class FVImage:
                    cns_Fcam2d[2, 0], cns_Fcam2d[2, 1]], fill=color, width=width)
         self.data = np.array(fv_img)
         return self
+
+    def save(self, path:str):
+        assert self.data is not None
+        from PIL import Image
+        tmp = Image.fromarray(self.data)
+        tmp.save(path)
+
 if __name__ == "__main__":
     from det3.dataloader.kittidata import KittiData
     from det3.dataloader.carladata import CarlaData

@@ -30,7 +30,6 @@ class VoxelNet(nn.Module):
                  voxelizer,
                  name="VoxelNet"):
         super().__init__()
-        super().__init__()
         self.name = name
         self._sin_error_factor = cfg["sin_error_factor"]
         self._num_class = cfg["num_class"]

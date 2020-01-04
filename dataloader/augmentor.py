@@ -344,12 +344,12 @@ class CarlaAugmentor:
         assert not any(itm is None for itm in params)
         return func(*params)
 
-    def rotate_obj(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib, dry_range: List[float]) -> (CarlaLabel, np.array):
+    def rotate_obj(self, label: CarlaLabel, pc: (np.array, dict), calib: CarlaCalib, dry_range: List[float]) -> (CarlaLabel, np.array):
         '''
         rotate object along the z axis in the LiDAR frame
         inputs:
             label: gt
-            pc: [#pts, >= 3] in IMU frame
+            pc: [#pts, >= 3] in IMU frame, dict
             calib:
             dry_range: [dry_min, dry_max] in radius
         returns:
@@ -365,7 +365,10 @@ class CarlaAugmentor:
         while True:
             num_attemp += 1
             # copy pc & label
-            pc_ = pc.copy()
+            if isinstance(pc, dict):
+                pc_ = {k: v.copy() for k, v in pc.items()}
+            else:
+                pc_ = pc.copy()
             label_ = CarlaLabel()
             label_.data = []
             for obj in label.data:
@@ -378,22 +381,36 @@ class CarlaAugmentor:
                 for obj in label_.data:
                     dry = np.random.rand() * (dry_max - dry_min) + dry_min
                     # modify pc
-                    idx = obj.get_pts_idx(pc_[:, :3], calib)
                     bottom_Fimu = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
-                    pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Fimu)
-                    pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(dry))
-                    pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Fimu)
+                    if isinstance(pc_, dict):
+                        for velo in pc_.keys():
+                            idx = obj.get_pts_idx(pc_[velo][:, :3], calib)
+                            pc_[velo][idx, :3] = apply_tr(pc_[velo][idx, :3], -bottom_Fimu)
+                            pc_[velo][idx, :3] = apply_R(pc_[velo][idx, :3], rotz(dry))
+                            pc_[velo][idx, :3] = apply_tr(pc_[velo][idx, :3], bottom_Fimu)
+                    else:
+                        idx = obj.get_pts_idx(pc_[:, :3], calib)
+                        pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Fimu)
+                        pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(dry))
+                        pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Fimu)
                     # modify obj
                     obj.ry += dry
             else:
                 for obj, calib_ in zip(label_.data, calib):
                     dry = np.random.rand() * (dry_max - dry_min) + dry_min
                     # modify pc
-                    idx = obj.get_pts_idx(pc_[:, :3], calib_)
                     bottom_Fimu = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
-                    pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Fimu)
-                    pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(dry))
-                    pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Fimu)
+                    if isinstance(pc_, dict):
+                        for velo in pc_.keys():
+                            idx = obj.get_pts_idx(pc_[velo][:, :3], calib_)
+                            pc_[velo][idx, :3] = apply_tr(pc_[velo][idx, :3], -bottom_Fimu)
+                            pc_[velo][idx, :3] = apply_R(pc_[velo][idx, :3], rotz(dry))
+                            pc_[velo][idx, :3] = apply_tr(pc_[velo][idx, :3], bottom_Fimu)
+                    else:
+                        idx = obj.get_pts_idx(pc_[:, :3], calib_)
+                        pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Fimu)
+                        pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(dry))
+                        pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Fimu)
                     # modify obj
                     obj.ry += dry
             if self.check_overlap(label_):
@@ -404,13 +421,13 @@ class CarlaAugmentor:
         res_label.current_frame = "IMU"
         return res_label, pc_
 
-    def tr_obj(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib,
+    def tr_obj(self, label: CarlaLabel, pc: (np.array, dict), calib: CarlaCalib,
                dx_range: List[float], dy_range: List[float], dz_range: List[float]) -> (CarlaLabel, np.array):
         '''
         translate object in the IMU frame
         inputs:
             label: gt
-            pc: [#pts, >= 3] in imu frame
+            pc: [#pts, >= 3] in imu framem, dict
             calib:
             dx_range: [dx_min, dx_max] in imu frame
             dy_range: [dy_min, dy_max] in imu frame
@@ -430,7 +447,10 @@ class CarlaAugmentor:
         while True:
             num_attemp += 1
             # copy pc & label
-            pc_ = pc.copy()
+            if isinstance(pc, dict):
+                pc_ = {k: v.copy() for k, v in pc.items()}
+            else:
+                pc_ = pc.copy()
             label_ = CarlaLabel()
             label_.data = []
             for obj in label.data:
@@ -445,9 +465,14 @@ class CarlaAugmentor:
                     dy = np.random.rand() * (dy_max - dy_min) + dy_min
                     dz = np.random.rand() * (dz_max - dz_min) + dz_min
                     # modify pc
-                    idx = obj.get_pts_idx(pc_[:, :3], calib)
                     dtr = np.array([dx, dy, dz]).reshape(1, -1)
-                    pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
+                    if isinstance(pc_, dict):
+                        for velo in pc_.keys():
+                            idx = obj.get_pts_idx(pc_[velo][:, :3], calib)
+                            pc_[velo][idx, :3] = apply_tr(pc_[velo][idx, :3], dtr)
+                    else:
+                        idx = obj.get_pts_idx(pc_[:, :3], calib)
+                        pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
                     # modify obj
                     obj.x += dx
                     obj.y += dy
@@ -458,9 +483,14 @@ class CarlaAugmentor:
                     dy = np.random.rand() * (dy_max - dy_min) + dy_min
                     dz = np.random.rand() * (dz_max - dz_min) + dz_min
                     # modify pc
-                    idx = obj.get_pts_idx(pc_[:, :3], calib_)
                     dtr = np.array([dx, dy, dz]).reshape(1, -1)
-                    pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
+                    if isinstance(pc_, dict):
+                        for velo in pc_.keys():
+                            idx = obj.get_pts_idx(pc_[velo][:, :3], calib_)
+                            pc_[velo][idx, :3] = apply_tr(pc_[velo][idx, :3], dtr)
+                    else:
+                        idx = obj.get_pts_idx(pc_[:, :3], calib_)
+                        pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
                     # modify obj
                     obj.x += dx
                     obj.y += dy
@@ -473,7 +503,7 @@ class CarlaAugmentor:
         res_label.current_frame = "IMU"
         return res_label, pc_
 
-    def flip_pc(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib) -> (CarlaLabel, np.array):
+    def flip_pc(self, label: CarlaLabel, pc: (np.array, dict), calib: CarlaCalib) -> (CarlaLabel, np.array):
         '''
         flip point cloud along the y axis of the Kitti Lidar frame
         inputs:
@@ -483,13 +513,20 @@ class CarlaAugmentor:
         '''
         assert istype(label, "CarlaLabel")
         # copy pc & label
-        pc_ = pc.copy()
+        if isinstance(pc, dict):
+            pc_ = {k: v.copy() for k, v in pc.items()}
+        else:
+            pc_ = pc.copy()
         label_ = CarlaLabel()
         label_.data = []
         for obj in label.data:
             label_.data.append(CarlaObj(str(obj)))
         # flip point cloud
-        pc_[:, 1] *= -1
+        if isinstance(pc_, dict):
+            for velo in pc_.keys():
+                pc_[velo][:, 1] *= -1
+        else:
+            pc_[:, 1] *= -1
         # modify gt
         for obj in label_.data:
             obj.y *= -1
@@ -500,10 +537,13 @@ class CarlaAugmentor:
         res_label.current_frame = "IMU"
         return res_label, pc_
 
-    def keep(self, label: CarlaLabel, pc: np.array, calib: CarlaCalib) -> (CarlaLabel, np.array):
+    def keep(self, label: CarlaLabel, pc: (np.array, dict), calib: CarlaCalib) -> (CarlaLabel, np.array):
         assert istype(label, "CarlaLabel")
         # copy pc & label
-        pc_ = pc.copy()
+        if isinstance(pc, dict):
+            pc_ = {k: v.copy() for k, v in pc.items()}
+        else:
+            pc_ = pc.copy()
         label_ = CarlaLabel()
         label_.data = []
         for obj in label.data:
