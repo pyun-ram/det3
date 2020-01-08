@@ -4,11 +4,14 @@ import numpy as np
 import math
 import os
 from numpy.linalg import inv
+from enum import Enum
 from det3.dataloader.carladata import CarlaCalib, CarlaObj, CarlaLabel, CarlaData
 try:
     from ..utils import utils
 except:
     import det3.utils.utils as utils
+
+Frame = Enum('Frame', ('IMU'))
 
 class WaymoCalib(CarlaCalib):
     pass
@@ -32,7 +35,7 @@ class WaymoObj(CarlaObj):
             cls (str): 'Car', 'Pedestrian', 'Cyclist', 'Sign'
             score (float): 0-1
         '''
-        assert cls in ['Car', 'Pedestrian', 'Cyclist'], cls
+        assert cls in ['Car', 'Pedestrian', 'Cyclist', 'Sign'], cls
         assert score <= 1.0
         assert score >= 0.0
         x_Fcam = np.sum(corners[:, 0], axis=0)/ 8.0
@@ -95,7 +98,35 @@ class WaymoLabel(CarlaLabel):
             self.data.append(WaymoObj(s))
         if no_dontcare:
             self.data = list(filter(lambda obj: obj.type != "DontCare", self.data))
+        num_obj = len(self.data)
+        self._objs_array = np.zeros((num_obj, 14)).astype(np.float32)
+        self._objs_name = []
+        self._objs_score = []
+        for i, obj in enumerate(self.data):
+            # trun, occ, alpha,
+            # bbox_l, bbox_t, bbox_r, bbox_b,
+            # h, w, l, x, y, z, ry
+            self._objs_array[i, :] = np.array([obj.truncated, obj.occluded, obj.alpha,\
+                                               obj.bbox_l, obj.bbox_t, obj.bbox_r, obj.bbox_b, \
+                                               obj.h, obj.w, obj.l, obj.x, obj.y, obj.z, obj.ry])
+            self._objs_name.append(obj.type)
+            self._objs_score.append(obj.score)
+        self._current_frame = Frame.IMU
         return self
+
+    @property
+    def current_frame(self):
+        return self._current_frame
+
+    @current_frame.setter
+    def current_frame(self, frame: [Frame, str]):
+        if isinstance(frame, str):
+            self._current_frame = Frame[frame]
+        elif isinstance(frame, Frame):
+            self._current_frame = frame
+        else:
+            print(type(frame))
+            raise NotImplementedError
 
     def equal(self, label, acc_cls, rtol):
         '''

@@ -589,7 +589,8 @@ class WaymoAugmentor:
             self.mode = None
         # print(self.mode)
 
-    def check_overlap(self, label: WaymoLabel) -> bool:
+    @staticmethod
+    def check_overlap(label: WaymoLabel) -> bool:
         '''
         check if there is overlap in label.
         inputs:
@@ -635,14 +636,17 @@ class WaymoAugmentor:
         Note: If the attemp times is over max_attemp, it will return the original copy
         '''
         assert istype(label, "WaymoLabel")
-        assert istype(calib, "WaymoCalib")
         dry_min, dry_max = dry_range
         max_attemp = 10
         num_attemp = 0
+        calib_is_iter = isinstance(calib, list)
         while True:
             num_attemp += 1
             # copy pc & label
-            pc_ = pc.copy()
+            if isinstance(pc, dict):
+                pc_ = {k: v.copy() for k, v in pc.items()}
+            else:
+                pc_ = pc.copy()
             label_ = WaymoLabel()
             label_.data = []
             for obj in label.data:
@@ -650,20 +654,50 @@ class WaymoAugmentor:
             if num_attemp > max_attemp:
                 print("WaymoAugmentor.rotate_obj: Warning: the attemp times is over {} times,"
                       "will return the original copy".format(max_attemp))
-                return label_, pc_
-            for obj in label_.data:
-                dry = np.random.rand() * (dry_max - dry_min) + dry_min
-                # modify pc
-                idx = obj.get_pts_idx(pc_[:, :3], calib)
-                bottom_Fimu = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
-                pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Fimu)
-                pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(dry))
-                pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Fimu)
-                # modify obj
-                obj.ry += dry
+                break
+            if not calib_is_iter:
+                for obj in label_.data:
+                    dry = np.random.rand() * (dry_max - dry_min) + dry_min
+                    # modify pc
+                    bottom_Fimu = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+                    if isinstance(pc_, dict):
+                        for velo in pc_.keys():
+                            idx = obj.get_pts_idx(pc_[velo][:, :3], calib)
+                            pc_[velo][idx, :3] = apply_tr(pc_[velo][idx, :3], -bottom_Fimu)
+                            pc_[velo][idx, :3] = apply_R(pc_[velo][idx, :3], rotz(dry))
+                            pc_[velo][idx, :3] = apply_tr(pc_[velo][idx, :3], bottom_Fimu)
+                    else:
+                        idx = obj.get_pts_idx(pc_[:, :3], calib)
+                        pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Fimu)
+                        pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(dry))
+                        pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Fimu)
+                    # modify obj
+                    obj.ry += dry
+            else:
+                for obj, calib_ in zip(label_.data, calib):
+                    dry = np.random.rand() * (dry_max - dry_min) + dry_min
+                    # modify pc
+                    bottom_Fimu = np.array([obj.x, obj.y, obj.z]).reshape(1, -1)
+                    if isinstance(pc_, dict):
+                        for velo in pc_.keys():
+                            idx = obj.get_pts_idx(pc_[velo][:, :3], calib_)
+                            pc_[velo][idx, :3] = apply_tr(pc_[velo][idx, :3], -bottom_Fimu)
+                            pc_[velo][idx, :3] = apply_R(pc_[velo][idx, :3], rotz(dry))
+                            pc_[velo][idx, :3] = apply_tr(pc_[velo][idx, :3], bottom_Fimu)
+                    else:
+                        idx = obj.get_pts_idx(pc_[:, :3], calib_)
+                        pc_[idx, :3] = apply_tr(pc_[idx, :3], -bottom_Fimu)
+                        pc_[idx, :3] = apply_R(pc_[idx, :3], rotz(dry))
+                        pc_[idx, :3] = apply_tr(pc_[idx, :3], bottom_Fimu)
+                    # modify obj
+                    obj.ry += dry
             if self.check_overlap(label_):
                 break
-        return label_, pc_
+        res_label = WaymoLabel()
+        for obj in label_.data:
+            res_label.add_obj(obj)
+        res_label.current_frame = "IMU"
+        return res_label, pc_
 
     def tr_obj(self, label: WaymoLabel, pc: np.array, calib: WaymoCalib,
                dx_range: List[float], dy_range: List[float], dz_range: List[float]) -> (WaymoLabel, np.array):
@@ -682,16 +716,19 @@ class WaymoAugmentor:
         Note: If the attemp times is over max_attemp, it will return the original copy
         '''
         assert istype(label, "WaymoLabel")
-        assert istype(calib, "WaymoCalib")
         dx_min, dx_max = dx_range
         dy_min, dy_max = dy_range
         dz_min, dz_max = dz_range
         max_attemp = 10
         num_attemp = 0
+        calib_is_iter = isinstance(calib, list)
         while True:
             num_attemp += 1
             # copy pc & label
-            pc_ = pc.copy()
+            if isinstance(pc, dict):
+                pc_ = {k: v.copy() for k, v in pc.items()}
+            else:
+                pc_ = pc.copy()
             label_ = WaymoLabel()
             label_.data = []
             for obj in label.data:
@@ -699,22 +736,50 @@ class WaymoAugmentor:
             if num_attemp > max_attemp:
                 print("WaymoAugmentor.tr_obj: Warning: the attemp times is over {} times,"
                       "will return the original copy".format(max_attemp))
-                return label_, pc_
-            for obj in label_.data:
-                dx = np.random.rand() * (dx_max - dx_min) + dx_min
-                dy = np.random.rand() * (dy_max - dy_min) + dy_min
-                dz = np.random.rand() * (dz_max - dz_min) + dz_min
-                # modify pc
-                idx = obj.get_pts_idx(pc_[:, :3], calib)
-                dtr = np.array([dx, dy, dz]).reshape(1, -1)
-                pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
-                # modify obj
-                obj.x += dx
-                obj.y += dy
-                obj.z += dz
+                break
+            if not calib_is_iter:
+                for obj in label_.data:
+                    dx = np.random.rand() * (dx_max - dx_min) + dx_min
+                    dy = np.random.rand() * (dy_max - dy_min) + dy_min
+                    dz = np.random.rand() * (dz_max - dz_min) + dz_min
+                    # modify pc
+                    dtr = np.array([dx, dy, dz]).reshape(1, -1)
+                    if isinstance(pc_, dict):
+                        for velo in pc_.keys():
+                            idx = obj.get_pts_idx(pc_[velo][:, :3], calib)
+                            pc_[velo][idx, :3] = apply_tr(pc_[velo][idx, :3], dtr)
+                    else:
+                        idx = obj.get_pts_idx(pc_[:, :3], calib)
+                        pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
+                    # modify obj
+                    obj.x += dx
+                    obj.y += dy
+                    obj.z += dz
+            else:
+                for obj, calib_ in zip(label_.data, calib):
+                    dx = np.random.rand() * (dx_max - dx_min) + dx_min
+                    dy = np.random.rand() * (dy_max - dy_min) + dy_min
+                    dz = np.random.rand() * (dz_max - dz_min) + dz_min
+                    # modify pc
+                    dtr = np.array([dx, dy, dz]).reshape(1, -1)
+                    if isinstance(pc_, dict):
+                        for velo in pc_.keys():
+                            idx = obj.get_pts_idx(pc_[velo][:, :3], calib_)
+                            pc_[velo][idx, :3] = apply_tr(pc_[velo][idx, :3], dtr)
+                    else:
+                        idx = obj.get_pts_idx(pc_[:, :3], calib_)
+                        pc_[idx, :3] = apply_tr(pc_[idx, :3], dtr)
+                    # modify obj
+                    obj.x += dx
+                    obj.y += dy
+                    obj.z += dz
             if self.check_overlap(label_):
                 break
-        return label_, pc_
+        res_label = WaymoLabel()
+        for obj in label_.data:
+            res_label.add_obj(obj)
+        res_label.current_frame = "IMU"
+        return res_label, pc_
 
     def flip_pc(self, label: WaymoLabel, pc: np.array, calib: WaymoCalib) -> (WaymoLabel, np.array):
         '''
@@ -725,31 +790,47 @@ class WaymoAugmentor:
             calib:
         '''
         assert istype(label, "WaymoLabel")
-        assert istype(calib, "WaymoCalib")
         # copy pc & label
-        pc_ = pc.copy()
+        if isinstance(pc, dict):
+            pc_ = {k: v.copy() for k, v in pc.items()}
+        else:
+            pc_ = pc.copy()
         label_ = WaymoLabel()
         label_.data = []
         for obj in label.data:
             label_.data.append(WaymoObj(str(obj)))
         # flip point cloud
-        pc_[:, 1] *= -1
+        if isinstance(pc_, dict):
+            for velo in pc_.keys():
+                pc_[velo][:, 1] *= -1
+        else:
+            pc_[:, 1] *= -1
         # modify gt
         for obj in label_.data:
             obj.y *= -1
             obj.ry *= -1
-        return label_, pc_
+        res_label = WaymoLabel()
+        for obj in label_.data:
+            res_label.add_obj(obj)
+        res_label.current_frame = "IMU"
+        return res_label, pc_
 
     def keep(self, label: WaymoLabel, pc: np.array, calib: WaymoCalib) -> (WaymoLabel, np.array):
         assert istype(label, "WaymoLabel")
-        assert istype(calib, "WaymoCalib")
         # copy pc & label
-        pc_ = pc.copy()
+        if isinstance(pc, dict):
+            pc_ = {k: v.copy() for k, v in pc.items()}
+        else:
+            pc_ = pc.copy()
         label_ = WaymoLabel()
         label_.data = []
         for obj in label.data:
             label_.data.append(WaymoObj(str(obj)))
-        return label_, pc_
+        res_label = WaymoLabel()
+        for obj in label_.data:
+            res_label.add_obj(obj)
+        res_label.current_frame = "IMU"
+        return res_label, pc_
 
 if __name__ == "__main__":
     from det3.dataloader.kittidata import KittiData, KittiCalib
