@@ -90,7 +90,7 @@ class BEVImage:
         pts_BEV = np.hstack([x, y])
         return pts_BEV
 
-    def draw_box(self, obj, calib, bool_gt=False, width=3, c=None):
+    def draw_box(self, obj, calib, bool_gt=False, width=3, c=None, text=None):
         '''
         draw bounding box on BEV Image
         inputs:
@@ -124,6 +124,8 @@ class BEVImage:
         color = 'purple' if bool_gt else 'yellow'
         color = c if c is not None else color
         draw.line([p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], p1[0], p1[1]], fill=color, width=width)
+        if text is not None:
+            draw.text((p1[0], p1[1]), text)
         self.data = np.array(bev_img)
         return self
 
