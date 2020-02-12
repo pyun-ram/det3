@@ -40,6 +40,10 @@ class CarlaCalib:
         self.P0 = np.array([[450, 0., 600, 0.],
                             [0., 450, 180, 0.],
                             [0., 0., 1, 0.]])
+    def copy(self):
+        import copy
+        return copy.deepcopy(self)
+
     def read_calib_file(self):
         '''
         read CARLA calib file
@@ -188,7 +192,7 @@ class CarlaObj():
                 self.bbox_l, self.bbox_t, self.bbox_r, self.bbox_b, \
                 self.h, self.w, self.l, self.x, self.y, self.z, self.ry, self.score)
 
-    def get_pts(self, pc, calib):
+    def get_pts(self, pc, calib=None):
         '''
         get points from pc
         inputs:
@@ -198,7 +202,7 @@ class CarlaObj():
         idx = self.get_pts_idx(pc, calib)
         return pc[idx]        
 
-    def get_pts_idx(self, pc, calib):
+    def get_pts_idx(self, pc, calib=None):
         '''
         get points from pc
         inputs:
