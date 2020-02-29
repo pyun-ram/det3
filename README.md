@@ -1,28 +1,19 @@
 # det3
-This is for RAM-Lab 3D object detector project.
 
-# Requirements
-- python 3.5.2
-- pytorch 1.0.0+
-- Cuda 9.0+ (If you want to use sparse conv)
+This is for the RAM-Lab 3D object detector project.
+The architecture of the det3 project is as follows:
+![arch](./figure/det3_v0.1_arch.png)
 
-# Docker
-```
-docker pull pyun/python_pytorch:cuda10_3.5_1.1
-```
+## Requirements
 
-# TroubleShooting
-```bash
-# Trouble: ModuleNotFoundError: No module named 'det3'
-# Solution: add <det3_rootdir>/../ to PYTHONPATH
-# export PYTHONPATH=/root/second.pytorch/:/root/kitti-object-eval-python:<det3_rootdir>/../
+- python 3.7.3
+- PyTorch 1.4.0+
+- CUDA 10.1+
 
-# Trouble: ModuleNotFoundError: No module named 'dropblock'
-# Solution:
-# pip install dropblock
+## Dockerfile
 
-# Trouble: ModuleNotFoundError: No module named 'det3.methods.voxelnet.box_overlaps.box_overlaps'
-# Solution:
-# cd det3/
-# ./methods/voxelnet/setup.sh
+```sh
+cd dockerfiles
+docker build . -t <dockerimage-tag>/det3:v0.1
+docker run -it --name det3 --gpus all <dockerimage-tag>/det3:v0.1
 ```
