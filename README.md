@@ -7,8 +7,10 @@ The architecture of the det3 project is as follows:
 ## Requirements
 
 - python 3.7.3
-- PyTorch 1.4.0+
 - CUDA 10.1+
+- PyTorch 1.4.0+
+- Open3D 0.9
+
 
 ## Dockerfile
 

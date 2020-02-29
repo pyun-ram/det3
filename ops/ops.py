@@ -13,52 +13,67 @@
 '''
 # I/O
 def read_txt(path:str):
-    raise NotImplementedError
+    from det3.ops.io import read_txt_
+    return read_txt_(path)
 
 def write_txt(obj:list, path:str):
-    raise NotImplementedError
+    from det3.ops.io import write_txt_
+    write_txt_(obj, path)
 
 def read_npy(path:str):
-    raise NotImplementedError
+    from det3.ops.io import read_npy_
+    return read_npy_(path)
 
 def write_npy(obj, path:str):
     '''
     @obj: np.ndarray
     '''
-    raise NotImplementedError
+    from det3.ops.io import write_npy_
+    write_npy_(obj, path)
 
 def read_pcd(path:str):
-    raise NotImplementedError
+    from det3.ops.io import read_pcd_
+    return read_pcd_(path)
 
 def write_pcd(obj, path:str):
     '''
     @obj: np.ndarray
     '''
-    raise NotImplementedError
+    from det3.ops.io import write_pcd_
+    write_pcd_(obj, path)
 
-def read_bin(path:str):
-    raise NotImplementedError
+def read_bin(path:str, dtype):
+    '''
+    @dtype: np.float32/np.float64
+    '''
+    from det3.ops.io import read_bin_
+    return read_bin_(path, dtype)
 
 def write_bin(obj, path:str):
     '''
     @obj: np.ndarray
     '''
-    raise NotImplementedError
+    from det3.ops.io import write_bin_
+    write_bin_(obj, path)
 
 def read_img(path:str):
-    raise NotImplementedError
+    from det3.ops.io import read_img_
+    return read_img_(path)
 
-def write_img(obj:np.ndarray, path:str):
-    raise NotImplementedError
+def write_img(obj, path:str):
+    from det3.ops.io import write_img_
+    write_img_(obj, path)
 
 def read_pkl(path:str):
-    raise NotImplementedError
+    from det3.ops.io import read_pkl_
+    return read_pkl_(path)
 
 def write_pkl(obj, path:str):
     '''
     @obj: any python object
     '''
-    raise NotImplementedError
+    from det3.ops.io import write_pkl_
+    write_pkl_(obj, path)
 
 # IoU Computing
 def compute_intersect_2d(box, others):

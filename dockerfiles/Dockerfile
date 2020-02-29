@@ -28,3 +28,7 @@ ENTRYPOINT [ "/usr/bin/tini", "--" ]
 CMD [ "/bin/bash" ]
 # install pytorch 1.4
 RUN conda install pytorch torchvision cudatoolkit=10.1 -c pytorch
+RUN conda install -c open3d-admin open3d
+RUN apt-get update && apt-get -y install libgl1-mesa-glx
+ENV PYTHONPATH /usr/app
+
