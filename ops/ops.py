@@ -11,6 +11,8 @@
     - Special Note: If not specified, the function should be safe.
     i.e. not changing the inputs.
 '''
+import torch
+import numpy as np
 # I/O
 def read_txt(path:str):
     from det3.ops.io import read_txt_
@@ -86,7 +88,16 @@ def compute_intersect_2d(box, others):
         [[x, y, l, w],...]
     -> its: intersection results with same type as box (M, )
     '''
-    raise NotImplementedError
+    from det3.ops.iou import (compute_intersect_2d_npy,
+        compute_intersect_2d_torch, compute_intersect_2d_torchcuda)
+    if isinstance(box, np.ndarray):
+        return compute_intersect_2d_npy(box, others)
+    elif isinstance(box, torch.Tensor) and not box.is_cuda:
+        return compute_intersect_2d_torch(box, others)
+    elif isinstance(box, torch.Tensor) and box.is_cuda:
+        return compute_intersect_2d_torchcuda(box, others)
+    else:
+        raise NotImplementedError
 
 def compute_intersect_2drot(box, others):
     '''
