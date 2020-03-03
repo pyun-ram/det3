@@ -45,21 +45,25 @@ def compute_intersect_2d_torch(box, others):
     @others: same to box (M, 4)
         [[x, y, l, w],...]
     -> its: intersection results with same type as box (M, )
-    Note: others(100boxes) -> 66ms for 1000 times
+    Note: others(100boxes) -> 66ms for 1000 times (cpu)
+          others(100boxes) -> 200ms for 1000 times (gpu)
+          (w.o. counting cpu-gpu transfering time)
+
     '''
     import iou_cpp
     return iou_cpp.compute_intersect_2d(box, others)
 
-def compute_intersect_2d_torchcuda(box, others):
+def compute_intersect_2drot_npy(box, others):
     '''
-    compute the intersection between box and others under 2D aligned boxes.
-    @box: torch.Tensor.cuda (4,)
-        [x, y, l, w] (x, y) is the center coordinate;
+    compute the intersection between box and others under 2D rotated boxes.
+    @box: np.ndarray (5,)
+        [x, y, l, w, theta] (x, y) is the center coordinate;
         l and w are the scales along x- and y- axes.
-    @others: same to box (M, 4)
-        [[x, y, l, w],...]
+        theta is the rotation angle along the z-axis (counter-clockwise).
+    @others: same to box (M, 5)
+        [[x, y, l, w, theta],...]
     -> its: intersection results with same type as box (M, )
-    Note: others(100boxes) -> 200ms for 1000 times (w.o. counting cpu-gpu transfering time)
     '''
-    return compute_intersect_2d_torch(box, others)
-
+    # box to coner representation
+    # others to coner representation
+    # compute intersect with cpp extension

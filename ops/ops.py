@@ -13,6 +13,7 @@
 '''
 import torch
 import numpy as np
+from det3.utils.utils import rotx, roty, rotz
 # I/O
 def read_txt(path:str):
     from det3.ops.io import read_txt_
@@ -89,13 +90,11 @@ def compute_intersect_2d(box, others):
     -> its: intersection results with same type as box (M, )
     '''
     from det3.ops.iou import (compute_intersect_2d_npy,
-        compute_intersect_2d_torch, compute_intersect_2d_torchcuda)
+        compute_intersect_2d_torch)
     if isinstance(box, np.ndarray):
         return compute_intersect_2d_npy(box, others)
-    elif isinstance(box, torch.Tensor) and not box.is_cuda:
+    elif isinstance(box, torch.Tensor):
         return compute_intersect_2d_torch(box, others)
-    elif isinstance(box, torch.Tensor) and box.is_cuda:
-        return compute_intersect_2d_torchcuda(box, others)
     else:
         raise NotImplementedError
 
@@ -167,7 +166,7 @@ def nms_3drot(boxes, scores, thr_iou:float):
     '''
     raise NotImplementedError
 
-# 3D Point Transformation
+# Point Operation
 def apply_tr(pts, tr_vec):
     '''
     apply translation on pts.
@@ -178,19 +177,19 @@ def apply_tr(pts, tr_vec):
     -> pts_tr same to pts (N, 3)
     Note: This function should be safe.
     '''
-    raise NotImplementedError
+    return pts + tr_vec
 
 def apply_R(pts, R_matrix):
     '''
     apply rotation on pts.
     @pts: np.ndarray/torch.Tensor/torch.Tensor.cuda (N, 3)
         [[x, y, z]...]
-    @tr_vec: same to pts (3, 3)
+    @R_matrix: same to pts (3, 3)
         3x3 rotation matrix
     -> pts_R same to pts (N, 3)
     Note: This function should be safe.
     '''
-    raise NotImplementedError
+    return (R_matrix @ pts.T).T
 
 def hfill_pts(pts):
     '''
@@ -202,10 +201,68 @@ def hfill_pts(pts):
     '''
     raise NotImplementedError
 
-# 3D Box Cropping
-def crop_pts(boxes, pts):
+def farthest_pts_sampling(pts, num_pts: int):
     '''
-    crop pts acoording to the boxes.
+    farthest points sampling.
+    @pts: np.ndarray/torch.Tensor/torch.Tensor.cuda (N, 3)
+    [[x, y, z]...]
+    @num_pts: num of points in the returned value
+    -> idx: same to pts (num_pts, ) dtype=long
+    '''
+    raise NotImplementedError
+
+# Box Operation
+def get_corner_box_2drot(boxes):
+    '''
+    get corners of 2d rotated boxes.
+    @boxes: np.ndarray/torch.Tensor/torch.Tensor.cuda (M, 5)
+        [[x, y, l, w, theta]...] (x, y) is the center coordinate;
+        l and w are the scales along x- and y- axes.
+        theta is the rotation angle along the z-axis (counter-clockwise).
+        1.--.2
+         |  |                  ^x
+         |  |                  |
+        4.--.3 (bottom) y<----.z
+    -> corners: same to boxes (M, 4, 2)
+    '''
+    from det3.ops.boxop import (get_corner_box_2drot_np,
+        get_corner_box_2drot_torch)
+    if isinstance(boxes, np.ndarray):
+        return get_corner_box_2drot_np(boxes)
+    elif isinstance(boxes, torch.Tensor):
+        return get_corner_box_2drot_torch(boxes)
+    else:
+        raise NotImplementedError
+
+def get_corner_box_3drot(boxes):
+    '''
+    get corners of 3d rotated boxes.
+    @boxes: np.ndarray/torch.Tensor/torch.Tensor.cuda (M, 7)
+        [[x, y, z, l, w, h, theta]...] (x, y) is the center coordinate;
+        l and w are the scales along x- and y- axes.
+        theta is the rotation angle along the z-axis (counter-clockwise).
+        1.--.2
+         |  |                  ^x
+         |  |                  |
+        4.--.3 (bottom) y<----.z
+        5.--.6
+         |  |
+         |  |
+        8.--.7 (bottom)
+    -> corners: same to boxes (M, 4, 3)
+    '''
+    from det3.ops.boxop import (get_corner_box_3drot_np,
+        get_corner_box_3drot_torch)
+    if isinstance(boxes, np.ndarray):
+        return get_corner_box_3drot_np(boxes)
+    elif isinstance(boxes, torch.Tensor):
+        return get_corner_box_3drot_torch(boxes)
+    else:
+        raise NotImplementedError
+
+def crop_pts_3drot(boxes, pts):
+    '''
+    crop pts acoording to the 3D boxes.
     @boxes: np.ndarray/torch.Tensor/torch.Tensor.cuda (M, 7)
             [[x, y, z, l, w, h, theta]...] (x, y, z) is the bottom center coordinate;
             l, w, and h are the scales along x-, y-, and z- axes.
