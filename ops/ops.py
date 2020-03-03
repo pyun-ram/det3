@@ -79,37 +79,44 @@ def write_pkl(obj, path:str):
     write_pkl_(obj, path)
 
 # IoU Computing
-def compute_intersect_2d(box, others):
+def compute_intersect_2d(boxes, others):
     '''
     compute the intersection between box and others under 2D aligned boxes.
-    @box: np.ndarray/torch.Tensor/torch.Tensor.cuda (4,)
-        [x, y, l, w] (x, y) is the center coordinate;
+    @boxes: np.ndarray/torch.Tensor/torch.Tensor.cuda (M, 4)
+        [[x, y, l, w],...] (x, y) is the center coordinate;
         l and w are the scales along x- and y- axes.
-    @others: same to box (M, 4)
+    @others: same to box (M', 4)
         [[x, y, l, w],...]
-    -> its: intersection results with same type as box (M, )
+    -> its: intersection results with same type as boxes (M, M')
     '''
     from det3.ops.iou import (compute_intersect_2d_npy,
         compute_intersect_2d_torch)
-    if isinstance(box, np.ndarray):
-        return compute_intersect_2d_npy(box, others)
-    elif isinstance(box, torch.Tensor):
-        return compute_intersect_2d_torch(box, others)
+    if isinstance(boxes, np.ndarray):
+        return compute_intersect_2d_npy(boxes, others)
+    elif isinstance(boxes, torch.Tensor):
+        return compute_intersect_2d_torch(boxes, others)
     else:
         raise NotImplementedError
 
-def compute_intersect_2drot(box, others):
+def compute_intersect_2drot(boxes, others):
     '''
     compute the intersection between box and others under 2D rotated boxes.
-    @box: np.ndarray/torch.Tensor/torch.Tensor.cuda (5,)
-        [x, y, l, w, theta] (x, y) is the center coordinate;
+    @box: np.ndarray/torch.Tensor/torch.Tensor.cuda (M, 5)
+        [[x, y, l, w, theta],...] (x, y) is the center coordinate;
         l and w are the scales along x- and y- axes.
         theta is the rotation angle along the z-axis (counter-clockwise).
-    @others: same to box (M, 5)
+    @others: same to box (M', 5)
         [[x, y, l, w, theta],...]
-    -> its: intersection results with same type as box (M, )
+    -> its: intersection results with same type as box (M,M')
     '''
-    raise NotImplementedError
+    from det3.ops.iou import (compute_intersect_2drot_npy,
+        compute_intersect_2drot_torchcpu)
+    if isinstance(boxes, np.ndarray):
+        return compute_intersect_2drot_npy(boxes, others)
+    elif isinstance(boxes, torch.Tensor) and not boxes.is_cuda:
+        return compute_intersect_2drot_torchcpu(boxes, others)
+    else:
+        raise NotImplementedError
 
 def compute_intersect_3drot(box, others):
     '''

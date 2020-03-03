@@ -13,44 +13,69 @@ class UTIOU(unittest.TestCase):
         from det3.ops import compute_intersect_2d, write_pkl
         from det3.utils.utils import compute_intersec
         # npy
-        box = np.array([3, 2, 4, 4.5])
+        boxes = np.array([[3, 2, 4, 4.5], [3, 2, 3, 4.5]])
         others = np.array([[6, 3, 2, 5], [5, 3, 2, 5]])
         others = [others + np.abs(np.random.randn(8).reshape(2, 4)) for i in range(50)]
         others = np.vstack(others)
-        est = compute_intersect_2d(box, others)
-        box_gt = np.array([box[0], box[1], 0, box[2], box[3], 0, 0])
+        est = compute_intersect_2d(boxes, others)
+        boxes_gt = [np.array([itm[0], itm[1], 0, itm[2], itm[3], 0, 0]) for itm in boxes]
+        boxes_gt = np.vstack(boxes_gt)
         others_gt = [np.array([itm[0], itm[1], 0, itm[2], itm[3], 0, 0]) for itm in others]
         others_gt = np.vstack(others_gt)
-        gt = compute_intersec(box_gt, others_gt, mode="2d-rot")
+        gt = []
+        for box_gt in boxes_gt:
+            gt.append(compute_intersec(box_gt, others_gt, mode="2d-rot"))
+        gt = np.stack(gt, axis=0)
+        self.assertTrue(est.shape == gt.shape)
         self.assertTrue(np.allclose(est, gt, atol=1e-1))
-        # times = 1000
-        # t1 = time.time()
-        # for i in range(times):
-        #     est = compute_intersect_2d(box, others)
-        # print(f"time is {time.time()-t1:.3f} s for {times} times")
         # torch
-        box_ts = torch.from_numpy(box)
+        boxes_ts = torch.from_numpy(boxes)
         others_ts = torch.from_numpy(others)
-        est_ts = compute_intersect_2d(box_ts, others_ts)
+        est_ts = compute_intersect_2d(boxes_ts, others_ts)
+        self.assertTrue(est_ts.numpy().shape == gt.shape)
         self.assertTrue(np.allclose(est_ts.numpy(), gt, atol=1e-1))
-        # times = 1000
-        # t1 = time.time()
-        # for i in range(times):
-        #     est_ts = compute_intersect_2d(box_ts, others_ts)
-        # print(f"time is {time.time()-t1:.3f} s for {times} times")
         # torch cuda
-        box_tsgpu = torch.from_numpy(box).cuda()
-        others_tsgpu = torch.from_numpy(others).cuda()
-        est_tsgpu = compute_intersect_2d(box_tsgpu, others_tsgpu)
+        boxes_tsgpu = boxes_ts.cuda()
+        others_tsgpu = others_ts.cuda()
+        est_tsgpu = compute_intersect_2d(boxes_tsgpu, others_tsgpu)
+        self.assertTrue(est_tsgpu.cpu().numpy().shape == gt.shape)
         self.assertTrue(np.allclose(est_tsgpu.cpu().numpy(), gt, atol=1e-1))
-        # times = 1000
-        # torch.cuda.synchronize()
-        # t1 = time.time()
-        # for i in range(times):
-        #     est_tsgpu = compute_intersect_2d(box_tsgpu, others_tsgpu)
-        # torch.cuda.synchronize()
-        # print(f"time is {time.time()-t1:.3f} s for {times} times")
-        
+
+    def test_compute_intersect_2drot(self):
+        import time
+        from det3.ops import compute_intersect_2drot, write_pkl
+        from det3.utils.utils import compute_intersec
+        # npy
+        boxes = np.array([[3, 2, 4, 4.5, 0.1], [3, 2, 3, 4.5, 0.5]])
+        others = np.array([[6, 3, 2, 5, 0.05], [5, 3, 2, 5, 0.2]])
+        others = [others + np.abs(np.random.randn(10).reshape(2, 5)) for i in range(50)]
+        others = np.vstack(others)
+        est = compute_intersect_2drot(boxes, others)
+        boxes_gt = [np.array([itm[0], itm[1], 0, itm[2], itm[3], 0, itm[4]]) for itm in boxes]
+        boxes_gt = np.vstack(boxes_gt)
+        others_gt = [np.array([itm[0], itm[1], 0, itm[2], itm[3], 0, itm[4]]) for itm in others]
+        others_gt = np.vstack(others_gt)
+        gt = []
+        for box_gt in boxes_gt:
+            gt.append(compute_intersec(box_gt, others_gt, mode="2d-rot"))
+        gt = np.stack(gt, axis=0)
+        self.assertTrue(est.shape == gt.shape)
+        self.assertTrue(np.allclose(est, gt, atol=1e-1))
+        # torch
+        boxes_ts = torch.from_numpy(boxes)
+        others_ts = torch.from_numpy(others)
+        est_ts = compute_intersect_2drot(boxes_ts, others_ts)
+        boxes_gt = [np.array([itm[0], itm[1], 0, itm[2], itm[3], 0, itm[4]]) for itm in boxes]
+        boxes_gt = np.vstack(boxes_gt)
+        others_gt = [np.array([itm[0], itm[1], 0, itm[2], itm[3], 0, itm[4]]) for itm in others]
+        others_gt = np.vstack(others_gt)
+        gt = []
+        for box_gt in boxes_gt:
+            gt.append(compute_intersec(box_gt, others_gt, mode="2d-rot"))
+        gt = np.stack(gt, axis=0)
+        self.assertTrue(est_ts.numpy().shape == gt.shape)
+        self.assertTrue(np.allclose(est_ts.numpy(), gt, atol=1e-1))
+
 
 if __name__ == "__main__":
     unittest.main()
