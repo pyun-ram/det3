@@ -113,7 +113,7 @@ def compute_intersect_2drot(boxes, others):
         [[x, y, l, w, theta],...]
     -> its: intersection results with same type as box (M, M')
     %time: M = 10; M' = 21;
-        np.ndarray: 1.2ms
+        np.ndarray: 0.3ms
         torch.Tensor: 0.3ms
         torch.Tensor.cuda: 0.2ms
     '''
