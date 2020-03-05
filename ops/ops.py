@@ -102,10 +102,29 @@ def compute_intersect_2d(boxes, others):
     else:
         raise NotImplementedError
 
+def compute_iou_2d(boxes, others):
+    '''
+    compute the iou between box and others under 2D aligned boxes.
+    @boxes: np.ndarray/torch.Tensor/torch.Tensor.cuda (M, 4)
+        [[x, y, l, w],...] (x, y) is the center coordinate;
+        l and w are the scales along x- and y- axes.
+    @others: same to box (M', 4)
+        [[x, y, l, w],...]
+    -> iou: iou results with same type as boxes (M, M')
+    %time: M = 10; M' = 21;
+        np.ndarray: 0.05ms
+        torch.Tensor: 1.5ms
+        torch.Tensor.cuda: 4ms
+    '''
+    area1 = compute_area( boxes[:, [2, 3]])
+    area2 = compute_area(others[:, [2, 3]])
+    inter = compute_intersect_2d(boxes, others)
+    return compute_iou(inter, area1, area2)
+
 def compute_intersect_2drot(boxes, others):
     '''
     compute the intersection between box and others under 2D rotated boxes.
-    @box: np.ndarray/torch.Tensor/torch.Tensor.cuda (M, 5)
+    @boxes: np.ndarray/torch.Tensor/torch.Tensor.cuda (M, 5)
         [[x, y, l, w, theta],...] (x, y) is the center coordinate;
         l and w are the scales along x- and y- axes.
         theta is the rotation angle along the z-axis (counter-clockwise).
@@ -127,6 +146,26 @@ def compute_intersect_2drot(boxes, others):
         return compute_intersect_2drot_torchgpu(boxes, others)
     else:
         raise NotImplementedError
+
+def compute_iou_2drot(boxes, others):
+    '''
+    compute the iou between box and others under 2D rotated boxes.
+    @boxes: np.ndarray/torch.Tensor/torch.Tensor.cuda (M, 5)
+        [[x, y, l, w, theta],...] (x, y) is the center coordinate;
+        l and w are the scales along x- and y- axes.
+        theta is the rotation angle along the z-axis (counter-clockwise).
+    @others: same to box (M', 5)
+        [[x, y, l, w, theta],...]
+    -> iou: iou results with same type as box (M, M')
+    %time: M = 10; M' = 21;
+        np.ndarray: 0.3ms
+        torch.Tensor: 0.3ms
+        torch.Tensor.cuda: 0.2ms
+    '''
+    area1 = compute_area( boxes[:, [2, 3]])
+    area2 = compute_area(others[:, [2, 3]])
+    inter = compute_intersect_2drot(boxes, others)
+    return compute_iou(inter, area1, area2)
 
 def compute_intersect_3drot(boxes, others):
     '''
@@ -152,6 +191,68 @@ def compute_intersect_3drot(boxes, others):
         return compute_intersect_3drot_torch(boxes, others, intersec_2drot)
     else:
         raise NotImplementedError
+
+def compute_iou_3drot(boxes, others):
+    '''
+    compute the iou between boxes and others under 3D rotated boxes.
+    @boxes: np.ndarray/torch.Tensor/torch.Tensor.cuda (M, 7)
+        [x, y, z, l, w, h, theta] (x, y, z) is the bottom center coordinate;
+        l, w, and h are the scales along x-, y-, and z- axes.
+        theta is the rotation angle along the z-axis (counter-clockwise).
+    @others: same to box (M', 7)
+        [[x, y, z, l, w, h, theta],...]
+    -> iou: iou results with same type as box (M, M')
+    %time: M = 10; M' = 21;
+        np.ndarray: 0.5ms
+        torch.Tensor: 0.7ms
+        torch.Tensor.cuda: 0.8ms
+    '''
+    vol1 = compute_volume( boxes[:, 3:6])
+    vol2 = compute_volume(others[:, 3:6])
+    inter = compute_intersect_3drot(boxes, others)
+    return compute_iou(inter, vol1, vol2)
+
+def compute_area(boxes):
+    '''
+    compute the area of rectangles
+    @boxes: np.ndarray/ torch.Tensor/ torch.Tensor.cuda (M, 2)
+    ->areas: (M,)
+    '''
+    return boxes[:, 0] * boxes[:, 1]
+
+
+def compute_volume(boxes):
+    '''
+    compute the volume of cubes
+    @boxes: np.ndarray/ torch.Tensor/ torch.Tensor.cuda (M, 3)
+    ->vols: (M,)
+    '''
+    return boxes[:, 0] * boxes[:, 1] * boxes[:, 2]
+
+def compute_iou(inter, area1, area2):
+    '''
+    compute the iou, given the inter, area1, area2 (2d)
+    compute the iou, given the inter, vol1, vol2 (2d)
+    @inter: the intersection np.ndarray/ torch.Tensor/ torch.Tensor.cuda (M, M')
+    @area1: area1/vol1 np.ndarray/ torch.Tensor/ torch.Tensor.cuda (M,)
+    @area2: area2/vol2 np.ndarray/ torch.Tensor/ torch.Tensor.cuda (M',)
+    -> ious: same to inter (M, M')
+    '''
+    M = area1.shape[0]
+    M_ = area2.shape[0]
+    assert inter.shape[0] == M
+    assert inter.shape[1] == M_
+    if isinstance(inter, np.ndarray):
+        tmp1 = area1.repeat(M_).reshape(M, M_)
+        tmp2 = area2.repeat(M).reshape(M_, M).T
+        tmp = tmp1 + tmp2
+    elif isinstance(inter, torch.Tensor):
+        tmp1 = area1.repeat_interleave(M_).reshape(M, M_)
+        tmp2 = area2.repeat_interleave(M).reshape(M_, M).transpose(0, 1)
+        tmp = tmp1 + tmp2
+    else:
+        raise NotImplementedError
+    return inter / (tmp - inter)
 
 # NMS
 def nms_2d(boxes, scores, thr_iou:float):
