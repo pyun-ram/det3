@@ -88,11 +88,15 @@ def compute_intersect_2d(boxes, others):
     @others: same to box (M', 4)
         [[x, y, l, w],...]
     -> its: intersection results with same type as boxes (M, M')
+    %time: M = 10; M' = 21;
+        np.ndarray: 0.05ms
+        torch.Tensor: 1.5ms
+        torch.Tensor.cuda: 4ms
     '''
     from det3.ops.iou import (compute_intersect_2d_npy,
         compute_intersect_2d_torch)
     if isinstance(boxes, np.ndarray):
-        return compute_intersect_2d_npy(boxes, others)
+        return compute_intersect_2d_npy(boxes, others).astype(boxes.dtype)
     elif isinstance(boxes, torch.Tensor):
         return compute_intersect_2d_torch(boxes, others)
     else:
@@ -107,14 +111,20 @@ def compute_intersect_2drot(boxes, others):
         theta is the rotation angle along the z-axis (counter-clockwise).
     @others: same to box (M', 5)
         [[x, y, l, w, theta],...]
-    -> its: intersection results with same type as box (M,M')
+    -> its: intersection results with same type as box (M, M')
+    %time: M = 10; M' = 21;
+        np.ndarray: 1.2ms
+        torch.Tensor: 0.3ms
+        torch.Tensor.cuda: 0.2ms
     '''
     from det3.ops.iou import (compute_intersect_2drot_npy,
-        compute_intersect_2drot_torchcpu)
+        compute_intersect_2drot_torchcpu, compute_intersect_2drot_torchgpu)
     if isinstance(boxes, np.ndarray):
         return compute_intersect_2drot_npy(boxes, others)
     elif isinstance(boxes, torch.Tensor) and not boxes.is_cuda:
         return compute_intersect_2drot_torchcpu(boxes, others)
+    elif isinstance(boxes, torch.Tensor) and boxes.is_cuda:
+        return compute_intersect_2drot_torchgpu(boxes, others)
     else:
         raise NotImplementedError
 

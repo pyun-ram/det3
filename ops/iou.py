@@ -9,10 +9,11 @@ import numba
 import numpy as np
 from numba import njit
 from numba import cuda
+
 @njit
 def compute_intersect_2d_npy_(box, others):
     '''
-    compute the intersection between box and others under 2D aligned boxes.
+    compute the intersection between the box and others under 2D aligned boxes.
     @box: np.ndarray (4,)
         [x, y, l, w] (x, y) is the center coordinate;
         l and w are the scales along x- and y- axes.
@@ -40,11 +41,11 @@ def compute_intersect_2d_npy_(box, others):
 
 def compute_intersect_2d_npy(boxes, others):
     '''
-    compute the intersection between box and others under 2D aligned boxes.
+    compute the intersection between boxes and others under 2D aligned boxes.
     @boxes: np.ndarray (M, 4)
         [[x, y, l, w],...] (x, y) is the center coordinate;
         l and w are the scales along x- and y- axes.
-    @others: same to box (M', 4)
+    @others: same to boxes (M', 4)
         [[x, y, l, w],...]
     -> its: intersection results with same type as boxes (M, M')
     '''
@@ -56,7 +57,7 @@ def compute_intersect_2d_npy(boxes, others):
 
 def compute_intersect_2d_torch_(box, others):
     '''
-    compute the intersection between box and others under 2D aligned boxes.
+    compute the intersection between the box and others under 2D aligned boxes.
     @box: torch.Tensor (4,)
         [x, y, l, w] (x, y) is the center coordinate;
         l and w are the scales along x- and y- axes.
@@ -72,11 +73,11 @@ def compute_intersect_2d_torch_(box, others):
 
 def compute_intersect_2d_torch(boxes, others):
     '''
-    compute the intersection between box and others under 2D aligned boxes.
+    compute the intersection between boxes and others under 2D aligned boxes.
     @boxes:torch.Tensor/torch.Tensor.cuda (M, 4)
         [[x, y, l, w],...] (x, y) is the center coordinate;
         l and w are the scales along x- and y- axes.
-    @others: same to box (M', 4)
+    @others: same to boxes (M', 4)
         [[x, y, l, w],...]
     -> its: intersection results with same type as boxes (M, M')
     '''
@@ -88,8 +89,8 @@ def compute_intersect_2d_torch(boxes, others):
 
 def compute_intersect_2drot_npy(boxes, others):
     '''
-    compute the intersection between box and others under 2D rotated boxes.
-    @box: np.ndarray (M, 5)
+    compute the intersection between boxes and others under 2D rotated boxes.
+    @boxes: np.ndarray (M, 5)
         [[x, y, l, w, theta],...] (x, y) is the center coordinate;
         l and w are the scales along x- and y- axes.
         theta is the rotation angle along the z-axis (counter-clockwise).
@@ -105,8 +106,8 @@ def compute_intersect_2drot_npy(boxes, others):
 
 def compute_intersect_2drot_torchcpu(boxes, others):
     '''
-    compute the intersection between box and others under 2D rotated boxes.
-    @box: torch.Tensor (M, 5)
+    compute the intersection between boxes and others under 2D rotated boxes.
+    @boxes: torch.Tensor (M, 5)
         [[x, y, l, w, theta],...] (x, y) is the center coordinate;
         l and w are the scales along x- and y- axes.
         theta is the rotation angle along the z-axis (counter-clockwise).
@@ -114,7 +115,7 @@ def compute_intersect_2drot_torchcpu(boxes, others):
         [[x, y, l, w, theta],...]
     -> its: intersection results with same type as box (M,M')
     '''
-    return torch.from_numpy(compute_intersect_2drot_npy(boxes.numpy(), others.numpy()))
+    return compute_intersect_2drot_torchgpu(boxes.cuda(), others.cuda()).cpu()
 
 def compute_intersect_2drot_torchgpu(boxes, others):
     '''
@@ -127,7 +128,8 @@ def compute_intersect_2drot_torchgpu(boxes, others):
         [[x, y, l, w, theta],...]
     -> its: intersection results with same type as box (M,M')
     '''
-    raise NotImplementedError
+    import iou_cuda
+    return iou_cuda.compute_intersect_2drot(others, boxes).T
 
 
 '''
@@ -156,11 +158,10 @@ def rotate_iou_gpu_eval(boxes, query_boxes, criterion=-1, device_id=0):
     K = query_boxes.shape[0]
     iou = np.zeros((N, K), dtype=np.float32)
     if N == 0 or K == 0:
-        return iou
+        return iou.astype(box_dtype)
     threadsPerBlock = 8 * 8
     cuda.select_device(device_id)
     blockspergrid = (div_up(N, threadsPerBlock), div_up(K, threadsPerBlock))
-
     stream = cuda.stream()
     with stream.auto_synchronize():
         boxes_dev = cuda.to_device(boxes.reshape([-1]), stream)
@@ -169,7 +170,7 @@ def rotate_iou_gpu_eval(boxes, query_boxes, criterion=-1, device_id=0):
         rotate_iou_kernel_eval[blockspergrid, threadsPerBlock, stream](
             N, K, boxes_dev, query_boxes_dev, iou_dev, criterion)
         iou_dev.copy_to_host(iou.reshape([-1]), stream=stream)
-    return iou.astype(boxes.dtype)
+    return iou.astype(box_dtype)
 
 @numba.jit(nopython=True)
 def div_up(m, n):
@@ -356,7 +357,6 @@ def inter(rbbox1, rbbox2):
     num_intersection = quadrilateral_intersection(corners1, corners2,
                                                   intersection_corners)
     sort_vertex_in_convex_polygon(intersection_corners, num_intersection)
-    # print(intersection_corners.reshape([-1, 2])[:num_intersection])
     return area(intersection_corners, num_intersection)
 
 
