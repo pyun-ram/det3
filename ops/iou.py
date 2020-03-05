@@ -126,5 +126,59 @@ def compute_intersect_2drot_torchgpu(boxes, others):
     -> its: intersection results with same type as box (M,M')
     '''
     import iou_cuda
+    # the turb is in case of <boxes> are exactly <others>
+    turb1 = torch.rand_like(boxes) * 1e-7
+    turb2 = torch.rand_like(others) * 1e-7
     # equivalent to iou_cuda.compute_intersect_2drot(others, boxes).T
-    return iou_cuda.compute_intersect_2drot(boxes, others)
+    return iou_cuda.compute_intersect_2drot(boxes+turb1, others+turb2)
+
+def compute_intersect_3drot_np(boxes, others, intersec_2drot):
+    '''
+    compute the intersection between boxes and others under 3D rotated boxes.
+    @box: np.ndarray (M, 7)
+        [x, y, z, l, w, h, theta] (x, y, z) is the bottom center coordinate;
+        l, w, and h are the scales along x-, y-, and z- axes.
+        theta is the rotation angle along the z-axis (counter-clockwise).
+    @others: same to boxes (M', 7)
+        [[x, y, z, l, w, h, theta],...]
+    @intersec_2drot: the intersection between boxes and others under 3D rotated boxes.
+        same to boxes (M, M')
+    -> its: intersection results with same type as box (M, M')
+    '''
+    min_h_boxes = boxes[:, 2]
+    max_h_boxes = boxes[:, 2] + boxes[:, 5]
+    min_h_others = others[:, 2]
+    max_h_others = others[:, 2] + others[:, 5]
+    max_of_min = np.zeros_like(intersec_2drot)
+    min_of_max = np.zeros_like(intersec_2drot)
+    for i, box in zip(range(boxes.shape[0]), boxes):
+        max_of_min[i, :] = np.maximum(min_h_boxes[i], min_h_others)
+        min_of_max[i, :] = np.minimum(max_h_boxes[i], max_h_others)
+    inter_z = np.maximum(0, min_of_max - max_of_min)
+    return intersec_2drot * inter_z
+
+
+def compute_intersect_3drot_torch(boxes, others, intersec_2drot):
+    '''
+    compute the intersection between boxes and others under 3D rotated boxes.
+    @box: torch.Tensor / torch.Tensor.cuda (M, 7)
+        [x, y, z, l, w, h, theta] (x, y, z) is the bottom center coordinate;
+        l, w, and h are the scales along x-, y-, and z- axes.
+        theta is the rotation angle along the z-axis (counter-clockwise).
+    @others: same to boxes (M', 7)
+        [[x, y, z, l, w, h, theta],...]
+    @intersec_2drot: the intersection between boxes and others under 3D rotated boxes.
+        same to boxes (M, M')
+    -> its: intersection results with same type as box (M, M')
+    '''
+    min_h_boxes = boxes[:, 2]
+    max_h_boxes = boxes[:, 2] + boxes[:, 5]
+    min_h_others = others[:, 2]
+    max_h_others = others[:, 2] + others[:, 5]
+    max_of_min = torch.zeros_like(intersec_2drot)
+    min_of_max = torch.zeros_like(intersec_2drot)
+    for i, box in enumerate(boxes):
+        max_of_min[i, :] = torch.max(min_h_boxes[i], min_h_others)
+        min_of_max[i, :] = torch.min(max_h_boxes[i], max_h_others)
+    inter_z = torch.clamp(min_of_max - max_of_min, min=0)
+    return intersec_2drot * inter_z

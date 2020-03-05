@@ -128,18 +128,30 @@ def compute_intersect_2drot(boxes, others):
     else:
         raise NotImplementedError
 
-def compute_intersect_3drot(box, others):
+def compute_intersect_3drot(boxes, others):
     '''
-    compute the intersection between box and others under 3D rotated boxes.
-    @box: np.ndarray/torch.Tensor/torch.Tensor.cuda (7,)
+    compute the intersection between boxes and others under 3D rotated boxes.
+    @boxes: np.ndarray/torch.Tensor/torch.Tensor.cuda (M, 7)
         [x, y, z, l, w, h, theta] (x, y, z) is the bottom center coordinate;
         l, w, and h are the scales along x-, y-, and z- axes.
         theta is the rotation angle along the z-axis (counter-clockwise).
-    @others: same to box (M, 7)
+    @others: same to box (M', 7)
         [[x, y, z, l, w, h, theta],...]
-    -> its: intersection results with same type as box (M, )
+    -> its: intersection results with same type as box (M, M')
+    %time: M = 10; M' = 21;
+        np.ndarray: 0.5ms
+        torch.Tensor: 0.7ms
+        torch.Tensor.cuda: 0.8ms
     '''
-    raise NotImplementedError
+    from det3.ops.iou import compute_intersect_3drot_np, compute_intersect_3drot_torch
+    intersec_2drot = compute_intersect_2drot(boxes[:, [0, 1, 3, 4, 6]],
+                                             others[:, [0, 1, 3, 4, 6]])
+    if isinstance(boxes, np.ndarray):
+        return compute_intersect_3drot_np(boxes, others, intersec_2drot)
+    elif isinstance(boxes, torch.Tensor):
+        return compute_intersect_3drot_torch(boxes, others, intersec_2drot)
+    else:
+        raise NotImplementedError
 
 # NMS
 def nms_2d(boxes, scores, thr_iou:float):
