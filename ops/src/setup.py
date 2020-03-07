@@ -16,3 +16,6 @@ setup(name='boxop_cpp',
 setup(name='iou_cuda',
       ext_modules=[cpp_extension.CUDAExtension('iou_cuda', ['iou_cuda.cpp', 'iou_cuda_kernel.cu'])],
       cmdclass={'build_ext': cpp_extension.BuildExtension})
+setup(name='boxop_cuda',
+      ext_modules=[cpp_extension.CUDAExtension('boxop_cuda', ['boxop_cuda.cpp', 'boxop_cuda_kernel.cu'])],
+      cmdclass={'build_ext': cpp_extension.BuildExtension})
