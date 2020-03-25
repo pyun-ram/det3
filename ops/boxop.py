@@ -137,3 +137,51 @@ def get_corner_box_3drot_torch(boxes):
     cns3d_top = cns3d_bottom.clone()
     cns3d_top[:, :, -1] += h
     return torch.cat([cns3d_bottom, cns3d_top], dim=1)
+
+def crop_pts_3drot_np(boxes, pts):
+    '''
+    crop pts acoording to the 3D boxes.
+    @boxes: np.ndarray (M, 7)
+            [[x, y, z, l, w, h, theta]...] (x, y, z) is the bottom center coordinate;
+            l, w, and h are the scales along x-, y-, and z- axes.
+            theta is the rotation angle along the z-axis (counter-clockwise).
+    @pts: np.ndarray (N, 3)
+    [[x, y, z]...]
+    -> idxes: list [np.long, ...]
+        assert len (idxes) == M
+    '''
+    res =  crop_pts_3drot_torchgpu(torch.from_numpy(boxes).cuda(),
+        torch.from_numpy(pts).cuda())
+    return [itm.cpu().numpy() for itm in res]
+
+def crop_pts_3drot_torchcpu(boxes, pts):
+    '''
+    crop pts acoording to the 3D boxes.
+    @boxes: torch.Tensor (M, 7)
+            [[x, y, z, l, w, h, theta]...] (x, y, z) is the bottom center coordinate;
+            l, w, and h are the scales along x-, y-, and z- axes.
+            theta is the rotation angle along the z-axis (counter-clockwise).
+    @pts: torch.Tensor (N, 3)
+    [[x, y, z]...]
+    -> idxes: list [torch.long, ...]
+        assert len (idxes) == M
+    '''
+    res =  crop_pts_3drot_torchgpu(boxes.cuda(), pts.cuda())
+    return [itm.cpu() for itm in res]
+
+def crop_pts_3drot_torchgpu(boxes, pts):
+    '''
+    crop pts acoording to the 3D boxes.
+    @boxes: torch.Tensor.cuda (M, 7)
+            [[x, y, z, l, w, h, theta]...] (x, y, z) is the bottom center coordinate;
+            l, w, and h are the scales along x-, y-, and z- axes.
+            theta is the rotation angle along the z-axis (counter-clockwise).
+    @pts: torch.Tensor.cuda (N, 3)
+    [[x, y, z]...]
+    -> idxes: list [torch.long.cuda, ...]
+        assert len (idxes) == M
+    '''
+    import boxop_cuda
+    res = boxop_cuda.crop_pts_3drot(boxes, pts)
+    res = [torch.nonzero(mask, as_tuple=False).flatten() for mask in res]
+    return res

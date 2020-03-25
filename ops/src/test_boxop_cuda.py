@@ -27,5 +27,6 @@ if __name__ == "__main__":
     pts_tsgpu = torch.from_numpy(pts).cuda()
     res = boxop_cuda.crop_pts_3drot(boxes_tsgpu, pts_tsgpu)
     print(res.shape, gt.shape)
+    print(res.dtype, gt.dtype)
     print(np.array_equal(res.cpu().numpy(), gt))
     

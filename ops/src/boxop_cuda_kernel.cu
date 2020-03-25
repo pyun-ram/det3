@@ -111,7 +111,7 @@ torch::Tensor crop_pts_3drot_cuda(torch::Tensor boxes, torch::Tensor pts)
         /*M=*/M,
         /*N=*/N,
         /*boxes=*/boxes_dev.data<scalar_t>(),
-        /*pts=*/pts.data<scalar_t>(),
+        /*pts=*/pts_dev.data<scalar_t>(),
         /*mask=*/masks.data<bool>()
         );
     }));

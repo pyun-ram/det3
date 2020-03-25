@@ -354,6 +354,10 @@ def get_corner_box_2drot(boxes):
          |  |                  |
         4.--.3 (bottom) y<----.z
     -> corners: same to boxes (M, 4, 2)
+    %time M == 30
+    np 0.4 ms
+    torchcpu 0.2 ms
+    torchgpu 0.4 ms
     '''
     from det3.ops.boxop import (get_corner_box_2drot_np,
         get_corner_box_2drot_torch)
@@ -380,6 +384,10 @@ def get_corner_box_3drot(boxes):
          |  |
         8.--.7 (bottom)
     -> corners: same to boxes (M, 4, 3)
+    %time M == 30
+    np 0.4 ms
+    torchcpu 0.2 ms
+    torchgpu 0.4 ms
     '''
     from det3.ops.boxop import (get_corner_box_3drot_np,
         get_corner_box_3drot_torch)
@@ -401,5 +409,18 @@ def crop_pts_3drot(boxes, pts):
     [[x, y, z]...]
     -> idxes: list [np.long/torch.long/torch.long.cuda, ...]
         assert len (idxes) == M
+    %time M == 5
+    np 0.4 ms
+    torchcpu 0.4 ms
+    torchgpu 0.3 ms
     '''
-    raise NotImplementedError
+    from det3.ops.boxop import (crop_pts_3drot_np,
+        crop_pts_3drot_torchcpu, crop_pts_3drot_torchgpu)
+    if isinstance(boxes, np.ndarray):
+        return crop_pts_3drot_np(boxes, pts)
+    elif isinstance(boxes, torch.Tensor) and not boxes.is_cuda:
+        return crop_pts_3drot_torchcpu(boxes, pts)
+    elif isinstance(boxes, torch.Tensor) and boxes.is_cuda:
+        return crop_pts_3drot_torchgpu(boxes, pts)
+    else:
+        raise NotImplementedError
