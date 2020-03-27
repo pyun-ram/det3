@@ -7,7 +7,7 @@ import time
 import torch
 import unittest
 import numpy as np
-from det3.dataloader.udidata import UdiFrame, UdiCalib, UdiObj
+from det3.dataloader.udidata import UdiFrame, UdiCalib, UdiObj, UdiLabel
 
 class UTUDIFRAME(unittest.TestCase):
     def test(self):
@@ -69,6 +69,50 @@ class UTUDIOBJ(unittest.TestCase):
             obj_cp = UdiObj()
             obj_cp.from_corners(cns, obj.cls, obj.score)
             self.assertTrue(obj_cp.equal(obj))
+
+class UTUDILABLE(unittest.TestCase):
+    def test_baselable(self):
+        from det3.ops import read_bin, read_json
+        label_path = f"./unit-test/data/ut_UdiLabel_21_bin.json"
+        pc_path = f"./unit-test/data/ut_UdiLabel_21.bin"
+        pc = read_bin(pc_path, dtype=np.float32)
+        label = UdiLabel(label_path).read_label_file()
+        json_ctt = read_json(label_path)
+        self.assertTrue(len(label) == len(json_ctt["elem"]))
+        label_sub = UdiLabel()
+        for i, obj in enumerate(label):
+            if i >= 5:
+                break
+            label_sub.add_obj(obj.copy())
+        self.assertTrue(label_sub.equal(label))
+
+    def test_by_visualization(self):
+        from det3.ops import read_bin
+        from det3.visualizer.vis import BEVImage, FVImage
+        from tqdm import tqdm
+        import numpy as np
+        from det3.utils.utils import roty, rotz
+        label_path = f"./unit-test/data/ut_UdiLabel_21_bin.json"
+        pc_path = f"./unit-test/data/ut_UdiLabel_21.bin"
+        calib_path = f"./unit-test/data/ut_UdiLabel_21.txt"
+        pc = read_bin(pc_path, dtype=np.float32).reshape(-1, 4)
+        label = UdiLabel(label_path).read_label_file()
+        calib = UdiCalib(calib_path).read_calib_file()
+        bev_img = BEVImage(x_range=(-100, 100), y_range=(-50, 50), grid_size=(0.05, 0.05))
+        bev_img.from_lidar(pc, scale=1)
+        for obj in label:
+            bev_img.draw_box(obj, None, bool_gt=True, text=obj.cls[0])
+        bev_img.save(f"./unit-test/result/test_UdiLabel_21.png")
+        fv_img = FVImage()
+        vcam_T = np.eye(4)
+        vcam_T[:3, 3] =  np.array([-3, 0, 3])
+        vcam_T[:3, :3] = rotz(0) @ roty(np.pi*0.1)
+        calib.vcam_T = vcam_T
+        fv_img.from_lidar(calib, pc, scale=2)
+        for obj in label:
+            fv_img.draw_3dbox(obj, calib, bool_gt=True)
+        fv_img.save(f"./unit-test/result/test_UdiLabel_21_fv.png")
+        print("Please manually check ./unit-test/result/test_UdiLabel_21.png")
 
 if __name__ == "__main__":
     unittest.main()

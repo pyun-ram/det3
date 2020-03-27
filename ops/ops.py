@@ -78,6 +78,10 @@ def write_pkl(obj, path:str):
     from det3.ops.io import write_pkl_
     write_pkl_(obj, path)
 
+def read_json(path:str):
+    from det3.ops.io import read_json_
+    return read_json_(path)
+
 # IoU Computing
 def compute_intersect_2d(boxes, others):
     '''

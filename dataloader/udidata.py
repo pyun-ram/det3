@@ -7,16 +7,43 @@ from enum import Enum
 import math
 import numpy as np
 from numpy.linalg import inv
-from det3.dataloader.basedata import BaseFrame, BaseCalib, BaseObj
-from det3.ops import read_txt, apply_T
+from det3.dataloader.basedata import BaseFrame, BaseCalib, BaseObj, BaseLabel
+from det3.ops import read_txt, apply_T, read_json, hfill_pts
 
 class UdiFrame(BaseFrame):
-    Frame = Enum('Frame', ('BASE', 'LIDARTOP', 'LIDARFRONT', 'LIDARLEFT', 'LIDARRIGHT'))
+    Frame = Enum('Frame', ('BASE', 'LIDARTOP', 'LIDARFRONT', 'LIDARLEFT', 'LIDARRIGHT', 'VCAM'))
 
     def all_frames():
-        return 'BASE, LIDARTOP, LIDARFRONT, LIDARLEFT, LIDARRIGHT'
+        return 'BASE, LIDARTOP, LIDARFRONT, LIDARLEFT, LIDARRIGHT, VCAM'
 
 class UdiCalib(BaseCalib):
+    def __init__(self, path):
+        super().__init__(path)
+        # intrinsic matrix of virtual camera
+        self._vcam_P = np.array([[450, 0., 1200, 0.],
+                                [0., 450, 400, 0.],
+                                [0., 0., 1, 0.]]).astype(np.float32)
+        # extrinsic matrix of virtual camera
+        self._vcam_T = np.eye(4).astype(np.float32)
+
+    @property
+    def vcam_P(self):
+        return self._vcam_P
+
+    @vcam_P.setter
+    def vcam_P(self, value):
+        self._vcam_P = value
+
+    @property
+    def vcam_T(self):
+        return self._vcam_T
+
+    @vcam_T.setter
+    def vcam_T(self, value):
+        self._vcam_T = value
+        self._data[(UdiFrame("VCAM"), UdiFrame("BASE"))] = value
+        self._data[(UdiFrame("BASE"), UdiFrame("VCAM"))] = inv(value)
+
     @staticmethod
     def _calib_file_key_to_frame(s):
         map_dict = {
@@ -46,6 +73,8 @@ class UdiCalib(BaseCalib):
         for k, v in calib.items():
             inv_calib[(k[1], k[0])] = inv(v)
         calib[(UdiFrame("BASE"), UdiFrame("BASE"))] = np.eye(4).astype(np.float32)
+        calib[(UdiFrame("VCAM"), UdiFrame("BASE"))] = self.vcam_T
+        inv_calib[(UdiFrame("BASE"), UdiFrame("VCAM"))] = inv(self.vcam_T)
         calib = {**calib, **inv_calib}
         self._data = calib
         return self
@@ -66,10 +95,31 @@ class UdiCalib(BaseCalib):
         T = T_t_ego @ T_ego_s
         return apply_T(pts[:, :3], T)
 
+    def vcam2imgplane(self, pts):
+        '''
+        project the pts from the camera frame to camera plane
+        pixels = P2 @ pts_cam
+        inputs:
+            pts(np.array): [#pts, 3]
+                points in virtual camera frame
+        return:
+            pixels: [#pts, 2]
+                pixels on the image
+        Note: the returned pixels are floats
+        '''
+        pts_x, pts_y, pts_z = pts[:, 0:1], pts[:, 1:2], pts[:, 2:3]
+        pts_cam = np.hstack([-pts_y, -pts_z, pts_x])
+        pts_cam_h = hfill_pts(pts_cam)
+        pixels_T = self.vcam_P @ pts_cam_h.T #(3, #pts)
+        pixels = pixels_T.T
+        pixels[:, 0] /= (pixels[:, 2]+1e-6)
+        pixels[:, 1] /= (pixels[:, 2]+1e-6)
+        return pixels[:, :2]
+
 class UdiObj(BaseObj):
     def __init__(self, arr=np.zeros(7), cls=None, score=None, frame="BASE"):
         super().__init__(arr, cls, score)
-        self._current_frame = UdiFrame(frame)
+        self.current_frame = frame
     
     def __str__(self):
         score = "" if self.score is None else f" {self.score:.2f}"
@@ -87,3 +137,28 @@ class UdiObj(BaseObj):
                 np.isclose(self.y, other.y, atol) and
                 np.isclose(self.z, other.z, atol) and
                 np.isclose(math.cos(2 * (self.theta - other.theta)), 1, atol))
+
+class UdiLabel(BaseLabel):
+    def __init__(self, path=None):
+        super().__init__(path)
+
+    def read_label_file(self):
+        json_ctt = read_json(self._path)
+        for json_box in json_ctt["elem"]:
+            x = json_box["position"]["x"]
+            y = json_box["position"]["y"]
+            z = json_box["position"]["z"]
+            l = json_box["size"]["depth"]
+            w = json_box["size"]["width"]
+            h = json_box["size"]["height"]
+            z -= h /2.0 # convert center to bottom center
+            theta = json_box["yaw"]
+            arr = np.array([x, y, z, l, w, h, theta])
+            cls = json_box["class"]
+            obj = UdiObj(arr, cls, score=None, frame="BASE")
+            self.add_obj(obj)
+        self.current_frame = UdiFrame("BASE")
+        return self
+
+    def box_order(self):
+        return "x, y, z, l, w, h, theta"

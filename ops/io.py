@@ -4,6 +4,7 @@
  Copyright 2018-2020 Peng YUN, RAM-Lab, HKUST
 '''
 import open3d
+import json
 import pickle
 import numpy as np
 from PIL import Image
@@ -65,3 +66,9 @@ def read_pkl_(path:str):
 def write_pkl_(obj, path:str):
     with open(path, 'wb') as f:
         pickle.dump(obj, f)
+
+def read_json_(path:str):
+    with open(path, encoding='utf-8') as f:
+        res = f.read()
+        result = json.loads(res)
+    return result

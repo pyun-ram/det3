@@ -7,6 +7,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 import math
+import copy
 import numpy as np
 from det3.utils import utils
 from det3.ops import crop_pts_3drot, get_corner_box_3drot
@@ -92,9 +93,9 @@ class BaseLabel(ABC):
         self._objs = []
         self._objs_boxes = None
         self._objs_classes = []
-        self._objs_scores = None
+        self._objs_scores = []
         self._current_frame = None
-        raise NotImplementedError
+        self._cnter = 0
 
     @abstractmethod
     def read_label_file(self):
@@ -106,7 +107,7 @@ class BaseLabel(ABC):
 
     @classmethod
     @abstractmethod
-    def boxes_order(self):
+    def box_order(self):
         '''
         ->return a string specifing the order of self._objs_boxes.
         e.g. "x, y, z, h, w, l, ry"
@@ -137,10 +138,14 @@ class BaseLabel(ABC):
         '''
         @obj: a derived class of BaseObj
         '''
-        raise NotImplementedError
+        self._objs.append(obj)
+        self._objs_classes.append(obj.cls)
+        self._objs_scores.append(obj.score)
+        self._objs_boxes = (np.concatenate([self._objs_boxes, obj.array], axis=0)
+                            if self._objs_boxes is not None else obj.array)
 
     def copy(self):
-        raise NotImplementedError
+        return copy.deepcopy(self)
 
     def __getitem__(self, idx):
         '''
@@ -148,17 +153,48 @@ class BaseLabel(ABC):
         '''
         return self._objs[idx]
 
-    def __eq__(self):
-        raise NotImplementedError
+    def equal(self, other, acc_cls=None, atol=1e-2):
+        '''
+        Return True if it can find a same counterpart in other.
+        @other: a derived class of BaseLabel
+        @acc_cls: None/List
+            The accurate classes count True. e.g. ['Car', 'Van']
+        @atol: float
+        Note: return True if len(self) == 0
+        '''
+        if len(self) == 0:
+            return True
+        bool_list = []
+        for obj1 in self:
+            bool_obj1 = False
+            for obj2 in other:
+                bool_obj1 = bool_obj1 or obj1.equal(obj2, acc_cls, atol)
+            bool_list.append(bool_obj1)
+        return any(bool_list)
 
     def __len__(self):
-        raise NotImplementedError
+        return len(self._objs)
 
     def __str__(self):
-        raise NotImplementedError
+        s = ''
+        for obj in self:
+            s += str(obj) + '\n'
+        return s
 
     def __repr__(self):
-        raise NotImplementedError
+        return str(self)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._cnter >= len(self):
+            self._cnter = 0
+            raise StopIteration
+        else:
+            res = self[self._cnter]
+            self._cnter += 1
+            return res
 
 class BaseObj(ABC):
     """
@@ -197,16 +233,26 @@ class BaseObj(ABC):
 
     @property
     def array(self):
+        '''
+        return an np.ndarray representation
+        '''
         return np.array([self.x, self.y, self.z,
-                           self.l, self.w, self.h,
-                           self.theta]).reshape(1, -1)
+                         self.l, self.w, self.h,
+                         self.theta]).reshape(1, -1)
 
     @abstractmethod
     def equal(self, other, acc_cls, atol):
+        '''
+        Return True if it is same to other.
+        @other: a derived class of BaseObj
+        @acc_cls: None/List
+            The accurate classes count True. e.g. ['Car', 'Van']
+        @atol: float
+        Note: return True if len(self) == 0
+        '''
         raise NotImplementedError
 
     def copy(self):
-        import copy
         return copy.deepcopy(self)
 
     @property

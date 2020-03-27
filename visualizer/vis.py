@@ -59,8 +59,7 @@ class BEVImage:
                 num_of_pts += 1
         bevimg = bevimg - np.min(bevimg)
         divisor = np.max(bevimg) - np.min(bevimg)
-        factor = 100 * num_of_pts / 4000 # for better visualization
-        bevimg = np.clip((bevimg / divisor * 255.0 * 100), a_min=0, a_max=255)
+        bevimg = np.clip((bevimg / divisor * 255.0 * 200), a_min=0, a_max=255)
         # if blue pts and white background
         # bevimg = (255 - bevimg).astype(np.uint8)
         # tmp = np.ones((height, width, 3)).astype(np.uint8) * 255
@@ -100,6 +99,7 @@ class BEVImage:
                 gt: purple
                 est: yellow
         '''
+        from det3.dataloader.basedata import BaseObj
         if self.data is None:
             print("from_lidar should be run first")
             raise RuntimeError
@@ -113,6 +113,9 @@ class BEVImage:
         elif istype(obj, 'WaymoObj') and istype(calib, 'WaymoCalib'):
             cns_Fimu = obj.get_bbox3dcorners()[:4, :]
             cns_FBEV = self.lidar2BEV(cns_Fimu)
+        elif isinstance(obj, BaseObj):
+            cns_Fimu = obj.get_bbox3d_corners()[:4, :]
+            cns_FBEV = self.lidar2BEV(cns_Fimu)
         else:
             print(obj.__class__)
             print(calib.__class__)
@@ -125,7 +128,7 @@ class BEVImage:
         color = c if c is not None else color
         draw.line([p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1], p1[0], p1[1]], fill=color, width=width)
         if text is not None:
-            draw.text((p1[0], p1[1]), text)
+            draw.text((p1[0], p1[1]), text, color)
         self.data = np.array(bev_img)
         return self
 
@@ -152,7 +155,7 @@ class FVImage:
         '''
         self.data = image
         return self
-    def from_lidar(self, calib, pts):
+    def from_lidar(self, calib, pts, scale=1):
         '''
         project pts from IMU frame to camera plane specified by calib
         inputs:
@@ -160,6 +163,7 @@ class FVImage:
             pts (np.array) [#pts, >=3]
                 pts in FIMU (CARLA) or in FLidar (Kitti)
         '''
+        from det3.dataloader.udidata import UdiCalib, UdiFrame
         if istype(calib, "CarlaCalib"):
             pts_Fcam = calib.imu2cam(pts)
             pts_Fimg = calib.cam2imgplane(pts_Fcam)
@@ -175,19 +179,24 @@ class FVImage:
             pts_Fimg = calib.cam2imgplane(pts_Fcam)
             width = np.ceil(calib.P0[0, 2] * 2).astype(np.int)
             height = np.ceil(calib.P0[1, 2] * 2).astype(np.int)
+        elif isinstance(calib, UdiCalib):
+            pts_Fcam = calib.transform(pts, source_frame=UdiFrame("BASE"), target_frame=UdiFrame("VCAM"))
+            pts_Fimg = calib.vcam2imgplane(pts_Fcam)
+            width = np.ceil(calib.vcam_P[0, 2] * 2).astype(np.int)
+            height = np.ceil(calib.vcam_P[1, 2] * 2).astype(np.int)
         else:
             raise NotImplementedError
 
         self.data = np.zeros((height, width))
         for (x, y), (x_, y_, z_) in zip(pts_Fimg, pts_Fcam):
             x, y = int(x), int(y)
-            if 0 <= x < width and 0 <= y < height:
-                self.data[y, x] = (np.sqrt(x_*x_ + y_*y_ + z_*z_) if self.data[y, x] == 0
+            if 0 <= x < width-scale and 0 <= y < height-scale and x_ > 0:
+                self.data[y:y+scale, x:x+scale] = (np.sqrt(x_*x_ + y_*y_ + z_*z_) if self.data[y, x] == 0
                                    else min(np.sqrt(x_*x_ + y_*y_ + z_*z_), self.data[y, x]))
         self.data = self.data - np.min(self.data)
         divisor = np.max(self.data) - np.min(self.data)
-        self.data = np.clip(self.data / divisor * 255 * 2, a_min=0, a_max=255)
-        self.data = np.tile(self.data.reshape(height, width, 1), 3).astype(np.uint8)
+        fvimg = np.clip(self.data / divisor * 255 * 8, a_min=0, a_max=255)
+        self.data = 255 - np.tile(fvimg.reshape(height, width, 1), 3).astype(np.uint8)
         return self
 
     def draw_box(self, obj, calib, bool_gt=False, width=3, c=None):
@@ -201,6 +210,7 @@ class FVImage:
                 est: yellow
             Note: The 2D bounding box is computed from 3D bounding box
         '''
+        from det3.dataloader.udidata import UdiObj, UdiCalib, UdiFrame
         if self.data is None:
             print("from_lidar should be run first")
             raise RuntimeError
@@ -215,6 +225,10 @@ class FVImage:
             cns_Fimu = obj.get_bbox3dcorners()
             cns_Fcam = calib.imu2cam(cns_Fimu)
             cns_Fcam2d = calib.cam2imgplane(cns_Fcam)
+        elif isinstance(obj, UdiObj) and isinstance(calib, UdiCalib):
+            cns_imu = obj.get_bbox3d_corners()
+            cns_Fcam = calib.transform(cns_imu, source_frame=UdiFrame("BASE"), target_frame=UdiFrame("VCAM"))
+            cns_Fcam2d = calib.vcam2imgplane(cns_Fcam)
         else:
             raise NotImplementedError
         minx = int(np.min(cns_Fcam2d[:, 0]))
@@ -245,22 +259,42 @@ class FVImage:
                 est: yellow
             Note: The 2D bounding box is computed from 3D bounding box
         '''
+        from det3.dataloader.udidata import UdiObj, UdiCalib, UdiFrame
         if self.data is None:
             print("from_lidar should be run first")
             raise RuntimeError
         if istype(obj, "KittiObj") and istype(calib, "KittiCalib"):
             cns_Fcam = obj.get_bbox3dcorners()
             cns_Fcam2d = calib.leftcam2imgplane(cns_Fcam)
+            if cns_Fcam[:, 2].min() < 0:
+                print("Warning: it will cause a problem, dropped it.")
+                print("It might raise conflit")
+                return self
         elif istype(obj, "CarlaObj") and istype(calib, "CarlaCalib"):
             cns_Fimu = obj.get_bbox3dcorners()
             cns_Fcam = calib.imu2cam(cns_Fimu)
             cns_Fcam2d = calib.cam2imgplane(cns_Fcam)
+            if cns_Fcam[:, 2].min() < 0:
+                print("Warning: it will cause a problem, dropped it.")
+                print("It might raise conflit")
+                return self
         elif istype(obj, "WaymoObj") and istype(calib, "WaymoCalib"):
             cns_Fimu = obj.get_bbox3dcorners()
             cns_Fcam = calib.imu2cam(cns_Fimu)
             cns_Fcam2d = calib.cam2imgplane(cns_Fcam)
+            if cns_Fcam[:, 2].min() < 0:
+                print("Warning: it will cause a problem, dropped it.")
+                print("It might raise conflit")
+                return self
+        elif isinstance(obj, UdiObj) and isinstance(calib, UdiCalib):
+            cns_imu = obj.get_bbox3d_corners()
+            cns_Fcam = calib.transform(cns_imu, source_frame=UdiFrame("BASE"), target_frame=UdiFrame("VCAM"))
+            cns_Fcam2d = calib.vcam2imgplane(cns_Fcam)
+            if cns_Fcam[:, 0].min() < 0:
+                return self
         else:
             raise NotImplementedError
+
         color = 'purple' if bool_gt else 'yellow'
         color = c if c is not None else color
         fv_img = Image.fromarray(self.data)
