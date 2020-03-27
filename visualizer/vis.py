@@ -5,15 +5,10 @@ Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 '''
 import numpy as np
 from PIL import Image, ImageDraw
-try:
-    from ..dataloader.kittidata import KittiObj
-    from ..dataloader.carladata import CarlaObj, CarlaCalib
-    from ..utils.utils import istype
-except:
-    # Run script
-    from det3.dataloader.kittidata import KittiObj
-    from det3.dataloader.carladata import CarlaObj, CarlaCalib
-    from det3.utils.utils import istype
+# Run script
+from det3.dataloader.kittidata import KittiObj
+from det3.dataloader.carladata import CarlaObj, CarlaCalib
+from det3.utils.utils import istype
 
 class BEVImage:
     '''
