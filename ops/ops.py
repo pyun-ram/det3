@@ -321,6 +321,20 @@ def apply_R(pts, R_matrix):
     '''
     return (R_matrix @ pts.T).T
 
+def apply_T(pts, T_matrix):
+    '''
+    apply transformation matrix T on pts.
+    @pts: np.ndarray/torch.Tensor/torch.Tensor.cuda (N, 3)
+        [[x, y, z]...]
+    @T_matrix: same to pts (4, 4)
+        3x3 rotation matrix
+    -> pts_R same to pts (N, 3)
+    Note: This function should be safe.
+    '''
+    pts_h = hfill_pts(pts)
+    pts_ = (T_matrix @ pts_h.T).T
+    return pts_[:, :3]
+
 def hfill_pts(pts):
     '''
     convert pts to homogeneous coordinate.
@@ -329,7 +343,10 @@ def hfill_pts(pts):
     -> pts_h same to pts (N, 4)
     [[x, y, z, 1]...]
     '''
-    raise NotImplementedError
+    if isinstance(pts, np.ndarray):
+        return np.hstack([pts[:, :3], np.ones_like(pts[:, 0:1])])
+    else:
+        raise NotImplementedError
 
 def farthest_pts_sampling(pts, num_pts: int):
     '''

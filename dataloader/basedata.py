@@ -6,14 +6,25 @@
 '''
 from abc import ABC, abstractmethod
 from enum import Enum
+import math
+import numpy as np
+from det3.utils import utils
+from det3.ops import crop_pts_3drot, get_corner_box_3drot
 
 class BaseFrame(ABC):
     """
     This ABC is to define the frame.
     """
     Frame = Enum('Frame', ('Ego'))
-    def __init__(self):
-        self._frame = None
+    def __init__(self, value=None):
+        if isinstance(value, str):
+            self._frame = self.Frame[value.upper()]
+        elif isinstance(value, Enum):
+            self._frame = value
+        elif value is None:
+            self._frame = None
+        else:
+            raise TypeError("the type of value should be string or enum.")
 
     @property
     def frame(self):
@@ -26,13 +37,13 @@ class BaseFrame(ABC):
         @value: str/Enum
         '''
         if isinstance(value, str):
-            self._current_frame = self.Frame[frame]
+            self._frame = self.Frame[value.upper()]
         elif isinstance(value, Enum):
-            self._current_frame = frame
+            self._frame = value
         else:
             raise TypeError("the type of value should be string or enum.")
 
-    @staticmethod
+    @classmethod
     @abstractmethod
     def all_frames():
         '''
@@ -40,13 +51,21 @@ class BaseFrame(ABC):
         '''
         raise NotImplementedError
 
+    def __hash__(self):
+        return hash(self.frame.name)
+
     def __eq__(self, other):
-        if isinstance(value, str):
-            return self.frame == self.Frame[other]
-        elif isinstance(value, Enum):
+        if isinstance(other, str):
+            return self.frame == self.Frame[other.upper()]
+        elif isinstance(other, BaseFrame):
+            return self.frame == other.frame
+        elif isinstance(other, Enum):
             return self.frame == other
         else:
             raise TypeError("the type of other should be string or enum.")
+
+    def __repr__(self):
+        return self.frame.name
 
 class BaseCalib(ABC):
     """
@@ -57,7 +76,6 @@ class BaseCalib(ABC):
         self._path = path
         self._data = None
 
-    @classmethod
     @abstractmethod
     def read_calib_file(self):
         '''
@@ -78,7 +96,6 @@ class BaseLabel(ABC):
         self._current_frame = None
         raise NotImplementedError
 
-    @classmethod
     @abstractmethod
     def read_label_file(self):
         '''
@@ -147,14 +164,13 @@ class BaseObj(ABC):
     """
     This ABC is to define the object helping manage one single object.
     """
-    @classmethod
     @abstractmethod
     def __init__(self, arr, cls, score):
         '''
         @arr: np.array [7]
         [x, y, z] - bottom center
         [l, w, h] - scale: x- y- z- axis
-        ry- rotation along y axis
+        theta- rotation along z axis
         '''
         self.x = None
         self.y = None
@@ -162,14 +178,13 @@ class BaseObj(ABC):
         self.l = None
         self.w = None
         self.h = None
-        self.ry = None
+        self.theta = None
         self.cls = cls
         self.score = score
         self._current_frame = None
         (self.x, self.y, self.z, 
-            self.l, self.w, self.h, self.ry) = arr.flatten()
+            self.l, self.w, self.h, self.theta) = arr.flatten()
 
-    @classmethod
     @abstractmethod
     def __str__(self):
         '''
@@ -177,13 +192,22 @@ class BaseObj(ABC):
         '''
         raise NotImplementedError
 
-    @classmethod
+    def __repr__(self):
+        return str(self)
+
+    @property
+    def array(self):
+        return np.array([self.x, self.y, self.z,
+                           self.l, self.w, self.h,
+                           self.theta]).reshape(1, -1)
+
     @abstractmethod
-    def __eq__(self, other):
+    def equal(self, other, acc_cls, atol):
         raise NotImplementedError
 
     def copy(self):
-        raise NotImplementedError
+        import copy
+        return copy.deepcopy(self)
 
     @property
     def current_frame(self):
@@ -200,7 +224,7 @@ class BaseObj(ABC):
             The object has to be in a same frame of pc.
         -> return a list of idxes.
         '''
-        raise NotImplementedError
+        return crop_pts_3drot(self.array, pc[:, :3])[0]
 
     def get_bbox3d_corners(self):
         '''
@@ -215,24 +239,54 @@ class BaseObj(ABC):
         8.--.7 (top)
         -> return a np.array [8, 3]
         '''
-        raise NotImplementedError
+        return get_corner_box_3drot(self.array)[0]
 
-    def from_corners(self, corners, cls, score, frame):
+    def from_corners(self, corners, cls=None, score=None):
         '''
         Define the bounding box from the corners
         @ corners: np.ndarray [8, 3] with a same definition of BaseObj.get_bbox3d_corners()
+            in UdiFrame("BASE")
         @ cls: str
         @ score: float [0, 1] / None
-        @ frame: a class derived from BaseFrame
         '''
-        raise NotImplementedError
-
+        x_Fbase = np.sum(corners[:, 0], axis=0)/ 8.0
+        y_Fbase = np.sum(corners[:, 1], axis=0)/ 8.0
+        z_Fbase = np.sum(corners[:4, 2], axis=0)/ 4.0
+        self.x, self.y, self.z = x_Fbase, y_Fbase, z_Fbase
+        self.h = np.sum(abs(corners[4:, 2] - corners[:4, 2])) / 4.0
+        self.l = np.sum(
+            np.sqrt(np.sum((corners[0, [0, 1]] - corners[1, [0, 1]])**2)) +
+            np.sqrt(np.sum((corners[2, [0, 1]] - corners[3, [0, 1]])**2)) +
+            np.sqrt(np.sum((corners[4, [0, 1]] - corners[5, [0, 1]])**2)) +
+            np.sqrt(np.sum((corners[6, [0, 1]] - corners[7, [0, 1]])**2))
+            ) / 4.0
+        self.w = np.sum(
+            np.sqrt(np.sum((corners[0, [0, 1]] - corners[3, [0, 1]])**2)) +
+            np.sqrt(np.sum((corners[1, [0, 1]] - corners[2, [0, 1]])**2)) +
+            np.sqrt(np.sum((corners[4, [0, 1]] - corners[7, [0, 1]])**2)) +
+            np.sqrt(np.sum((corners[5, [0, 1]] - corners[6, [0, 1]])**2))
+            ) / 4.0
+        self.theta = np.sum(
+            math.atan2(corners[2, 1] - corners[1, 1], corners[2, 0] - corners[1, 0]) +
+            math.atan2(corners[6, 1] - corners[5, 1], corners[6, 0] - corners[5, 0]) +
+            math.atan2(corners[3, 1] - corners[0, 1], corners[3, 0] - corners[0, 0]) +
+            math.atan2(corners[7, 1] - corners[4, 1], corners[7, 0] - corners[4, 0]) +
+            math.atan2(corners[1, 0] - corners[0, 0], corners[0, 1] - corners[1, 1]) +
+            math.atan2(corners[5, 0] - corners[4, 0], corners[4, 1] - corners[5, 1]) +
+            math.atan2(corners[2, 0] - corners[3, 0], corners[3, 1] - corners[2, 1]) +
+            math.atan2(corners[6, 0] - corners[7, 0], corners[7, 1] - corners[6, 1])
+        ) / 8.0
+        if np.isclose(self.theta, np.pi/2.0):
+            self.theta = 0.0
+        self.theta = utils.clip_ry(self.theta)
+        self.cls = cls
+        self.score = score
+        return self
 
 class BaseData(ABC):
     """
     This ABC is to define the class helping read a package of a dataset.
     """
-    @classmethod
     @abstractmethod
     def __init__(self, root_dir, tag):
         '''
@@ -242,7 +296,6 @@ class BaseData(ABC):
         '''
         raise NotImplementedError
 
-    @classmethod
     @abstractmethod
     def read_data(self):
         '''
