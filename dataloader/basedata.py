@@ -340,7 +340,8 @@ class BaseData(ABC):
         @ root_dir: str
         @ tag: str
         '''
-        raise NotImplementedError
+        self._root_dir = root_dir
+        self._tag = tag
 
     @abstractmethod
     def read_data(self):

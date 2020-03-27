@@ -7,8 +7,8 @@ from enum import Enum
 import math
 import numpy as np
 from numpy.linalg import inv
-from det3.dataloader.basedata import BaseFrame, BaseCalib, BaseObj, BaseLabel
-from det3.ops import read_txt, apply_T, read_json, hfill_pts
+from det3.dataloader.basedata import *
+from det3.ops import read_txt, apply_T, read_json, hfill_pts, read_bin
 
 class UdiFrame(BaseFrame):
     Frame = Enum('Frame', ('BASE', 'LIDARTOP', 'LIDARFRONT', 'LIDARLEFT', 'LIDARRIGHT', 'VCAM'))
@@ -162,3 +162,38 @@ class UdiLabel(BaseLabel):
 
     def box_order(self):
         return "x, y, z, l, w, h, theta"
+
+class UdiData(BaseData):
+    def __init__(self, root_dir, tag, output_dict=None):
+        super().__init__(root_dir, tag)
+        self._calib_path = os.path.join(root_dir, "calib", tag+'.txt')
+        self._label_path = os.path.join(root_dir, "label", tag+'_bin.json')
+        self._lidar_list = ["lidar_top", "lidar_front", "lidar_left", "lidar_right"]
+        self._lidar_paths = {itm: os.path.join(root_dir, itm, tag+'.bin') for itm in self.lidar_list}
+        if self._output_dict is None:
+            self._output_dict = {
+                "calib": True,
+                "label": True,
+                "lidar": True
+            }
+
+    def read_data(self):
+        '''
+        -> res: dict
+            res[calib]: UdiCalib / None
+            res[label]: UdiLabel / None
+            res[pc]: dict {lidar: np.ndarray (#pts, >=3) (in Flidar)} / None
+        '''
+        calib = UdiCalib(self._calib_path).read_calib_file() if self._output_dict["calib"] else None
+        label = UdiLabel(self._label_path).read_label_file() if self._output_dict["label"] else None
+        if self._output_dict["lidar"]:
+            pc = dict()
+            for k, v in self._lidar_paths.items():
+                pc[k] = read_bin(v, dtype=np.float32).reshape(-1, 4)
+        else:
+            pc = None
+        res = {k: None for k in self._output_dict.keys()}
+        res["calib"] = calib
+        res["label"] = label
+        res["lidar"] = pc
+        return res
