@@ -4,6 +4,7 @@
  Copyright 2018-2020 Peng YUN, RAM-Lab, HKUST
 '''
 from enum import Enum
+import os
 import math
 import numpy as np
 from numpy.linalg import inv
@@ -169,8 +170,9 @@ class UdiData(BaseData):
         self._calib_path = os.path.join(root_dir, "calib", tag+'.txt')
         self._label_path = os.path.join(root_dir, "label", tag+'_bin.json')
         self._lidar_list = ["lidar_top", "lidar_front", "lidar_left", "lidar_right"]
-        self._lidar_paths = {itm: os.path.join(root_dir, itm, tag+'.bin') for itm in self.lidar_list}
-        if self._output_dict is None:
+        self._lidar_paths = {itm: os.path.join(root_dir, itm, tag+'.bin') for itm in self._lidar_list}
+        self._output_dict = output_dict
+        if output_dict is None:
             self._output_dict = {
                 "calib": True,
                 "label": True,
@@ -197,3 +199,7 @@ class UdiData(BaseData):
         res["label"] = label
         res["lidar"] = pc
         return res
+
+    @staticmethod
+    def lidar_to_frame(lidar):
+        return ("".join(lidar.split("_"))).upper()

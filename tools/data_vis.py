@@ -11,8 +11,8 @@ Usage: python3 tools/data_vis.py \
 import argparse
 import os
 from PIL import Image
-from det3.utils.utils import get_idx_list
-from det3.visualizer.vis import BEVImage
+from det3.utils.utils import get_idx_list, rotz, roty
+from det3.visualizer.vis import BEVImage, FVImage
 from multiprocessing import Pool
 from tqdm import tqdm
 
@@ -26,6 +26,44 @@ def vis_fn(idx):
         import numpy as np
         pc_dict, label, calib = CarlaData(data_dir, idx).read_data()
         pc = np.vstack([calib.lidar2imu(v, key="Tr_imu_to_{}".format(k)) for k, v in pc_dict.items()])
+    elif dataset == "UDI":
+        from det3.dataloader.udidata import UdiData, UdiFrame
+        import numpy as np
+        udidata = UdiData(data_dir, idx).read_data()
+        calib = udidata["calib"]
+        label = udidata["label"]
+        pc_dict = udidata["lidar"]
+        for k, v in pc_dict.items():
+            pc_dict[k] = calib.transform(v[:, :3],
+                source_frame=UdiFrame(UdiData.lidar_to_frame(k)),
+                target_frame=UdiFrame("BASE"))
+        pc_merge = np.vstack([v for k, v in pc_dict.items()])
+        bevimg = BEVImage(x_range=(-70, 70), y_range=(-40, 40), grid_size=(0.05, 0.05))
+        bevimg.from_lidar(pc_merge, scale=1)
+        for obj in label:
+            bevimg.draw_box(obj, calib, bool_gt=True)
+        bevimg_img = Image.fromarray(bevimg.data)
+        bevimg_img.save(os.path.join(output_dir, idx+'.png'))
+
+        for k, v in pc_dict.items():
+            bevimg = BEVImage(x_range=(-70, 70), y_range=(-40, 40), grid_size=(0.05, 0.05))
+            bevimg.from_lidar(v, scale=1)
+            for obj in label:
+                bevimg.draw_box(obj, calib, bool_gt=True)
+            bevimg_img = Image.fromarray(bevimg.data)
+            bevimg_img.save(os.path.join(output_dir, idx+f'_{k}.png'))
+
+        fv_img = FVImage()
+        vcam_T = np.eye(4)
+        vcam_T[:3, 3] =  np.array([-3, 0, 3])
+        vcam_T[:3, :3] = rotz(0) @ roty(np.pi*0.1)
+        calib.vcam_T = vcam_T
+        fv_img.from_lidar(calib, pc_merge, scale=2)
+        for obj in label:
+            fv_img.draw_3dbox(obj, calib, bool_gt=True)
+        fv_img.save(os.path.join(output_dir, idx+'_fv.png'))
+        return
+
     bevimg = BEVImage(x_range=(0, 70), y_range=(-40, 40), grid_size=(0.05, 0.05))
     bevimg.from_lidar(pc, scale=1)
     for obj in label.read_label_file().data:
