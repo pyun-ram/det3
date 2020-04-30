@@ -3,14 +3,14 @@ File Created: Monday, 8th April 2019 8:56:26 pm
 Author: Peng YUN (pyun@ust.hk)
 Copyright 2018 - 2019 RAM-Lab, RAM-Lab
 python3 tools/data_bin2pcd.py \
-    --bin-dir /usr/app/data/KITTI/dev \
-    --output-dir /usr/app/vis/dev
+    --bin-dir /usr/app/mlod/tmp \
+    --output-dir /usr/app/mlod/tmp_pcd
 Note: It requires Open3D packages
 '''
 import argparse
 import numpy as np
 import os
-from open3d import *
+import open3d as o3d
 
 def read_pc_from_bin(bin_path):
     """Load PointCloud data from bin file. (KITTI Dataset for 4 channels)"""
@@ -25,9 +25,9 @@ def save_pc_to_pcd(pc, pcd_path):
         pcd_path (str)
         Note: Only xyz of pc can be saved
     '''
-    pcd = PointCloud()
-    pcd.points = Vector3dVector(pc[:,:3])
-    write_point_cloud(pcd_path, pcd)
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(pc[:,:3])
+    o3d.io.write_point_cloud(pcd_path, pcd)
     return
 
 def get_list(dir_path):

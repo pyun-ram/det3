@@ -159,6 +159,7 @@ class FVImage:
                 pts in FIMU (CARLA) or in FLidar (Kitti)
         '''
         from det3.dataloader.udidata import UdiCalib, UdiFrame
+        from det3.dataloader.lyftdata import LyftCalib, LyftFrame
         if istype(calib, "CarlaCalib"):
             pts_Fcam = calib.imu2cam(pts)
             pts_Fimg = calib.cam2imgplane(pts_Fcam)
@@ -176,6 +177,11 @@ class FVImage:
             height = np.ceil(calib.P0[1, 2] * 2).astype(np.int)
         elif isinstance(calib, UdiCalib):
             pts_Fcam = calib.transform(pts, source_frame=UdiFrame("BASE"), target_frame=UdiFrame("VCAM"))
+            pts_Fimg = calib.vcam2imgplane(pts_Fcam)
+            width = np.ceil(calib.vcam_P[0, 2] * 2).astype(np.int)
+            height = np.ceil(calib.vcam_P[1, 2] * 2).astype(np.int)
+        elif isinstance(calib, LyftCalib):
+            pts_Fcam = calib.transform(pts, source_frame=LyftFrame("BASE"), target_frame=LyftFrame("VCAM"))
             pts_Fimg = calib.vcam2imgplane(pts_Fcam)
             width = np.ceil(calib.vcam_P[0, 2] * 2).astype(np.int)
             height = np.ceil(calib.vcam_P[1, 2] * 2).astype(np.int)
@@ -206,6 +212,7 @@ class FVImage:
             Note: The 2D bounding box is computed from 3D bounding box
         '''
         from det3.dataloader.udidata import UdiObj, UdiCalib, UdiFrame
+        from det3.dataloader.lyftdata import LyftObj, LyftFrame, LyftCalib
         if self.data is None:
             print("from_lidar should be run first")
             raise RuntimeError
@@ -223,6 +230,10 @@ class FVImage:
         elif isinstance(obj, UdiObj) and isinstance(calib, UdiCalib):
             cns_imu = obj.get_bbox3d_corners()
             cns_Fcam = calib.transform(cns_imu, source_frame=UdiFrame("BASE"), target_frame=UdiFrame("VCAM"))
+            cns_Fcam2d = calib.vcam2imgplane(cns_Fcam)
+        elif isinstance(obj, LyftObj) and isinstance(calib, LyftCalib):
+            cns_imu = obj.get_bbox3d_corners()
+            cns_Fcam = calib.transform(cns_imu, source_frame=LyftFrame("BASE"), target_frame=LyftFrame("VCAM"))
             cns_Fcam2d = calib.vcam2imgplane(cns_Fcam)
         else:
             raise NotImplementedError
@@ -255,6 +266,7 @@ class FVImage:
             Note: The 2D bounding box is computed from 3D bounding box
         '''
         from det3.dataloader.udidata import UdiObj, UdiCalib, UdiFrame
+        from det3.dataloader.lyftdata import LyftObj, LyftFrame, LyftCalib
         if self.data is None:
             print("from_lidar should be run first")
             raise RuntimeError
@@ -284,6 +296,12 @@ class FVImage:
         elif isinstance(obj, UdiObj) and isinstance(calib, UdiCalib):
             cns_imu = obj.get_bbox3d_corners()
             cns_Fcam = calib.transform(cns_imu, source_frame=UdiFrame("BASE"), target_frame=UdiFrame("VCAM"))
+            cns_Fcam2d = calib.vcam2imgplane(cns_Fcam)
+            if cns_Fcam[:, 0].min() < 0:
+                return self
+        elif isinstance(obj, LyftObj) and isinstance(calib, LyftCalib):
+            cns_imu = obj.get_bbox3d_corners()
+            cns_Fcam = calib.transform(cns_imu, source_frame=LyftFrame("BASE"), target_frame=LyftFrame("VCAM"))
             cns_Fcam2d = calib.vcam2imgplane(cns_Fcam)
             if cns_Fcam[:, 0].min() < 0:
                 return self
