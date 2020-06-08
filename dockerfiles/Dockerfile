@@ -27,9 +27,22 @@ RUN chmod +x /usr/bin/tini
 ENTRYPOINT [ "/usr/bin/tini", "--" ]
 CMD [ "/bin/bash" ]
 # install pytorch 1.4
-RUN conda install pytorch torchvision cudatoolkit=10.1 -c pytorch
+RUN conda install pytorch==1.4 torchvision==0.5.0 cudatoolkit=10.1 -c pytorch
 RUN conda install -c open3d-admin open3d
 RUN conda install -c numba numba
 RUN apt-get update && apt-get -y install libgl1-mesa-glx
-ENV PYTHONPATH /usr/app
 
+RUN conda install -c conda-forge scikit-image shapely
+
+RUN apt-get update && apt-get install -y libboost1.62-dev
+COPY kitti-object-eval-python /root/kitti-object-eval-python
+COPY second.pytorch /root/second.pytorch
+ENV PYTHONPATH=/root/second.pytorch/:/root/kitti-object-eval-python:/usr/app/
+
+COPY spconv /root/spconv
+COPY cmake /root/cmake
+RUN cd /root/cmake && sh *.sh --prefix=/root/cmake --skip-license
+RUN ln -s /root/cmake/bin/* /usr/bin/
+RUN cmake --version
+CMD cd /root/spconv/ && python setup.py bdist_wheel \
+    && cd /root/spconv/dist && pip install *whl && cd / && /bin/bash
