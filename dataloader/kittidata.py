@@ -381,7 +381,7 @@ class KittiObj():
             cls (str): 'Car', 'Pedestrian', 'Cyclist'
             score (float): 0-1
         '''
-        assert cls in ['Car', 'Pedestrian', 'Cyclist']
+        assert cls in ['Car', 'Pedestrian', 'Cyclist', "Van"]
         assert score <= 1.0
         assert score >= 0.0
         self.x = np.sum(corners[:, 0], axis=0)/ 8.0

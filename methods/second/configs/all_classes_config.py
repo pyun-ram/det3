@@ -25,6 +25,7 @@ __C.TargetAssigner = {
     "type": "TaskAssignerV1",
     "sample_size": 512,
     "assign_per_class": True,
+    "classes": ["Car", "Pedestrian", "Cyclist", "Van"],
     "class_settings_car": {
         "AnchorGenerator": {
             "type": "AnchorGeneratorBEV",
@@ -119,7 +120,7 @@ __C.Net = {
         "code_weights": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
         "codewise": True,
     },
-    "num_class": 5,
+    "num_class": 4,
     "use_sigmoid_score": True,
     "encode_background_as_zeros": True,
     "use_direction_classifier": True,

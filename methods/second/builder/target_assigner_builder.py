@@ -24,17 +24,17 @@ def build_multiclass(target_assigner_cfg,
       classsettings_cfgs = [v for k, v in target_assigner_cfg.items() if "class_settings" in k]
       anchor_generators = []
       similarity_calculators = []
-      classes = []
-      for classsetting_cfg in classsettings_cfgs:
+      classes = params["classes"]
+      for cls in classes:
+            classsetting_cfg = [itm for itm in classsettings_cfgs
+                  if itm["AnchorGenerator"]["class_name"] == cls][0]
             anchor_generator_cfg = classsetting_cfg["AnchorGenerator"]
             anchor_generator = build_anchor_generator(anchor_generator_cfg)
             anchor_generators.append(anchor_generator)
             similarity_calculator_cfg = classsetting_cfg["SimilarityCalculator"]
             similarity_calculator = build_similarity_calculator(similarity_calculator_cfg)
             similarity_calculators.append(similarity_calculator)
-            classes.append(anchor_generator_cfg["class_name"])
       params["anchor_generators"] = anchor_generators
       params["region_similarity_calculators"] = similarity_calculators
-      params["classes"] = classes
       builder = load_module("methods/second/core/target_assigner.py", name=class_name)
       return builder(**params)
