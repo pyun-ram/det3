@@ -78,13 +78,14 @@ def main(tag, cfg_path):
 
     # build net
     voxelizer = voxelizer_builder.build(voxelizer_cfg=cfg.Voxelizer)
-    anchor_generator = anchor_generator_builder.build(anchor_generator_cfg=cfg.AnchorGenerator)
+    # anchor_generator = anchor_generator_builder.build(anchor_generator_cfg=cfg.AnchorGenerator)
     box_coder = box_coder_builder.build(box_coder_cfg=cfg.BoxCoder)
-    similarity_calculator = similarity_calculator_builder.build(similarity_calculator_cfg=cfg.SimilarityCalculator)
-    target_assigner = target_assigner_builder.build(target_assigner_cfg=cfg.TargetAssigner,
-                                                    box_coder=box_coder,
-                                                    anchor_generators=[anchor_generator],
-                                                    region_similarity_calculators=[similarity_calculator])
+    # similarity_calculator = similarity_calculator_builder.build(similarity_calculator_cfg=cfg.SimilarityCalculator)
+    # target_assigner = target_assigner_builder.build(target_assigner_cfg=cfg.TargetAssigner,
+    #                                                 box_coder=box_coder,
+    #                                                 anchor_generators=[anchor_generator],
+    #                                                 region_similarity_calculators=[similarity_calculator])
+    target_assigner = target_assigner_builder.build_multiclass(target_assigner_cfg=cfg.TargetAssigner, box_coder=box_coder)
     net = second_builder.build(cfg=cfg.Net, voxelizer=voxelizer, target_assigner=target_assigner).cuda()
     # build dataloader
     train_data = dataloader_builder.build(cfg.Net, cfg.TrainDataLoader,
