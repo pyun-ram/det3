@@ -21,33 +21,10 @@ __C.BoxCoder = {
     "type": "BoxCoderV1",
     "custom_ndim": 0,
 }
-# __C.AnchorGenerator = {
-#     "type": "AnchorGeneratorBEV",
-#     "class_name": "Car",
-#     "anchor_ranges": [0, -40.0, -1.00, 70.4, 40.0, -1.00],
-#     "sizes": [1.6, 3.9, 1.56], # wlh
-#     "rotations": [0, 1.57],
-#     "match_threshold": 0.6,
-#     "unmatch_threshold": 0.45,
-# }
-
-# __C.SimilarityCalculator = {
-#     "type": "NearestIoUSimilarity"
-# }
-# __C.TargetAssigner = {
-#     "type": "TaskAssignerV1",
-#     "classes": ["Car"],
-#     "feature_map_sizes": None,
-#     "region_similarity_calculators": ["nearest_iou_similarity"],
-#     "positive_fraction": None,
-#     "sample_size": 512,
-#     "assign_per_class": True,
-# }
 __C.TargetAssigner = {
     "type": "TaskAssignerV1",
     "sample_size": 512,
     "assign_per_class": True,
-    # "sample_positive_fraction": -1,
     "class_settings_car": {
         "AnchorGenerator": {
             "type": "AnchorGeneratorBEV",
@@ -76,8 +53,35 @@ __C.TargetAssigner = {
             "type": "NearestIoUSimilarity"
         }
     },
+    "class_settings_cyclist": {
+        "AnchorGenerator": {
+            "type": "AnchorGeneratorBEV",
+            "class_name": "Cyclist",
+            "anchor_ranges": [0, -32.0, -0.6, 52.8, 32.0, -0.6],
+            "sizes": [0.6, 1.76, 1.73], # wlh
+            "rotations": [0, 1.57],
+            "match_threshold": 0.35,
+            "unmatch_threshold": 0.2,
+        },
+        "SimilarityCalculator": {
+            "type": "NearestIoUSimilarity"
+        }
+    },
+    "class_settings_van": {
+        "AnchorGenerator": {
+            "type": "AnchorGeneratorBEV",
+            "class_name": "Van",
+            "anchor_ranges": [0, -32.0, -1.41, 52.8, 32.0, -1.41],
+            "sizes": [1.87103749, 5.02808195, 2.20964255], # wlh
+            "rotations": [0, 1.57],
+            "match_threshold": 0.6,
+            "unmatch_threshold": 0.45,
+        },
+        "SimilarityCalculator": {
+            "type": "NearestIoUSimilarity"
+        }
+    },
     "feature_map_sizes": None,
-    # "region_similarity_calculators": ["nearest_iou_similarity"],
     "positive_fraction": None,
 }
 __C.Net = {
@@ -115,13 +119,13 @@ __C.Net = {
         "code_weights": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
         "codewise": True,
     },
-    "num_class": 3,
+    "num_class": 5,
     "use_sigmoid_score": True,
     "encode_background_as_zeros": True,
     "use_direction_classifier": True,
     "num_direction_bins": 2,
     "encode_rad_error_by_sin": True,
-    "post_center_range": [0, -40, -2.2, 70.4, 40, 0.8],
+    "post_center_range": [0, -35.2, -2.2, 52.8, 35.2, 0.8],
     "nms_class_agnostic": False,
     "direction_limit_offset": 1,
     "sin_error_factor": 1.0,
@@ -151,17 +155,17 @@ __C.TrainDataLoader = {
     "DBSampler": {
         "name": "DataBaseSamplerV3",
         "db_info_path": "/usr/app/data/MyKITTI/KITTI_dbinfos_train.pkl",
-        "sample_dict": {"Car": 15, "Pedestrian": 6},
+        "sample_dict": {"Car": 11, "Pedestrian": 6, "Cyclist": 6, "Van": 4},
         "sample_param":{
             "mode": "random", # "random"
-            "x_range": ("abs", [10, 70.4]), # Flidar
-            "y_range": ("abs", [-40, 40]), # Flidar
+            "x_range": ("abs", [10, 52.8]), # Flidar
+            "y_range": ("abs", [-35.2, 35.2]), # Flidar
             "z_range": None, # Flidar
             "ry_range": None
         },
         "DBProcer": [
             {"name": "DBFilterByMinNumPoint",
-             "min_gt_point_dict": {"Car": 5, "Pedestrian": 10}
+             "min_gt_point_dict": {"Car": 5, "Pedestrian": 10, "Cyclist": 10, "Van": 8}
             }
         ],
     },
