@@ -7,6 +7,15 @@ import numpy as np
 from PIL import Image
 import pickle
 
+def is_param(key: str) -> bool:
+    '''if key is start with @, then it returns True'''
+    return key[0] == '@'
+
+def proc_param(key: str) -> str:
+    '''remove the @ of key'''
+    assert is_param(key), f"{key} is not a valid key starting with '@'"
+    return key[1:]
+
 def write_pc_to_file(pc, path):
     '''
     @ pc: np.array (np.float32)
@@ -42,7 +51,8 @@ def save_pickle(obj, file_path):
         pickle.dump(obj, f)
 
 def load_pickle(file_path):
-    data = pickle.load(open(file_path, "rb"))
+    with open(file_path, "rb") as f:
+        data = pickle.load(f)
     return data
 
 def write_str_to_file(s, file_path):
