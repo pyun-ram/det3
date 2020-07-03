@@ -79,8 +79,8 @@ class Logger:
         Logger.g_tsbd.add_scalar(k, v, epoch)
 
     @staticmethod
-    def log_tsbd_img(self, img):
-        raise NotImplementedError
+    def log_tsbd_img(k, img, epoch):
+        Logger.g_tsbd.add_image(k, img, epoch, dataformats='HWC')
 
     @staticmethod
     def log_metrics(metrics: dict, step):
