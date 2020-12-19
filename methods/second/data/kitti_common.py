@@ -76,7 +76,10 @@ def iou(boxes1, boxes2, add1=False):
 
 
 def get_image_index_str(img_idx):
-    return "{:06d}".format(img_idx)
+    if isinstance(img_idx, str):
+        return img_idx
+    else:
+        return "{:06d}".format(img_idx)
 
 
 def get_kitti_info_path(idx,
@@ -732,6 +735,30 @@ def get_label_annos(label_folder, image_ids=None):
         annos.append(anno)
     return annos
 
+def get_label_annos_nusckitti(label_folder, image_ids=None):
+    if image_ids is None:
+        filepaths = pathlib.Path(label_folder).glob('*.txt')
+        image_ids = [p.stem for p in filepaths]
+        image_ids = sorted(image_ids)
+    if not isinstance(image_ids, list):
+        image_ids = list(range(image_ids))
+    annos = []
+    label_folder = pathlib.Path(label_folder)
+    for idx in image_ids:
+        image_idx_str = get_image_index_str(idx)
+        label_filename = label_folder / (image_idx_str + '.txt')
+        anno = get_label_anno(label_filename)
+        num_example = anno["name"].shape[0]
+        if isinstance(idx, int):
+            dtype = np.int64
+        elif isinstance(idx, str):
+            dtype = '<U1'
+        else:
+            print(f"Unknown type of idx: {type(idx)}")
+            raise RuntimeError
+        anno["image_idx"] = np.array([idx] * num_example, dtype=dtype)
+        annos.append(anno)
+    return annos
 
 def anno_to_rbboxes(anno):
     loc = anno["location"]
