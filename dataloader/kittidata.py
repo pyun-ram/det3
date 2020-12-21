@@ -478,7 +478,7 @@ class KittiData:
                 "velodyne": True
             }
 
-    def read_data(self):
+    def read_data(self, num_feature=4):
         '''
         read data
         returns:
@@ -495,7 +495,7 @@ class KittiData:
         calib = KittiCalib(self.calib_path).read_calib_file() if self.output_dict["calib"] else None
         image = utils.read_image(self.image2_path) if self.output_dict["image"] else None
         label = KittiLabel(self.label2_path).read_label_file() if self.output_dict["label"] else None
-        pc = utils.read_pc_from_bin(self.velodyne_path) if self.output_dict["velodyne"] else None
+        pc = utils.read_pc_from_bin(self.velodyne_path, num_feature=num_feature) if self.output_dict["velodyne"] else None
         return calib, image, label, pc
 
 if __name__ == "__main__":
