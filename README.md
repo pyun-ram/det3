@@ -5,7 +5,7 @@ It provides some basic operations and methods for 3D object detection.
 The architecture of the det3 project is as follows:
 
 <p align="center">
-<img src="./figure/det3_v0.1_arch.png"alt="drawing" width="200"/>
+<img src="./figure/det3_v0.1_arch.png"alt="drawing" width="400"/>
 </p>
 
 ## Requirements
